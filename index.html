@@ -213,14 +213,20 @@ const fmtQ=n=>Number.isInteger(n)?String(n):n.toFixed(n<10?1:0).replace('.',',')
 
 /* ---------- Personas ---------- */
 const STAFF=[
- {id:'marta',nm:'Marta',pin:'1111',rol:'trabajador',puesto:'Camarera',eh:9,ord:40},
- {id:'dani',nm:'Dani',pin:'2222',rol:'trabajador',puesto:'Camarero',eh:9,ord:30},
- {id:'paula',nm:'Paula',pin:'3333',rol:'trabajador',puesto:'Camarera',eh:9,ord:30},
- {id:'isidro',nm:'Isidro',pin:'0000',rol:'admin',puesto:'Administrador',eh:0,ord:0}
+ {id:'isidro',nm:'Isidro',rol:'admin',puesto:'Administrador',eh:0,ord:0},
+ {id:'ely',nm:'Ely',rol:'trabajador',puesto:'Equipo',eh:0,ord:0},
+ {id:'gonzalo',nm:'Gonzalo',rol:'trabajador',puesto:'Equipo',eh:0,ord:0}
 ];
-let user=null, pickPerson='marta', pinBuf='';
-let FICHAJES=[{p:'dani',in:Date.now()-3.2*3600e3,out:null}];
-const WEEK={marta:{ord:38.5,ext:4},dani:{ord:27,ext:0},paula:{ord:24,ext:1.5}};
+/* Claves: cada uno crea la suya la primera vez que entra en este aparato. Se guardan cifradas (SHA-256) en el aparato, nunca en el código. */
+const PINK='ohk-pins';
+function getPins(){try{return JSON.parse(localStorage.getItem(PINK)||'{}')}catch(e){return {}}}
+async function hpin(id,p){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('ohana-kiosko|'+id+'|'+p));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function pinOk(id,p){const h=getPins()[id];return !!h&&h===await hpin(id,p)}
+async function setPin(id,p){const P=getPins();P[id]=await hpin(id,p);try{localStorage.setItem(PINK,JSON.stringify(P))}catch(e){}}
+const hasPin=id=>!!getPins()[id];
+let user=null, pickPerson='isidro', pinBuf='', pinNuevo=null;
+let FICHAJES=[];
+const WEEK={};
 
 /* ---------- Almacén (stock) ---------- */
 /* Almacén: costes, existencias y proveedores DE EJEMPLO hasta tener los reales */
@@ -312,7 +318,8 @@ MENU.find(m=>m.id==='mojito').opts[0][0]='mojito_x';MENU.find(m=>m.id==='mojito_
 const prod=id=>MENU.find(m=>m.id===id);
 const colorOf=c=>CATS.find(x=>x[0]===c)[1];
 const cost=m=>m.r.reduce((a,[s,q])=>a+STOCK[s].c*q,0);
-const canMake=m=>m.r.every(([s,q])=>q<=0||STOCK[s].a>=q);
+Object.values(STOCK).forEach(x=>x.a=x.mx);
+const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
 const TINT={'Cervezas':'#F7EEDC','Sin alcohol':'#E3EEF0','Vinos y licores':'#F3E5E8','Copas':'#ECE8F2','Cócteles':'#E2F2EC','Smoothies':'#F8E8E1','Cafés':'#F1E9E1','Picoteo':'#EAF0E4','Frutos secos y patatas':'#F3ECDF','Helados':'#E5EDF5'};
@@ -412,39 +419,17 @@ const mins=m=>Date.now()-m*60e3;
 let ACCS=[QUICK];let ACC={};
 function newAcc(name,donde,items,opts={}){ACCS.push(name);ACC[name]=Object.assign({items:items||{},paid:0,parts:[],donde:donde||'',opened:Date.now(),billed:{},hidden:false},opts)}
 ACC[QUICK]={items:{},paid:0,parts:[],donde:'',opened:Date.now(),billed:{},hidden:false};
-newAcc('Javi · cumpleaños','Terraza',{tercio:6,aceitunas:2,smoothie:2,mojito_fresa:2,aperol:1},{opened:mins(95)});
-delete ACC['Javi · cumpleaños'].items.papelon;
-newAcc('Rocío','Barra',{refresco:2,cafe:1},{opened:mins(40)});
-newAcc('Monitores escuela','Escuela',{refresco:3,cana:2},{opened:mins(180)});
-newAcc('Grupo despedida','Arena',{combinado:6,premium:2,conenerg:2,p_jamon:2},{opened:mins(70),paid:30,parts:[{i:30,how:'Tarjeta'}]});
-newAcc('Pepe el del barco','Barra',{tercio:3},{opened:mins(150)});
-newAcc('Familia Ruiz','Sombrillas',{refresco:4,helado2:3,patatap:2},{opened:mins(55)});
-newAcc('Lucía y Carmen','Terraza',{vino:4,altramuces:1},{opened:mins(30)});
-newAcc('Toni','Terraza',{media:4,p_queso:1},{opened:mins(120)});
-newAcc('Alumnos curso SUP','Escuela',{energetica:5,smoothie:3},{opened:mins(20)});
-newAcc('Marcos','Barra',{cafe:2},{opened:mins(200)});
-newAcc('Pareja holandesa','Arena',{premium:2,totopos:1},{opened:mins(110)});
-newAcc('Ana','Terraza',{te:1},{opened:mins(12)});
-/* cuentas ya cobradas hoy (en verde) */
-[['Grupo Fernando','Terraza',{tercio:8,palomitas:2},'Por partes'],['Silvia','Barra',{smoothie:1,cafe:1},'Tarjeta'],['Equipo vóley','Arena',{refresco:6,energetica:4,mix:6},'Efectivo']].forEach(([n,d,it,how],i)=>{newAcc(n,d,it,{opened:mins(240-i*30)});const a=ACC[n];a.paid=Object.keys(it).reduce((s,k)=>s+prod(k).p*it[k],0);a.parts=[{i:a.paid,how}];a.billed={...it};a.paidAt=mins(60-i*15);a.paidBy=['Marta','Dani','Paula'][i]});
-newAcc('Felipe','Barra',{premium:4,tercio:6,p_jamon:2},{opened:mins(85)});
 const FAV='★ Lo que más sale';
 /* En el programa real esta lista sale sola de las ventas; aquí, la de un día normal */
 const TOP=['cana','media','vaso','tercio','refresco','energetica','combinado','premium','mojito','smoothie','cafe_sel','aceitunas'];
 let cur=QUICK, cat=FAV, tpvMsg='', accFilter='todas';
-let COMANDAS=[{n:31,acc:'Javi · cumpleaños',t:Date.now()-4*60e3,l:[[2,'Smoothie fresa y mango'],[2,'Mojito de fresa'],[1,'Aperol Spritz']],done:false}];ACC['Javi · cumpleaños'].sent={smoothie:2,mojito_fresa:2,aperol:1};
-let nextCom=32,nextTicket=1043;
+let COMANDAS=[];
+let nextCom=1,nextTicket=1;
 /* ---------- Caja ---------- */
 let COBROS_SEED=[];let SALES=[ // ventas de hoy: [hora, producto, uds, importe, pago]
 ];
-(function seed(){const pat={10:3,11:6,12:11,13:16,14:14,15:8,16:7,17:10,18:15,19:12};const ids=['media','refresco','cana','tercio','combinado','smoothie','cafe','aceitunas','helado1','vaso','premium','p_queso','patatap','energetica','vino'];
- let seedN=7;const rnd=()=>{seedN=(seedN*9301+49297)%233280;return seedN/233280};
- const h=new Date().getHours();Object.keys(pat).forEach(hr=>{if(+hr>h)return;for(let i=0;i<pat[hr];i++){const id=ids[Math.floor(rnd()*ids.length)];const q=1+Math.floor(rnd()*2);{const how=rnd()<.55?'Tarjeta':'Efectivo';SALES.push([+hr,id,q,prod(id).p*q,how]);const w=['Marta','Dani','Paula'][Math.floor(rnd()*3.3)%3];const d=new Date();d.setHours(+hr,Math.floor(rnd()*59));COBROS_SEED.push({t:d.getTime(),acc:'Venta rápida',amt:prod(id).p*q,how,who:w})}}})})();
 let cierreHecho=false;
-const HIST=[
- ['Jue 12 nov','Marta',612.40,604.90,7.50,0,true],['Mié 11 nov','Dani',488.10,490.10,-2,0,true],['Mar 10 nov','Marta',455.30,455.30,0,0,true],
- ['Lun 9 nov','Dani',398.00,398.00,0,0,true],['Dom 8 nov','Marta',1104.60,1101.60,3,0,true],['Sáb 7 nov','Marta',1236.80,1236.80,0,0,true],['Vie 6 nov','Dani',702.20,697.20,5,0,true]
-];
+const HIST=[];
 /* ---------- Facturas ---------- */
 
 let pedMsg='';
@@ -454,7 +439,7 @@ const LOGO=document.querySelector('.brand img')?.src||'';
 const norm=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 let COBROS=COBROS_SEED;
 function askPin(label,cb){
-  const P=$('#pin');let pick=user?.id||'marta',buf='';
+  const P=$('#pin');let pick=user?.id||'isidro',buf='';
   const draw=(m)=>{P.innerHTML=`<div class="box" role="dialog" aria-modal="true" aria-label="Clave para cobrar">
    <div style="font-family:var(--display);font-size:22px;font-weight:700;text-align:center">${esc(label)}</div>
    <div style="text-align:center;font-weight:600">¿Quién cobra? Pon tu clave</div>
@@ -465,14 +450,15 @@ function askPin(label,cb){
    P.querySelectorAll('[data-ppk]').forEach(b=>b.onclick=()=>{pick=b.dataset.ppk;buf='';draw()});
    P.querySelectorAll('[data-pk]').forEach(b=>b.onclick=()=>key(b.dataset.pk));};
   const key=k=>{if(k==='x'){P.hidden=true;P.innerHTML='';return}if(k==='del')buf=buf.slice(0,-1);else if(buf.length<4)buf+=k;draw();
-    if(buf.length===4){const s=STAFF.find(x=>x.id===pick);if(buf!==s.pin){buf='';return draw('Clave incorrecta')}P.hidden=true;P.innerHTML='';cb(s)}};
+    if(buf.length===4){const s=STAFF.find(x=>x.id===pick);if(!hasPin(s.id)){buf='';return draw(s.nm+' aún no tiene clave: que entre primero con «Cambiar de persona».')}pinOk(s.id,buf).then(ok=>{if(!ok){buf='';return draw('Clave incorrecta')}P.hidden=true;P.innerHTML='';cb(s)})}};
   P.hidden=false;draw();
 }
 document.addEventListener('keydown',e=>{if(!$('#pin').hidden&&/^[0-9]$/.test(e.key)){const b=$(`#pin [data-pk="${e.key}"]`);b&&b.click()}});
 /* ---------- Conexión ---------- */
 let online=true,queued=0,syncMsg='';
-function netHTML(){return online?`<button class="netpill on" id="net" title="Toca para simular que se va el wifi">● Conectado${syncMsg?' · '+syncMsg:''}</button>`:`<button class="netpill off" id="net" title="Toca para simular que vuelve el wifi">● Sin internet · ${queued} ${queued===1?'venta guardada':'ventas guardadas'} en la pantalla</button>`}
-function drawNet(){$('#netbox').innerHTML=netHTML();$('#net').onclick=()=>{online=!online;if(online&&queued){syncMsg=`${queued} ventas enviadas`;queued=0;setTimeout(()=>{syncMsg='';drawNet()},4000)}drawNet();if(current().id==='tpv')render()}}
+function netHTML(){return online?`<button class="netpill on" id="net" title="Conexión a internet">● Conectado${syncMsg?' · '+syncMsg:''}</button>`:`<button class="netpill off" id="net" title="Sin internet: las ventas se guardan en este aparato">● Sin internet · ${queued} ${queued===1?'venta guardada':'ventas guardadas'} en la pantalla</button>`}
+function drawNet(){online=navigator.onLine!==false;$('#netbox').innerHTML=netHTML()}
+addEventListener('online',drawNet);addEventListener('offline',drawNet);
 const logCobro=(amt,how,who,acc)=>{COBROS.push({t:Date.now(),acc,amt,how,who:who.nm});if(!online){queued++;drawNet()}};
 
 function rankHTML(title){const by={};COBROS.forEach(c=>{by[c.who]=by[c.who]||{n:0,i:0};by[c.who].n++;by[c.who].i+=c.amt});const rows=Object.entries(by).sort((a,b)=>b[1].i-a[1].i);const mx=Math.max(1,...rows.map(r=>r[1].i));
@@ -480,25 +466,11 @@ function rankHTML(title){const by={};COBROS.forEach(c=>{by[c.who]=by[c.who]||{n:
 const V={},A={};
 /* ---------- Clientes fieles, vales y promociones ---------- */
 let RULES={kioskoCada:1000,escuelaMin:300};
-let CLIENTES=[
- {id:1,nm:'Felipe Galafate',tel:'612 334 556',k:940,e:520,ok:true},
- {id:2,nm:'Pablo Romero',tel:'655 121 989',k:1180,e:180,ok:true},
- {id:3,nm:'Laura Martín',tel:'600 112 233',k:120,e:360,ok:true},
- {id:4,nm:'Ana López',tel:'688 450 021',k:45,e:310,ok:true},
- {id:5,nm:'Pepe el del barco',tel:'699 777 001',k:610,e:0,ok:true}
-];
+let CLIENTES=[];
 const vcode=p=>p+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
-let VALES=[
- {code:'OHK-7F3K2',tipo:'alquiler',tit:'1 hora de alquiler de cualquier material',donde:'En cualquiera de las 3 escuelas',cli:'Pablo Romero',orig:'Kiosko · 1.000 € gastados',st:'activo',t:Date.now()-6*864e5,cad:'31/12/2027'},
- {code:'OHE-2M9QX',tipo:'bebida',tit:'1 bebida gratis (refresco o cerveza)',donde:'En el kiosko',cli:'Laura Martín',orig:'Escuela Tres Piedras · más de 300 € este año',st:'activo',t:Date.now()-3*864e5,cad:'31/12/2027'},
- {code:'OHE-8HT4P',tipo:'bebida',tit:'1 bebida gratis (refresco o cerveza)',donde:'En el kiosko',cli:'Ana López',orig:'Escuela Tres Piedras · más de 300 € este año',st:'canjeado',t:Date.now()-10*864e5,cad:'31/12/2027',canje:'Kiosko · 8 nov · Marta'},
- {code:'OHE-5RW1A',tipo:'bebida',tit:'1 bebida gratis (refresco o cerveza)',donde:'En el kiosko',cli:'Felipe Galafate',orig:'Escuela Tres Piedras · más de 300 € este año',st:'activo',t:Date.now()-20*864e5,cad:'31/12/2027'}
-];
-let PROMOS=[
- {code:'SURFDAY20',nm:'Día Internacional del Surf',tipo:'pct',val:20,cuando:'Hoy, de 17:00 a 20:00',usos:14,max:100,on:true},
- {code:'STORY1x1',nm:'Sorteo de Instagram · ganador',tipo:'gratis',val:'combinado',cuando:'Hasta el 30 nov',usos:0,max:1,on:true}
-];
-ACC['Felipe'].cli=CLIENTES[0];ACC['Pepe el del barco'].cli=CLIENTES[4];
+let VALES=[];
+let PROMOS=[];
+
 let promoTab='fieles', promoMsg='', lastVale=null, lastPromo=null;
 function valeCard(v){return `<div style="width:320px;max-width:100%;border-radius:16px;overflow:hidden;background:#EF8C67;color:#111;display:flex;flex-direction:column;flex:none;box-shadow:0 8px 24px rgba(0,0,0,.12)">
   <div style="padding:14px 16px 6px">${LOGO?`<img src="${LOGO}" alt="Ohana Surf Kiosko" style="width:150px">`:'<b>OHANA SURF</b>'}</div>
@@ -647,12 +619,15 @@ function showLock(msg){
    <div class="dots">${[0,1,2,3].map(i=>`<i class="${i<pinBuf.length?'f':''}"></i>`).join('')}</div>
    ${m?`<div class="note" style="text-align:center">${m}</div>`:''}
    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join('')}<button data-k="del" aria-label="Borrar" style="font-size:16px">Borrar</button><button data-k="0">0</button><button data-k="ok" style="background:var(--accent);color:#fff;font-size:18px">Entrar</button></div>
-   <div class="muted" style="font-size:12.5px;text-align:center">Ejemplo: Marta 1111 · Dani 2222 · Paula 3333 · Isidro 0000. Al entrar se ficha la entrada si no lo habías hecho.</div></div>`;
-   L.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>{pickPerson=b.dataset.pp;pinBuf='';draw()});
+   <div class="muted" style="font-size:12.5px;text-align:center">${hasPin(pickPerson)?'Al entrar se ficha la entrada si no lo habías hecho.':(pinNuevo?'Repite tu clave para confirmarla.':'Primera vez en este aparato: elige tu clave de 4 números.')}</div></div>`;
+   L.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>{pickPerson=b.dataset.pp;pinBuf='';pinNuevo=null;draw()});
    L.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>key(b.dataset.k));
   };
   const key=k=>{if(k==='del')pinBuf=pinBuf.slice(0,-1);else if(k==='ok')return tryIn();else if(pinBuf.length<4)pinBuf+=k;draw();if(pinBuf.length===4)setTimeout(tryIn,120)};
-  const tryIn=()=>{const s=STAFF.find(x=>x.id===pickPerson);if(pinBuf!==s.pin){pinBuf='';return draw('Clave incorrecta. Prueba otra vez.')}
+  const tryIn=async()=>{const s=STAFF.find(x=>x.id===pickPerson);if(pinBuf.length<4)return;
+    if(!hasPin(s.id)){if(!pinNuevo){pinNuevo=pinBuf;pinBuf='';return draw('Ahora repite la clave.')}
+      if(pinBuf!==pinNuevo){pinNuevo=null;pinBuf='';return draw('No coinciden. Elige la clave otra vez.')}await setPin(s.id,pinBuf);pinNuevo=null}
+    else if(!(await pinOk(s.id,pinBuf))){pinBuf='';return draw('Clave incorrecta. Prueba otra vez.')}
     user=s;if(!fichado(s.id))FICHAJES.push({p:s.id,in:Date.now(),out:null});L.hidden=true;L.innerHTML='';render()};
   draw(msg);
 }
@@ -858,7 +833,7 @@ A.cierre=()=>{
 
 /* ---------- 4. Faltas y pedidos ---------- */
 function faltas(){return Object.entries(STOCK).filter(([k,s])=>s.a<s.mn)}
-let FALTAS=[{k:'manzanilla',txt:STOCK.manzanilla?STOCK.manzanilla.nm:'Manzanilla',pv:'Guadalete',who:'Dani',t:Date.now()-50*60e3}];
+let FALTAS=[];
 function pedidoLines(){
   const byPv={};const add=(pv,row)=>(byPv[pv]=byPv[pv]||[]).push(row);
   faltas().forEach(([k,s])=>add(s.pv,{k,nm:s.nm,hay:fmtQ(Math.round(s.a*10)/10)+' '+s.u,q:Math.ceil(s.mx-s.a)+' '+s.u,c:Math.ceil(s.mx-s.a)*s.c,by:null}));
@@ -906,19 +881,8 @@ const dmy=d=>{const x=new Date(d);return String(x.getDate()).padStart(2,'0')+'/'
 const isoWeek=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()+3-(x.getDay()+6)%7);const w1=new Date(x.getFullYear(),0,4);return 1+Math.round(((x-w1)/864e5-3+(w1.getDay()+6)%7)/7)};
 const weekRange=d=>{const x=new Date(d);const m=new Date(x);m.setDate(x.getDate()-(x.getDay()+6)%7);const s=new Date(m);s.setDate(m.getDate()+6);const f=y=>y.getDate()+' '+['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][y.getMonth()];return f(m)+' – '+f(s)};
 const DAY=864e5,NOW=Date.now();
-let FREC=[
- {pv:'Cruzcampo',num:'CZ-2026-10412',f:NOW-3*DAY,base:340.91,iva:71.59,i:412.50,st:'Pagada',foto:'Marta',lines:[['Tercios',240,.55],['Barril de cerveza 30 L',4,55]]},
- {pv:'Coca-Cola',num:'CC-88123',f:NOW-4*DAY,base:153.88,iva:32.32,i:186.20,st:'Pendiente de pago',foto:'Dani',lines:[['Refrescos Coca-Cola',240,.45],['Bebidas energéticas',48,.9]]},
- {pv:'Villalba',num:'V-2026-301',f:NOW-5*DAY,base:39.67,iva:8.33,i:48.00,st:'Pagada',foto:'Marta',lines:[['Hielo (bolsa 2 kg)',40,1]]},
- {pv:'Makro',num:'MK-5520019',f:NOW-8*DAY,base:270.95,iva:56.90,i:327.85,st:'Pagada',foto:'Isidro',lines:[['Leche',24,.9],['Colacao',80,.2],['Fruta para smoothies',10,3]]},
- {pv:'Cuevas',num:'CU-2026-7781',f:NOW-11*DAY,base:285.12,iva:59.88,i:345.00,st:'Pagada',foto:'Paula',lines:[['Ginebra, ron, whisky (normal)',12,10],['Pepsi y Schweppes (para copas)',96,.45],['Licores (vermut, Disaronno…)',6,12]]},
- {pv:'Cruzcampo',num:'CZ-2026-09987',f:NOW-17*DAY,base:340.91,iva:71.59,i:412.50,st:'Pagada',foto:'Marta',lines:[['Tercios',240,.55],['Barril de cerveza 30 L',4,55]]},
- {pv:'Villalba',num:'V-2026-288',f:NOW-19*DAY,base:36.36,iva:7.64,i:44.00,st:'Pagada',foto:'Dani',lines:[['Hielo (bolsa 2 kg)',40,.92]]}
-];
-let FEMI=[
- {n:'K-2026-0012',cl:'Restless Club S.L.',nif:'B12345678',dir:'C/ Larga 4, Chipiona',em:'admin@ejemplo.es',f:NOW-5*DAY,i:96,tk:1012},
- {n:'K-2026-0011',cl:'Construcciones Mar S.L.',nif:'B87654321',dir:'Av. de Regla 20, Chipiona',em:'facturas@ejemplo.es',f:NOW-9*DAY,i:54.5,tk:998}
-];
+let FREC=[];
+let FEMI=[];
 let shotURL=null, fMsg='', facTab='emitidas', ocr=null, ocrBusy=false, lastFac=null, folderMsg='';
 function invoiceDoc(f){const base=f.i/1.10,iva=f.i-base;return `<div style="width:360px;max-width:100%;background:#fff;border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.1);padding:20px;font-size:12.5px;display:flex;flex-direction:column;gap:10px;flex:none;color:#111">
  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">${LOGO?`<img src="${LOGO}" alt="" style="width:110px;background:#EF8C67;border-radius:6px">`:''}<div style="text-align:right"><b style="font-size:15px">FACTURA</b><br>${f.n}<br>${dmy(f.f)}</div></div>
@@ -938,7 +902,7 @@ V.facturas=()=>{
      <label class="f">Email del cliente<input class="inp" id="eem" type="email" placeholder="cliente@correo.com"></label>
      <button class="btn pri big" id="emit">Hacer y enviar factura</button>
      <div class="muted" style="font-size:13px">Se envía en PDF al email del cliente y se guarda una copia en «gestoria › facturas emitidas», en la carpeta de su semana. Esa copia está en el ordenador del kiosko y en el de casa.</div></div></section>
-     <div style="flex:0 1 380px;display:flex;flex-direction:column;gap:10px">${invoiceDoc(lastFac||FEMI[0])}<div class="muted" style="font-size:13px">Así sale el PDF que recibe el cliente.</div></div></div>
+     <div style="flex:0 1 380px;display:flex;flex-direction:column;gap:10px">${(lastFac||FEMI[0])?invoiceDoc(lastFac||FEMI[0])+'<div class="muted" style="font-size:13px">Así sale el PDF que recibe el cliente.</div>':'<div class="muted" style="font-size:13px">Cuando hagas la primera factura, aquí verás cómo le llega al cliente.</div>'}</div></div>
      <section class="card"><h2>Facturas emitidas <span class="muted" style="font-weight:400;font-size:13px">carpeta: gestoria › facturas emitidas · por fecha</span></h2><div class="tw"><table><thead><tr><th>Fecha</th><th>Número</th><th>Cliente</th><th class="r">Importe</th><th>Enviada a</th><th></th></tr></thead><tbody>
      ${FEMI.slice().sort((a,b)=>b.f-a.f).map((f,i)=>`<tr><td>${dmy(f.f)}</td><td><b>${f.n}</b></td><td>${esc(f.cl)}<div class="muted" style="font-size:12px">${esc(f.nif)}</div></td><td class="r">${eur(f.i)}</td><td><span class="pill p-ok">✉ ${esc(f.em)}</span></td><td><button class="btn sm" data-fv="${f.n}">Ver</button> <button class="btn sm" data-fr="${f.n}">Reenviar</button></td></tr>`).join('')}
      </tbody></table></div></section>`;
@@ -995,7 +959,7 @@ A.facturas=()=>{
   $$('[data-fv]').forEach(b=>b.onclick=()=>{lastFac=FEMI.find(f=>f.n===b.dataset.fv);render();scrollTo(0,0)});
   $$('[data-fr]').forEach(b=>b.onclick=()=>{const f=FEMI.find(x=>x.n===b.dataset.fr);fMsg=`${f.n} reenviada a ${f.em}.`;render()});
   if($('#emit'))$('#emit').onclick=()=>{const i=parseFloat($('#eimp').value);const cl=$('#ecl').value.trim(),em=$('#eem').value.trim();if(!(i>0)){$('#eimp').focus();return}if(!cl){$('#ecl').focus();return}if(!/.+@.+\..+/.test(em)){$('#eem').focus();return}
-    const n='K-2026-00'+(13+FEMI.length-2);const f={n,cl,nif:$('#enif').value.trim()||'—',dir:$('#edir').value.trim(),em,f:Date.now(),i,tk:$('#etk').value};FEMI.push(f);lastFac=f;
+    const n='K-'+new Date().getFullYear()+'-'+String(FEMI.length+1).padStart(4,'0');const f={n,cl,nif:$('#enif').value.trim()||'—',dir:$('#edir').value.trim(),em,f:Date.now(),i,tk:$('#etk').value};FEMI.push(f);lastFac=f;
     fMsg=`Factura ${n} enviada en PDF a ${em}. Copia guardada en «gestoria › facturas emitidas › Semana ${ymd(nextMon(f.f))}» (ordenador del kiosko y de casa).${online?'':' Sin internet: el email sale al volver el wifi.'}`;render()};
   const readDemo=()=>{ocrBusy=true;ocr=null;render();setTimeout(()=>{ocrBusy=false;ocr={pv:'Cruzcampo',num:'CZ-2026-10877',f:Date.now(),lines:[['Tercios',240,144],['Barril de cerveza 30 L',4,232]],base:310.74,iva:65.26,i:376.00};render()},1300)};
   if($('#ffile'))$('#ffile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{shotURL=f.type.startsWith('image')?r.result:null;readDemo()};r.readAsDataURL(f)};
@@ -1059,12 +1023,12 @@ V.escandallo=()=>{
 A.escandallo=()=>{$$('[data-esc]').forEach(b=>b.onclick=()=>{escSel=b.dataset.esc;render()});$('#epvp').onchange=e=>{const v=parseFloat(e.target.value);if(v>0){prod(escSel).p=v;render()}}};
 
 /* ---------- 9. Equipo y sueldos ---------- */
-V.equipo=()=>`<div class="note">Ejemplo. Sueldos y horas inventados.</div>
+V.equipo=()=>`<div class="note">Horario, contrato y precio por hora de cada uno: pendiente de que Isidro los dé.</div>
  <section class="card"><h2>Esta semana</h2><div class="tw"><table><thead><tr><th>Persona</th><th>Puesto</th><th class="r">Contrato</th><th class="r">Horas normales</th><th class="r">Horas extra</th><th class="r">€/hora</th><th class="r">A pagar semana</th><th class="r">Ha cobrado hoy</th><th>Ahora</th></tr></thead><tbody>
- ${STAFF.filter(s=>s.rol!=='admin').map(s=>{const w=WEEK[s.id];const ext=w.ext;const pay=w.ord*s.eh+ext*s.eh*1.25;const x=fichado(s.id);const vend=COBROS.filter(c=>c.who===s.nm).reduce((a,c)=>a+c.amt,0);return `<tr><td><b>${s.nm}</b></td><td>${s.puesto}</td><td class="r">${s.ord} h</td><td class="r">${fmtQ(w.ord)} h</td><td class="r">${ext?`<span class="pill p-warn">${ext} h</span>`:'0 h'}</td><td class="r">${eur(s.eh)}</td><td class="r"><b>${eur(pay)}</b></td><td class="r">${eur(vend)}</td><td>${x?'<span class="pill p-ok">Dentro</span>':'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')}
+ ${STAFF.filter(s=>s.rol!=='admin').map(s=>{const w=WEEK[s.id]||{ord:0,ext:0};const ext=w.ext;const pay=w.ord*s.eh+ext*s.eh*1.25;const x=fichado(s.id);const vend=COBROS.filter(c=>c.who===s.nm).reduce((a,c)=>a+c.amt,0);return `<tr><td><b>${s.nm}</b></td><td>${s.puesto}</td><td class="r">${s.ord} h</td><td class="r">${fmtQ(w.ord)} h</td><td class="r">${ext?`<span class="pill p-warn">${ext} h</span>`:'0 h'}</td><td class="r">${eur(s.eh)}</td><td class="r"><b>${eur(pay)}</b></td><td class="r">${eur(vend)}</td><td>${x?'<span class="pill p-ok">Dentro</span>':'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')}
  </tbody></table></div><div class="bd muted" style="font-size:13px">Las horas extra se pagan a 1,25 veces el precio de la hora (ajustable).</div></section>
  <div class="row"><section class="card" style="flex:1 1 380px"><h2>Historial de fichajes</h2><div class="tw"><table><thead><tr><th>Día</th><th>Persona</th><th>Entrada</th><th>Salida</th><th class="r">Horas</th></tr></thead><tbody>
- <tr><td>Jue 12</td><td>Marta</td><td>10:00</td><td>20:00</td><td class="r">10 <span class="pill p-warn">+2</span></td></tr><tr><td>Jue 12</td><td>Dani</td><td>12:00</td><td>18:00</td><td class="r">6</td></tr><tr><td>Mié 11</td><td>Marta</td><td>10:00</td><td>18:00</td><td class="r">8</td></tr><tr><td>Mié 11</td><td>Dani</td><td>12:00</td><td>19:00</td><td class="r">7</td></tr>
+ ${FICHAJES.slice().reverse().slice(0,40).map(f=>{const st=STAFF.find(x=>x.id===f.p);const h=f.out?Math.round((f.out-f.in)/36e5*10)/10:null;return `<tr><td>${new Date(f.in).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}</td><td>${st?st.nm:f.p}</td><td>${hhmm(f.in)}</td><td>${f.out?hhmm(f.out):'—'}</td><td class="r">${h==null?'':fmtQ(h)}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Aún no hay fichajes.</td></tr>'}
  </tbody></table></div></section>
  <section class="card" style="flex:1 1 340px"><h2>Qué puede hacer cada uno</h2><div class="tw"><table><thead><tr><th></th><th>Trabajador</th><th>Isidro</th></tr></thead><tbody>
  ${[['Vender y cobrar','Sí','Sí'],['Comandas','Sí','Sí'],['Cerrar caja','Sí','Sí'],['Faltas y pedidos','Sí','Sí'],['Subir facturas','Sí','Sí'],['Fichar','Sí','Sí'],['Histórico y ventas','No','Sí'],['Escandallo','No','Sí'],['Sueldos y horas de todos','No','Sí'],['Cambiar precios','No','Sí']].map(r=>`<tr><td>${r[0]}</td><td>${r[1]==='Sí'?'<span class="pill p-ok">Sí</span>':'<span class="pill p-mute">No</span>'}</td><td><span class="pill p-ok">Sí</span></td></tr>`).join('')}
@@ -1088,9 +1052,22 @@ V.ajustes=()=>`<div class="row"><section class="card" style="flex:2 1 520px"><h2
   <div><b>Las impresoras y el cajón siguen funcionando</b>, porque van por la red del módem del kiosko aunque no haya internet.</div>
   <div><b>El datáfono del banco</b> funciona por su cuenta. Lo único que no va sin internet es el pago con el móvil por QR.</div>
   <div><b>Cuando vuelve el wifi</b>, la pantalla envía sola todo lo guardado a la base de datos (caja, ventas, fichajes, faltas) y lo ves desde casa.</div>
-  <div class="muted" style="font-size:13px">Pruébalo: toca el aviso verde «Conectado» de arriba para simular que se va el wifi.</div></div></section>`;
+  </div></section>`;
 
 setInterval(()=>{$('#clock').textContent=hhmm();if(['comandas'].includes(current().id)&&$('#modal').hidden)render()},30000);
+/* ---------- Guardar en este aparato (hasta tener la base de datos del kiosko) ---------- */
+const SK='ohk-estado-v1', hoyK=()=>new Date().toLocaleDateString('sv-SE');
+function guardar(){try{localStorage.setItem(SK,JSON.stringify({dia:hoyK(),ACCS,ACC,COMANDAS,nextCom,nextTicket,SALES,COBROS,cierreHecho,HIST,FICHAJES,FALTAS,STOCK,CLIENTES,VALES,PROMOS,FREC,FEMI,RULES,MENU:MENU.map(m=>({id:m.id,p:m.p,foto:m.foto||null}))}))}catch(e){console.warn('No se pudo guardar',e)}}
+function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch(e){}if(!d)return;
+  ACCS=d.ACCS||ACCS;ACC=d.ACC||ACC;COMANDAS=d.COMANDAS||[];nextCom=d.nextCom||1;nextTicket=d.nextTicket||1;
+  HIST.splice(0,HIST.length,...(d.HIST||[]));FICHAJES=d.FICHAJES||[];FALTAS=d.FALTAS||[];CLIENTES=d.CLIENTES||[];VALES=d.VALES||[];PROMOS=d.PROMOS||[];FREC=d.FREC||[];FEMI=d.FEMI||[];RULES=d.RULES||RULES;
+  if(d.STOCK)Object.keys(d.STOCK).forEach(k=>{if(STOCK[k])Object.assign(STOCK[k],d.STOCK[k])});
+  (d.MENU||[]).forEach(x=>{const m=prod(x.id);if(m){m.p=x.p;if(x.foto)m.foto=x.foto}});
+  if(d.dia===hoyK()){SALES=d.SALES||[];COBROS=d.COBROS||[];cierreHecho=!!d.cierreHecho}
+  else{SALES=[];COBROS=[];cierreHecho=false;ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true})}}
+cargar();
+const _render=render;render=function(){_render();guardar()};
+addEventListener('pagehide',guardar);
 nav();render();showLock();
 </script>
 

@@ -186,6 +186,24 @@ label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:60
   .top,.content{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
   .tpv2{grid-template-columns:1fr}.ticket{position:static}
 }
+
+/* 18 nov 2026: categorías como pestañas sobrias y cuentas compactas (el dueño quiere verlas todas; al tocar una se abre en el ticket) */
+.cats{gap:6px;padding:4px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cat{min-height:40px;padding:0 14px;border-radius:8px;border:0;background:transparent;font-size:14px;font-weight:600;color:var(--muted);gap:0;position:relative}
+.cat .cdot{display:none}
+.cat:hover{background:var(--soft);color:var(--ink)}
+.cat.on{background:var(--ink);color:#fff}
+.cat.fav{border:0;color:var(--accent)}.cat.fav.on{background:var(--accent);color:#fff}
+.accgrid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:6px}
+.acard{min-height:52px;padding:6px 8px 6px 12px;gap:2px;border-radius:9px}
+.acard::before{width:5px}
+.acard .an{font-size:13.5px}
+.acard .ad{display:none}
+.acard .ab{gap:4px}
+.acard .am{font-size:15px}
+.acard .as{display:none}
+.acard.st-quick .as{display:none}
+.acard.new{min-height:52px;font-size:13.5px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 

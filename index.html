@@ -34,8 +34,8 @@ button:disabled{cursor:not-allowed;opacity:.5}
 .nav a:hover{background:#2A2520}
 .nav a.on{background:#fff;color:var(--side);font-weight:600}
 .nav a.locked{color:#6F675C}
-.nav .n{font-family:var(--display);font-size:12px;color:var(--side-mute);width:20px}
-.nav a.on .n{color:var(--accent)}
+.nav .ni{flex:none;color:var(--side-mute)}
+.nav a.on .ni{color:var(--accent)}
 .badge{margin-left:auto;background:var(--accent);color:#fff;font-size:11.5px;font-weight:700;border-radius:10px;padding:1px 7px}
 .who{margin-top:auto;padding:12px 10px 0;border-top:1px solid #332E28;display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--side-mute)}
 .who b{color:#fff;font-size:14px}
@@ -578,6 +578,7 @@ function canjeModal(){
 }
 
 /* ---------- Páginas ---------- */
+const NAVI={"tpv": "<path d=\"M3 6h18l-2 9H5z\"/><circle cx=\"8\" cy=\"19\" r=\"1.5\"/><circle cx=\"17\" cy=\"19\" r=\"1.5\"/>", "comandas": "<path d=\"M6 3h12v18l-3-2-3 2-3-2-3 2z\"/><path d=\"M9 8h6M9 12h6\"/>", "cierre": "<rect x=\"3\" y=\"7\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M3 11h18M8 3h8v4H8z\"/>", "pedidos": "<path d=\"M4 7l8-4 8 4v10l-8 4-8-4z\"/><path d=\"M4 7l8 4 8-4M12 11v10\"/>", "facturas": "<path d=\"M6 3h9l4 4v14H6z\"/><path d=\"M14 3v5h5M9 13h7M9 17h5\"/>", "fichar": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>", "historico": "<path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/>", "escandallo": "<path d=\"M12 3v18M5 7h14M5 7l-3 7h6zM19 7l-3 7h6z\"/>", "equipo": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><path d=\"M3 20c0-3 3-5 6-5s6 2 6 5\"/><circle cx=\"17\" cy=\"9\" r=\"2.5\"/><path d=\"M16 15c3 0 5 2 5 5\"/>", "ajustes": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2\"/>", "promos": "<path d=\"M3 12l9-9 9 9-9 9z\"/><circle cx=\"12\" cy=\"9\" r=\"1.5\"/>"};
 const PAGES=[
  {id:'tpv',n:'1',t:'Vender',s:'TPV táctil: toca, cobra y abre el cajón',g:'Día a día'},
  {id:'comandas',n:'2',t:'Comandas',s:'Smoothies, cócteles y cafés: lo que sale por la impresora para preparar',g:'Día a día'},
@@ -597,12 +598,12 @@ function nav(){
   const c=current();let g='';
   $('#nav').innerHTML=PAGES.map(p=>{const head=p.g!==g?`<div class="grp">${p.g}${p.adm?' · solo Isidro':''}</div>`:'';g=p.g;const lk=p.adm&&!isAdm();
    const badge=p.id==='pedidos'?pedCount():p.id==='comandas'?COMANDAS.filter(x=>!x.done).length:0;
-   return head+`<a href="#${p.id}" class="${p.id===c.id?'on':''} ${lk?'locked':''}" ${p.id===c.id?'aria-current="page"':''}><span class="n">${p.n}</span>${p.t}${lk?' 🔒':''}${badge?`<span class="badge">${badge}</span>`:''}</a>`}).join('');
+   return head+`<a href="#${p.id}" class="${p.id===c.id?'on':''} ${lk?'locked':''}" ${p.id===c.id?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAVI[p.id]||''}</svg>${p.t}${lk?' 🔒':''}${badge?`<span class="badge">${badge}</span>`:''}</a>`}).join('');
   $('#who').innerHTML=user?`<div>Dentro: <b>${user.nm}</b><br>${user.rol==='admin'?'Administrador':'Trabajador'} · ${fichado(user.id)?'fichado '+hhmm(fichado(user.id).in):'sin fichar'}</div><button id="salir">Cambiar de persona</button>`:'';
   if($('#salir'))$('#salir').onclick=()=>{user=null;showLock()};
 }
 function render(){
-  const p=current();nav();drawNet();$('#ttl').textContent=p.n+'. '+p.t;$('#sub').textContent=p.s;$('#clock').textContent=hhmm();
+  const p=current();nav();drawNet();$('#ttl').textContent=p.t;$('#sub').textContent=p.s;$('#clock').textContent=hhmm();
   if(p.adm&&!isAdm()){$('#view').innerHTML=`<div class="card"><div class="bd" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start"><h2 style="margin:0;font-size:20px">Solo para el administrador</h2><p class="muted" style="margin:0">Esta parte la ve Isidro. Los trabajadores pueden vender, hacer comandas, cerrar caja, ver faltas y pedidos, subir facturas y fichar.</p><button class="btn pri" id="asadm">Entrar como Isidro</button></div></div>`;$('#asadm').onclick=()=>{pickPerson='isidro';user=null;showLock()};return}
   $('#view').innerHTML=V[p.id]();A[p.id]&&A[p.id]();
 }
@@ -666,7 +667,7 @@ V.tpv=()=>{
   <section style="display:flex;flex-direction:column;gap:14px;min-width:0">
     <div class="cats" role="group" aria-label="Grupos"><button class="cat fav ${cat===FAV?'on':''}" data-cat="${FAV}"><span class="cdot" style="background:var(--accent-soft);color:var(--accent);font-size:17px">★</span>Lo que más sale</button>${CATS.map(c=>{const m=prod(CATICON[c[0]]);return `<button class="cat ${c[0]===cat?'on':''}" data-cat="${c[0]}"><span class="cdot" style="background:${TINT[c[0]]}">${m?artFor(m):''}</span>${c[0]}</button>`}).join('')}</div>
     <div class="tiles">${(cat===FAV?TOP.map(prod).filter(Boolean):MENU.filter(m=>m.c===cat&&!m.hide)).map(m=>{const ids=m.opts?m.opts.map(o=>o[0]):[m.id];const ok=m.opts?m.opts.some(o=>canMake(prod(o[0]))):canMake(m),n=st!=='paid'?ids.reduce((s,id)=>s+(a.items[id]?a.items[id]-(a.billed[id]||0):0),0):0;return `<button class="tile" data-add="${m.id}" style="--tint:${TINT[m.c]}" ${ok?'':'disabled'}><span class="ph">${artFor(m)}</span>${m.k?`<span class="tag">${m.opts?(m.c==='Cafés'?'Elegir café':'Elegir sabor'):'Comanda'}</span>`:''}${ok?'':'<span class="tag" style="background:#A3231F;color:#fff">Agotado</span>'}${n>0?`<span class="cnt">${n}</span>`:''}<span class="tx"><span class="nm">${m.nm}</span><span class="pr">${eur(m.p)}</span></span></button>`}).join('')}</div>
-    <div class="muted" style="font-size:13px">«Refresco» vale para cualquier refresco y «Combinado» para cualquier copa. Copa con energética: «Combinado» y luego «+ con energética» (1 €). Smoothies, cócteles y cafés salen en la impresora de comandas (los que pone «Comanda»). Café, mojito y daiquiri preguntan cuál. Las imágenes se cambian por fotos vuestras en «10. Productos y aparatos».</div>
+    <div class="muted" style="font-size:13px">«Refresco» vale para cualquier refresco y «Combinado» para cualquier copa. Copa con energética: «Combinado» y luego «+ con energética» (1 €). Smoothies, cócteles y cafés salen en la impresora de comandas (los que pone «Comanda»). Café, mojito y daiquiri preguntan cuál. Las imágenes se cambian por fotos vuestras en «Productos y aparatos».</div>
   </section>
   <aside class="ticket">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:21px;font-family:var(--display)">${esc(cur)}</h2>${a.cli?`<span class="pill p-acc">★ ${esc(a.cli.nm)}</span>`:''}${a.donde?`<span class="pill p-mute">${esc(a.donde)}</span>`:''}${cur!==QUICK?`<span class="muted" style="font-size:12.5px">abierta ${hhmm(a.opened)}</span>`:''}<span class="grow"></span>${Object.keys(a.items).length&&st!=='paid'&&!a.paid?'<button class="btn sm" id="vaciar">Vaciar</button>':''}</div>

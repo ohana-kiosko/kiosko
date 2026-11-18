@@ -1,5 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Gestión Kiosko Tres Piedras</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1A1714"><link rel="icon" href="/icon-192.png">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
@@ -443,7 +444,7 @@ function askPin(label,cb){
   const draw=(m)=>{P.innerHTML=`<div class="box" role="dialog" aria-modal="true" aria-label="Clave para cobrar">
    <div style="font-family:var(--display);font-size:22px;font-weight:700;text-align:center">${esc(label)}</div>
    <div style="text-align:center;font-weight:600">¿Quién cobra? Pon tu clave</div>
-   <div class="people">${STAFF.map(s=>`<button class="person ${s.id===pick?'on':''}" data-ppk="${s.id}">${s.nm}<small>${s.rol==='admin'?'Administrador':'Camarero'}</small></button>`).join('')}</div>
+   <div class="people">${STAFF.map(s=>`<button class="person ${s.id===pick?'on':''}" data-ppk="${s.id}">${s.nm}<small>${s.puesto}</small></button>`).join('')}</div>
    <div class="dots">${[0,1,2,3].map(i=>`<i class="${i<buf.length?'f':''}"></i>`).join('')}</div>
    ${m?`<div class="note" style="text-align:center">${m}</div>`:''}
    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-pk="${n}">${n}</button>`).join('')}<button data-pk="x" style="font-size:15px">Cancelar</button><button data-pk="0">0</button><button data-pk="del" style="font-size:15px">Borrar</button></div></div>`;
@@ -680,7 +681,7 @@ V.tpv=()=>{
     ${cur!==QUICK?`<button class="btn" id="psend" ${MENU.some(m=>m.k&&a.items[m.id])?'':'disabled'}>Enviar comanda</button>`:''}`
     :`<div class="muted" style="font-size:13px">Si vuelven a pedir, toca productos: la cuenta se pone otra vez en rojo con lo nuevo.</div><button class="btn" id="hideacc">Quitar de la lista</button>`}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn sm" id="pcli">★ ${a.cli?'Cambiar cliente':'Cliente'}</button><button class="btn sm" id="pcanje">Canjear vale o código</button></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><button class="btn sm" id="pdrawer">Abrir cajón</button><button class="btn sm" id="pfac">Factura</button><button class="btn sm" id="pfalta2" style="color:var(--bad);border-color:#E9A6A2">⚠ Falta</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><button class="btn sm" id="pdrawer">Abrir cajón</button><button class="btn sm" id="preimp">Ticket</button><button class="btn sm" id="pfac">Factura</button><button class="btn sm" id="pfalta2" style="color:var(--bad);border-color:#E9A6A2">⚠ Falta</button></div>
     ${tpvMsg?`<div class="status" role="status">${tpvMsg}</div>`:''}
   </aside></div>`;
 };
@@ -701,7 +702,8 @@ A.tpv=()=>{
   $('#pcanje').onclick=canjeModal;
   if($('#pparts'))$('#pparts').onclick=()=>partsModal();
   if($('#psend'))$('#psend').onclick=()=>{sendComanda(cur);tpvMsg='Comanda enviada a la impresora de la barra.';render()};
-  $('#pdrawer').onclick=()=>{tpvMsg='Cajón abierto (queda anotado quién y a qué hora).';render()};
+  $('#pdrawer').onclick=()=>{abrirCajon();tpvMsg='Cajón abierto por '+(user?.nm||'—')+' a las '+hhmm()+'.';render()};
+  if($('#preimp'))$('#preimp').onclick=()=>{if(!ULTIMO){tpvMsg='Aún no hay ningún ticket hoy.';return render()}imprimirTicket(ULTIMO,false);tpvMsg='Ticket nº '+ULTIMO.n+' enviado a la impresora.';render()};
   $('#pfac').onclick=()=>{location.hash='facturas'};
 };
 function openAcc(move){
@@ -718,15 +720,18 @@ function openAcc(move){
   $$('[data-join]').forEach(b=>b.onclick=()=>{moveTo(b.dataset.join);cur=b.dataset.join;tpvMsg='Añadido a la cuenta de '+b.dataset.join+'.';closeModal();render()});
   $('#aok').onclick=()=>{let nm=$('#anm').value.trim();if(!nm){$('#anm').focus();return}if(ACC[nm])nm=nm+' (2)';newAcc(nm,$('#adonde').value.trim(),{});if(move)moveTo(nm);cur=nm;accFilter='todas';tpvMsg=move?'Cuenta abierta a nombre de '+nm+'.':'';closeModal();render()};
 }
-function sendComanda(acc){const a=ACC[acc];const l=MENU.filter(m=>m.k&&a.items[m.id]-(a.billed[m.id]||0)-(a.sent?.[m.id]||0)>0).map(m=>[a.items[m.id]-(a.billed[m.id]||0)-(a.sent?.[m.id]||0),m.nm,m.id]);if(!l.length)return;a.sent=a.sent||{};l.forEach(x=>a.sent[x[2]]=(a.sent[x[2]]||0)+x[0]);COMANDAS.unshift({n:nextCom++,acc,t:Date.now(),l:l.map(x=>[x[0],x[1]]),done:false})}
+function sendComanda(acc){const a=ACC[acc];const l=MENU.filter(m=>m.k&&a.items[m.id]-(a.billed[m.id]||0)-(a.sent?.[m.id]||0)>0).map(m=>[a.items[m.id]-(a.billed[m.id]||0)-(a.sent?.[m.id]||0),m.nm,m.id]);if(!l.length)return;a.sent=a.sent||{};l.forEach(x=>a.sent[x[2]]=(a.sent[x[2]]||0)+x[0]);const c={n:nextCom++,acc,t:Date.now(),l:l.map(x=>[x[0],x[1]]),done:false};COMANDAS.unshift(c);imprimirComanda(c)}
 function finish(how,who){
   const a=ACC[cur];const tot=accTotal(cur);const h=new Date().getHours();const pend=tot-a.paid;
   sendComanda(cur);
+  const tkL=Object.keys(a.items).map(k=>{const n=a.items[k]-(a.billed[k]||0);const m=prod(k);return n>0&&m?[n,m.nm,m.p*n]:null}).filter(Boolean);
   Object.keys(a.items).forEach(k=>{const n=a.items[k]-(a.billed[k]||0);if(n<=0)return;const m=prod(k);m.r.forEach(([s,q])=>STOCK[s].a=Math.max(0,STOCK[s].a-q*n));SALES.push([h,k,n,m.p*n,a.parts.length?'Por partes':how])});
   if(how!=='Por partes'){a.parts.push({i:pend,how,who:who.nm});logCobro(pend,how,who,cur)}
   const nParts=a.parts.length;let fid='';
   if(a.cli){const before=a.cli.k;a.cli.k=Math.round((a.cli.k+pend)*100)/100;const n=Math.floor(a.cli.k/RULES.kioskoCada)-Math.floor(before/RULES.kioskoCada);for(let i=0;i<n;i++){const v=makeVale('alquiler',a.cli.nm,`Kiosko · ${eur(RULES.kioskoCada)} gastados`);fid+=` 🎁 ¡${a.cli.nm} ha llegado a ${eur(Math.floor(a.cli.k/RULES.kioskoCada)*RULES.kioskoCada)}! Vale ${v.code}: 1 h de alquiler en cualquier escuela.`}}
-  tpvMsg=`${cur} cobrada: ${eur(tot)}${nParts>1?' en '+nParts+' partes':' · '+how.toLowerCase()}. Cobró ${who.nm}. Ticket nº ${nextTicket++}.${online?'':' Guardado en la pantalla: se enviará al volver el wifi.'}${fid}`;
+  tpvMsg=`${cur} cobrada: ${eur(tot)}${nParts>1?' en '+nParts+' partes':' · '+how.toLowerCase()}. Cobró ${who.nm}. Ticket nº ${nextTicket}.${online?'':' Guardado en la pantalla: se enviará al volver el wifi.'}${fid}`;
+  ULTIMO={n:nextTicket++,t:Date.now(),cuenta:cur,l:tkL,tot:pend,how:nParts>1?'Por partes':how,who:who.nm};
+  if(PRN.ticket==='siempre')imprimirTicket(ULTIMO,false);
   if(cur===QUICK){ACC[QUICK]={items:{},paid:0,parts:[],donde:'',opened:Date.now(),billed:{},hidden:false}}
   else{a.paid=tot;a.billed={...a.items};a.sent={};a.paidAt=Date.now();a.paidBy=who.nm;cur=QUICK}
   closeModal();render();
@@ -738,6 +743,7 @@ function flavorModal(m){const M=$('#modal');M.hidden=false;M.innerHTML=`<div cla
  M.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{const it=ACC[cur].items;it[b.dataset.fl]=(it[b.dataset.fl]||0)+1;tpvMsg='';closeModal();render()});$('#flx').onclick=closeModal}
 function closeModal(){$('#modal').hidden=true;$('#modal').innerHTML=''}
 function cashModal(amount,done){
+  abrirCajon();
   modal(`<h2>Cobro en efectivo · ${eur(amount)}</h2>
   <div class="drawerAnim">Cajón abierto</div>
   <div style="font-weight:600">¿Cuánto te ha dado?</div>
@@ -786,7 +792,7 @@ function partsModal(){
     $$('[data-pp]').forEach(b=>b.onclick=()=>{const amt=amountNow();if(!(amt>0))return;const how=b.dataset.pp;if(how==='QR'&&!online){$('#qrbox').innerHTML='<div class="note">Sin internet no se puede pagar con el móvil. Cobra esta parte en efectivo o con tarjeta.</div>';return}askPin('Cobrar parte de '+eur(amt),who=>{
       if(how==='QR'){$('#qrbox').innerHTML=`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:12px">${qrGrid(a.parts.length+1)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0;flex:1"><b>Que escanee este QR con su móvil</b><span class="muted" style="font-size:13.5px">Paga ${eur(amt)} con tarjeta, Apple Pay o Google Pay (Stripe). También se puede imprimir en el ticket para cada uno.</span><button class="btn pri" id="qrok">Simular: ha pagado</button></div></div>`;
         $('#qrok').onclick=()=>addPart(amt,'Móvil (QR · Stripe)',who);return}
-      if(how==='Efectivo'){addPart(amt,'Efectivo · cajón abierto',who);return}
+      if(how==='Efectivo'){abrirCajon();addPart(amt,'Efectivo · cajón abierto',who);return}
       addPart(amt,'Tarjeta (datáfono)',who)})});
   };
   const addPart=(amt,how,who)=>{a.parts.push({i:amt,how,who:who.nm});logCobro(amt,how.split(' ')[0],who,cur);a.paid=Math.round((a.paid+amt)*100)/100;sel={};if(accTotal(cur)-a.paid<0.005){finish('Por partes',who)}else draw()};
@@ -1035,32 +1041,78 @@ V.equipo=()=>`<div class="note">Horario, contrato y precio por hora de cada uno:
  </tbody></table></div></section></div>`;
 
 /* ---------- 10. Productos y aparatos ---------- */
-A.ajustes=()=>{$$('[data-foto]').forEach(i=>i.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const m=prod(i.dataset.foto);m.foto=r.result;delete ARTCACHE[m.id];render()};r.readAsDataURL(f)});$('#nadd').onclick=()=>{const nm=$('#nnm').value.trim(),p=parseFloat($('#npr').value);if(!nm||!(p>0))return;const id='x'+Date.now();STOCK[id]={nm,u:'unidades',c:+(p*.35).toFixed(2),a:24,mn:12,mx:48,pv:'Por definir'};MENU.push({id,c:$('#ncat').value,nm,p,r:[[id,1]],k:$('#nk').value?1:0});render()}};
+A.ajustes=()=>{const sv=(id,v)=>{const e=$(id);if(e)e.value=v};sv('#prmodo',PRN.modo);sv('#prticket',PRN.ticket);sv('#prcom',PRN.comandas);sv('#prnom',PRN.nombre);sv('#prnif',PRN.nif);sv('#prdir',PRN.dir);
+  const lee=()=>{PRN.modo=$('#prmodo').value;PRN.ticket=$('#prticket').value;PRN.comandas=$('#prcom').value;PRN.nombre=$('#prnom').value.trim()||'OHANA SURF KIOSKO';PRN.nif=$('#prnif').value.trim();PRN.dir=$('#prdir').value.trim();guardaPRN()};
+  if($('#prguardar'))$('#prguardar').onclick=()=>{lee();$('#prguardar').textContent='Guardado ✓'};
+  if($('#prprueba'))$('#prprueba').onclick=()=>{lee();imprimirTicket({n:0,t:Date.now(),cuenta:QUICK,l:[[1,'Prueba de impresora',0]],tot:0,how:'Prueba',who:user?.nm||''},false)};
+  if($('#prcajon'))$('#prcajon').onclick=()=>{lee();abrirCajon()};
+  $$('[data-foto]').forEach(i=>i.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const m=prod(i.dataset.foto);m.foto=r.result;delete ARTCACHE[m.id];render()};r.readAsDataURL(f)});$('#nadd').onclick=()=>{const nm=$('#nnm').value.trim(),p=parseFloat($('#npr').value);if(!nm||!(p>0))return;const id='x'+Date.now();STOCK[id]={nm,u:'unidades',c:+(p*.35).toFixed(2),a:24,mn:12,mx:48,pv:'Por definir'};MENU.push({id,c:$('#ncat').value,nm,p,r:[[id,1]],k:$('#nk').value?1:0});render()}};
 V.ajustes=()=>`<div class="row"><section class="card" style="flex:2 1 520px"><h2>Carta del TPV <span class="muted" style="font-weight:400;font-size:13px">precios reales del 13 nov · ${MENU.length} botones</span></h2><div class="bd" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;border-bottom:1px solid var(--line)"><label class="f" style="flex:2 1 180px">Producto nuevo<input class="inp" id="nnm" placeholder="Ej.: Agua, Mojito, Tapa de queso"></label><label class="f" style="flex:1 1 150px">Grupo<select class="inp" id="ncat">${CATS.map(c=>`<option>${c[0]}</option>`).join('')}</select></label><label class="f" style="flex:1 1 100px">Precio<input class="inp" id="npr" type="number" step="0.1"></label><label class="f" style="flex:0 0 auto">Comanda<select class="inp" id="nk"><option value="">No</option><option value="1">Sí</option></select></label><button class="btn pri" id="nadd">Añadir</button></div><div class="tw"><table><thead><tr><th>Botón</th><th>Grupo</th><th class="r">Precio</th><th>Sale en comanda</th><th>Imagen</th></tr></thead><tbody>
  ${MENU.filter(m=>!m.opts).map(m=>`<tr><td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colorOf(m.c)};margin-right:8px;vertical-align:-1px"></span>${m.nm}</td><td>${m.c}</td><td class="r">${eur(m.p)}</td><td>${m.k?'<span class="pill p-acc">Sí</span>':'<span class="pill p-mute">No</span>'}</td><td><div style="display:flex;align-items:center;gap:8px"><span style="width:44px;height:44px;border-radius:8px;background:${TINT[m.c]};display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none">${artFor(m)}</span><label class="btn sm" style="position:relative">${m.foto?'Cambiar foto':'Poner foto'}<input type="file" accept="image/*" data-foto="${m.id}" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div></td></tr>`).join('')}
  </tbody></table></div></section>
- <section class="card" style="flex:1 1 360px"><h2>Aparatos del kiosko</h2><div class="bd"><div class="tw"><table><tbody>
-  <tr><td><b>Pantalla táctil</b><br><span class="muted" style="font-size:13px">El programa se abre como una app</span></td><td><span class="pill p-ok">Lista</span></td></tr>
-  <tr><td><b>Impresora de tickets</b><br><span class="muted" style="font-size:13px">De red (wifi o cable), compatible con ESC/POS</span></td><td><span class="pill p-warn">Por comprar</span></td></tr>
-  <tr><td><b>Cajón portamonedas</b><br><span class="muted" style="font-size:13px">Va conectado a la impresora de tickets y se abre al cobrar en efectivo</span></td><td><span class="pill p-warn">Por comprar</span></td></tr>
-  <tr><td><b>Impresora de comandas</b><br><span class="muted" style="font-size:13px">Donde se preparan smoothies, cócteles y cafés; solo imprime lo que lleva comanda</span></td><td><span class="pill p-warn">Por comprar</span></td></tr>
-  <tr><td><b>Datáfono</b><br><span class="muted" style="font-size:13px">Opción A: el del banco, sin conectar (se confirma en pantalla). Opción B: lector de Stripe, conectado (el importe pasa solo)</span></td><td><span class="pill p-mute">Por decidir</span></td></tr>
-  <tr><td><b>Facturación con Veri*factu</b><br><span class="muted" style="font-size:13px">Herramienta a elegir con el gestor</span></td><td><span class="pill p-mute">Por decidir</span></td></tr>
- </tbody></table></div></div></section></div>
+ <section class="card" style="flex:1 1 360px"><h2>Impresora y cajón</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
+  <div class="muted" style="font-size:13px">TPV ZAZOO NB11: impresora de tickets de 80 mm dentro del aparato y cajón conectado a él. Para imprimir desde el programa, instala en el TPV la app gratis <b>RawBT</b> (Google Play) y elige en ella la impresora interna.</div>
+  <label class="f">Cómo imprimir<select class="inp" id="prmodo"><option value="rawbt">Con la app RawBT (imprime, corta y abre el cajón)</option><option value="navegador">Con el diálogo de imprimir de Android</option><option value="ninguno">No imprimir</option></select></label>
+  <label class="f">Ticket al cobrar<select class="inp" id="prticket"><option value="siempre">Siempre</option><option value="pedir">Solo si lo pide el cliente (botón «Ticket»)</option></select></label>
+  <label class="f">Comandas (smoothies, cócteles, cafés)<select class="inp" id="prcom"><option value="misma">Imprimirlas en la misma impresora</option><option value="pantalla">Solo en pantalla («2 Comandas»)</option></select></label>
+  <label class="f">Nombre en el ticket<input class="inp" id="prnom"></label>
+  <label class="f">NIF del titular (obligatorio en el ticket)<input class="inp" id="prnif" placeholder="Pon aquí el NIF"></label>
+  <label class="f">Dirección<input class="inp" id="prdir"></label>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="prguardar">Guardar</button><button class="btn" id="prprueba">Imprimir prueba</button><button class="btn" id="prcajon">Abrir cajón</button></div>
+  <div class="muted" style="font-size:13px">Datáfono: de momento el del banco, aparte (se confirma en pantalla). Veri*factu: a elegir con el gestor.</div>
+ </div></section></div>
  <section class="card"><h2>Si se va el wifi</h2><div class="bd" style="display:flex;flex-direction:column;gap:8px;font-size:14.5px;line-height:1.5">
   <div><b>Se sigue vendiendo.</b> El programa va instalado en la pantalla y guarda cada venta en la propia pantalla. Arriba sale «Sin internet · N ventas guardadas».</div>
-  <div><b>Las impresoras y el cajón siguen funcionando</b>, porque van por la red del módem del kiosko aunque no haya internet.</div>
+  <div><b>La impresora y el cajón siguen funcionando</b>, porque van dentro del TPV y no necesitan internet.</div>
   <div><b>El datáfono del banco</b> funciona por su cuenta. Lo único que no va sin internet es el pago con el móvil por QR.</div>
-  <div><b>Cuando vuelve el wifi</b>, la pantalla envía sola todo lo guardado a la base de datos (caja, ventas, fichajes, faltas) y lo ves desde casa.</div>
+  <div><b>De momento todo se guarda en este TPV</b> (ventas, caja, fichajes, faltas). No borres los datos de Chrome. Próximo paso: copiarlo también a internet para verlo desde casa.</div>
   </div></section>`;
 
 setInterval(()=>{$('#clock').textContent=hhmm();if(['comandas'].includes(current().id)&&$('#modal').hidden)render()},30000);
+/* ---------- Impresora y cajón (TPV ZAZOO NB11: impresora de 80 mm integrada y cajón GEON por RJ11) ----------
+   Chrome no puede hablar directamente con la impresora de dentro del TPV. Dos formas:
+   · «RawBT» (app gratis de Google Play): recibe el ticket en ESC/POS y lo manda a la impresora interna; también abre el cajón y corta el papel.
+   · «Navegador»: imprime con el diálogo de Android (si el TPV trae servicio de impresión). No abre el cajón. */
+const PK='ohk-impresora';
+let PRN=(()=>{try{return Object.assign({modo:'rawbt',ticket:'siempre',comandas:'misma',col:48,nombre:'OHANA SURF KIOSKO',nif:'',dir:'Playa de las Tres Piedras · Chipiona'},JSON.parse(localStorage.getItem(PK)||'{}'))}catch(e){return {modo:'rawbt',ticket:'siempre',comandas:'misma',col:48,nombre:'OHANA SURF KIOSKO',nif:'',dir:'Playa de las Tres Piedras · Chipiona'}}})();
+const guardaPRN=()=>{try{localStorage.setItem(PK,JSON.stringify(PRN))}catch(e){}};
+let ULTIMO=null; // último ticket, para reimprimir
+const plano=t=>String(t).replace(/€/g,'EUR').replace(/·/g,'-').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\x20-\x7E\n]/g,'');
+const lineaLR=(l,r,w=PRN.col)=>{l=plano(l);r=plano(r);if(l.length+r.length+1>w)l=l.slice(0,w-r.length-1);return l+' '.repeat(Math.max(1,w-l.length-r.length))+r};
+const centro=(t,w=PRN.col)=>{t=plano(t).slice(0,w);return ' '.repeat(Math.floor((w-t.length)/2))+t};
+const ESC={ini:'\x1b@',grande:'\x1d!\x11',normal:'\x1d!\x00',neg:'\x1bE\x01',fneg:'\x1bE\x00',corte:'\n\n\n\n\x1dV\x42\x00',cajon:'\x1bp\x00\x19\xfa'};
+function enviar(bin){
+  if(PRN.modo==='rawbt'){const b64=btoa(bin);const url='intent:base64,'+b64+'#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+    try{location.href=url}catch(e){tpvMsg='No se pudo enviar a la impresora. ¿Está instalada la app RawBT?'}return}
+}
+function imprimirHTML(txt){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(f);
+  f.contentDocument.write('<!doctype html><meta charset=utf8><style>@page{size:80mm auto;margin:3mm}body{margin:0;font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;white-space:pre}</style>'+esc(txt));f.contentDocument.close();
+  setTimeout(()=>{try{f.contentWindow.print()}catch(e){}setTimeout(()=>f.remove(),4000)},200)}
+function textoTicket(t){const L=[];
+  L.push(centro(PRN.nombre));if(PRN.nif)L.push(centro('NIF '+PRN.nif));if(PRN.dir)L.push(centro(PRN.dir));
+  L.push(centro('Ticket n. '+t.n+' · '+new Date(t.t).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})));
+  if(t.cuenta&&t.cuenta!==QUICK)L.push(centro('Cuenta: '+t.cuenta));
+  L.push('-'.repeat(PRN.col));
+  t.l.forEach(([n,nm,imp])=>L.push(lineaLR(n+' x '+nm,eur(imp))));
+  L.push('-'.repeat(PRN.col));L.push(lineaLR('TOTAL',eur(t.tot)));
+  L.push(lineaLR('IVA incluido (10%)',eur(t.tot-t.tot/1.10)));
+  L.push(lineaLR('Pago',t.how));if(t.who)L.push(lineaLR('Le atendio',t.who));
+  L.push('');L.push(centro('Gracias. ¡Buen surf!'));return L}
+function imprimirTicket(t,cajon){if(PRN.modo==='ninguno')return;
+  if(PRN.modo==='navegador'){imprimirHTML(textoTicket(t).join('\n'));return}
+  const L=textoTicket(t);enviar(ESC.ini+(cajon?ESC.cajon:'')+ESC.neg+L[0]+ESC.fneg+'\n'+L.slice(1).join('\n')+ESC.corte)}
+function abrirCajon(){if(PRN.modo==='rawbt')enviar(ESC.ini+ESC.cajon)}
+function imprimirComanda(c){if(PRN.modo==='ninguno'||PRN.comandas!=='misma')return;
+  const L=[centro('COMANDA '+c.n),centro(c.acc===QUICK?'Barra':c.acc),centro(hhmm(c.t)),'-'.repeat(PRN.col)].concat(c.l.map(([n,nm])=>plano(n+' x '+nm)));
+  if(PRN.modo==='navegador'){imprimirHTML(L.join('\n'));return}
+  enviar(ESC.ini+ESC.grande+plano('COMANDA '+c.n+'  '+hhmm(c.t))+'\n'+ESC.normal+'\x1d!\x01'+L.slice(1).join('\n')+ESC.normal+ESC.corte)}
+
 /* ---------- Guardar en este aparato (hasta tener la base de datos del kiosko) ---------- */
 const SK='ohk-estado-v1', hoyK=()=>new Date().toLocaleDateString('sv-SE');
-function guardar(){try{localStorage.setItem(SK,JSON.stringify({dia:hoyK(),ACCS,ACC,COMANDAS,nextCom,nextTicket,SALES,COBROS,cierreHecho,HIST,FICHAJES,FALTAS,STOCK,CLIENTES,VALES,PROMOS,FREC,FEMI,RULES,MENU:MENU.map(m=>({id:m.id,p:m.p,foto:m.foto||null}))}))}catch(e){console.warn('No se pudo guardar',e)}}
+function guardar(){try{localStorage.setItem(SK,JSON.stringify({dia:hoyK(),ACCS,ACC,COMANDAS,nextCom,nextTicket,SALES,COBROS,cierreHecho,HIST,FICHAJES,FALTAS,STOCK,ULTIMO,CLIENTES,VALES,PROMOS,FREC,FEMI,RULES,MENU:MENU.map(m=>({id:m.id,p:m.p,foto:m.foto||null}))}))}catch(e){console.warn('No se pudo guardar',e)}}
 function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch(e){}if(!d)return;
   ACCS=d.ACCS||ACCS;ACC=d.ACC||ACC;COMANDAS=d.COMANDAS||[];nextCom=d.nextCom||1;nextTicket=d.nextTicket||1;
-  HIST.splice(0,HIST.length,...(d.HIST||[]));FICHAJES=d.FICHAJES||[];FALTAS=d.FALTAS||[];CLIENTES=d.CLIENTES||[];VALES=d.VALES||[];PROMOS=d.PROMOS||[];FREC=d.FREC||[];FEMI=d.FEMI||[];RULES=d.RULES||RULES;
+  HIST.splice(0,HIST.length,...(d.HIST||[]));FICHAJES=d.FICHAJES||[];ULTIMO=d.dia===hoyK()?d.ULTIMO||null:null;FALTAS=d.FALTAS||[];CLIENTES=d.CLIENTES||[];VALES=d.VALES||[];PROMOS=d.PROMOS||[];FREC=d.FREC||[];FEMI=d.FEMI||[];RULES=d.RULES||RULES;
   if(d.STOCK)Object.keys(d.STOCK).forEach(k=>{if(STOCK[k])Object.assign(STOCK[k],d.STOCK[k])});
   (d.MENU||[]).forEach(x=>{const m=prod(x.id);if(m){m.p=x.p;if(x.foto)m.foto=x.foto}});
   if(d.dia===hoyK()){SALES=d.SALES||[];COBROS=d.COBROS||[];cierreHecho=!!d.cierreHecho}
@@ -1069,6 +1121,7 @@ cargar();
 const _render=render;render=function(){_render();guardar()};
 addEventListener('pagehide',guardar);
 nav();render();showLock();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 
 </body></html>

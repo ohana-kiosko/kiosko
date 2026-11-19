@@ -23,3 +23,4 @@ Cuenta propia del kiosko (kiosko@), separada de la escuela.
 - Se compila sola en GitHub Actions («App Android»). Descarga: https://github.com/ohana-kiosko/kiosko/releases/latest/download/kiosko-ohana.apk
 - Servidor: `api/tpv.js`. Variables en Vercel (las pone el dueño): `STRIPE_SECRET_KEY`, `STRIPE_LOCATION`, `TPV_CLAVE`.
 - En Chrome el botón Tarjeta sigue con los pasos de BBVA Cobros.
+- Si la tablet no acepta la clave del TPV: botón «Clave del TPV» en la ventana de cobro con tarjeta, o cambiarla en Vercel (TPV_CLAVE) y volver a publicar.

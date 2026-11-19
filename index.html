@@ -704,7 +704,7 @@ V.tpv=()=>{
     ${(a.descs||[]).map(d=>`<div style="display:flex;justify-content:space-between;color:var(--sea);font-weight:600;font-size:14px"><span>${esc(d.lab)}</span><b>−${eur(d.amt)}</b></div>`).join('')}${a.pct?`<div style="display:flex;justify-content:space-between;color:var(--sea);font-weight:600;font-size:14px"><span>Código ${a.pct.code} · ${a.pct.val} %</span><b>−${eur(accGross(cur)*a.pct.val/100)}</b></div>`:''}
     ${a.paid&&st!=='paid'?`<div style="display:flex;justify-content:space-between" class="muted"><span>Ya pagado</span><b>−${eur(a.paid)}</b></div>`:''}
     ${st!=='paid'?`<div class="total"><b>${a.paid?'Falta':'Total'}</b><span>${eur(pend)}</span></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn big pri" id="pcash" ${pend>0?'':'disabled'}>Efectivo</button><button class="btn big pri" id="pcard" ${pend>0?'':'disabled'}>Tarjeta</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><button class="btn big pri" id="pcash" ${pend>0?'':'disabled'}>Efectivo</button><button class="btn big pri" id="pcard" ${pend>0?'':'disabled'}>Datáfono</button><button class="btn big pri" id="ptab" ${pend>0?'':'disabled'}>Tablet</button></div>
     <button class="btn big sea" id="pparts" ${pend>0?'':'disabled'}>Pagar por partes</button>
     ${cur===QUICK&&Object.keys(a.items).length?'<button class="btn" id="tocuenta">Pasar a una cuenta con nombre</button>':''}
     ${cur!==QUICK?`<button class="btn" id="psend" ${MENU.some(m=>m.k&&a.items[m.id])?'':'disabled'}>Enviar comanda</button>`:''}`
@@ -724,8 +724,9 @@ A.tpv=()=>{
   $('#newacc').onclick=()=>openAcc(false);
   if($('#tocuenta'))$('#tocuenta').onclick=()=>openAcc(true);
   if($('#hideacc'))$('#hideacc').onclick=()=>{ACC[cur].hidden=true;cur=QUICK;render()};
-  if($('#pcash'))$('#pcash').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' en efectivo',who=>cashModal(v,()=>finish('Efectivo',who)))};
-  if($('#pcard'))$('#pcard').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con tarjeta',who=>cardModal(v,()=>finish('Tarjeta',who)))};
+  if($('#pcash'))$('#pcash').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' en efectivo',who=>{abrirCajon();finish('Efectivo',who)})};
+  if($('#pcard'))$('#pcard').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con el datáfono',who=>finish('Tarjeta',who))};
+  if($('#ptab'))$('#ptab').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con la tablet',who=>tabletPantalla(v,()=>finish('Tarjeta',who)))};
   $('#pfalta2').onclick=openFalta;
   $('#pcli').onclick=()=>clientModal(c=>{ACC[cur].cli=c;tpvMsg=`${c.nm} lleva ${eur(c.k)} en el kiosko este año.`;render()},true);
   $('#pcanje').onclick=canjeModal;
@@ -791,6 +792,30 @@ let tpvCb=null;
 window.ohkTPV=r=>{try{r=typeof r==='string'?JSON.parse(r):r}catch(e){r={ok:false,error:String(r)}}const cb=tpvCb;tpvCb=null;if(cb)cb(r)};
 const tpvNativo=()=>!!(window.OhanaTPV&&window.OhanaTPV.cobrar);
 function cobroNFC(amount,cb){tpvCb=cb;try{OhanaTPV.cobrar(Math.round(amount*100),String(cur||''))}catch(e){tpvCb=null;cb({ok:false,error:e.message})}}
+/* Dueño, 19 nov 2026: tres botones de cobro. Efectivo (abre el cajón) y Datáfono cobran directamente;
+   Tablet abre una pantalla entera con un botón enorme para cobrar con el NFC de la tablet. */
+function tabletPantalla(amount,done){
+  const v=document.getElementById('nfcfull');if(v)v.remove();
+  const o=document.createElement('div');o.id='nfcfull';
+  o.style.cssText='position:fixed;inset:0;z-index:9999;background:#1A1714;display:flex;flex-direction:column;padding:18px;gap:12px';
+  let est='';try{est=OhanaTPV.estado()}catch(e){}
+  o.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;color:#fff"><b style="font-size:20px">Cobro con la tablet</b><span style="display:flex;gap:8px"><button class="btn" id="nfck" style="color:#1A1714;background:#fff">Clave del TPV</button><button class="btn" id="nfcx" style="color:#1A1714;background:#fff">Cancelar</button></span></div>
+  <button id="nfcgo2" style="flex:1;border:0;border-radius:24px;background:var(--accent);color:#fff;font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;padding:20px">
+   <span style="font-size:clamp(56px,10vw,120px);font-weight:800;line-height:1">${eur(amount)}</span>
+   <span id="nfctx" style="font-size:clamp(22px,3.4vw,40px);font-weight:700">Toca aquí y acerca la tarjeta o el móvil</span>
+   <span id="nfcer" style="font-size:18px;max-width:80%;line-height:1.35"></span></button>
+  <div style="color:#BDB4AA;font-size:13px;text-align:center">${esc(est)}</div>`;
+  document.body.appendChild(o);
+  const cerrar=()=>o.remove();
+  o.querySelector('#nfcx').onclick=()=>{try{OhanaTPV.cancelar()}catch(e){}cerrar()};
+  o.querySelector('#nfck').onclick=()=>{try{OhanaTPV.clave()}catch(e){}cerrar()};
+  let ocupado=false;
+  o.querySelector('#nfcgo2').onclick=()=>{if(ocupado)return;
+    if(!tpvNativo()){o.querySelector('#nfcer').textContent='Esto solo funciona dentro de la app Kiosko Ohana de la tablet.';return}
+    ocupado=true;o.querySelector('#nfctx').textContent='Acerca la tarjeta a la tablet…';o.querySelector('#nfcer').textContent='';
+    cobroNFC(amount,r=>{ocupado=false;if(r.ok){cerrar();done();return}
+      o.querySelector('#nfctx').textContent='No se ha cobrado. Toca para reintentar';o.querySelector('#nfcer').textContent=r.error||''})};
+}
 function nfcModal(amount,done){
   let est='';try{est=OhanaTPV.estado()}catch(e){}
   modal(`<h2>Cobro con tarjeta · ${eur(amount)}</h2>

@@ -773,7 +773,27 @@ function cashModal(amount,done){
   $$('[data-gv]').forEach(b=>b.onclick=()=>upd(+b.dataset.gv));$('#given').oninput=e=>upd(parseFloat(e.target.value));
   $('#okc').onclick=done;
 }
-function cardModal(amount,done){
+/* ---------- Cobro con tarjeta en la propia tablet (dueño, 19 nov 2026) ----------
+   Dentro de la app Android «Kiosko Ohana» (carpeta android/) existe window.OhanaTPV, que cobra con el NFC de la tablet
+   con Stripe Tap to Pay (cuenta Stripe «Ohana Kiosko»; servidor en api/tpv.js). Abierto en Chrome, siguen los pasos de BBVA Cobros. */
+let tpvCb=null;
+window.ohkTPV=r=>{try{r=typeof r==='string'?JSON.parse(r):r}catch(e){r={ok:false,error:String(r)}}const cb=tpvCb;tpvCb=null;if(cb)cb(r)};
+const tpvNativo=()=>!!(window.OhanaTPV&&window.OhanaTPV.cobrar);
+function cobroNFC(amount,cb){tpvCb=cb;try{OhanaTPV.cobrar(Math.round(amount*100),String(cur||''))}catch(e){tpvCb=null;cb({ok:false,error:e.message})}}
+function nfcModal(amount,done){
+  let est='';try{est=OhanaTPV.estado()}catch(e){}
+  modal(`<h2>Cobro con tarjeta · ${eur(amount)}</h2>
+  <div id="nfcst" style="font-size:16px;line-height:1.5">Pulsa <b>Cobrar</b> y que el cliente acerque la tarjeta o el móvil a la tablet.</div>
+  <div class="muted" style="font-size:13px">${esc(est)}</div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-close>Cancelar</button><button class="btn" id="nfcbbva">Con el datáfono</button><button class="btn pri big grow" id="nfcgo">Cobrar ${eur(amount)}</button></div>`);
+  $('#nfcbbva').onclick=()=>bbvaModal(amount,done);
+  $('#nfcgo').onclick=()=>{const b=$('#nfcgo');b.disabled=true;b.textContent='Acerca la tarjeta…';
+    cobroNFC(amount,r=>{if(r.ok){done();return}
+      const s=$('#nfcst');if(!s)return;s.innerHTML='<b style="color:var(--bad)">No se ha cobrado.</b> '+esc(r.error||'')+'<br>Prueba otra vez, con otra tarjeta, o cobra con el datáfono.';
+      b.disabled=false;b.textContent='Reintentar '+eur(amount)})};
+}
+function cardModal(amount,done){if(tpvNativo())return nfcModal(amount,done);bbvaModal(amount,done)}
+function bbvaModal(amount,done){
   modal(`<h2>Cobro con tarjeta · ${eur(amount)}</h2>
   <div style="font-size:15px;line-height:1.5">1. Abre <b>BBVA Cobros</b> (botón de apps abiertas ▢ del TPV) y cobra <b style="font-size:20px">${eur(amount)}</b>.<br>2. El cliente acerca la tarjeta o el móvil a la pantalla del TPV.<br>3. Cuando salga <b>«Aprobada»</b>, vuelve aquí y pulsa <b>Aprobada</b>.</div>
   <div class="muted" style="font-size:13px">También vale el datáfono del banco. El importe todavía no pasa solo a BBVA Cobros: hay que teclearlo allí.</div>
@@ -811,6 +831,7 @@ function partsModal(){
       if(how==='QR'){$('#qrbox').innerHTML=`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:12px">${qrGrid(a.parts.length+1)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0;flex:1"><b>Que escanee este QR con su móvil</b><span class="muted" style="font-size:13.5px">Paga ${eur(amt)} con tarjeta, Apple Pay o Google Pay (Stripe). También se puede imprimir en el ticket para cada uno.</span><button class="btn pri" id="qrok">Simular: ha pagado</button></div></div>`;
         $('#qrok').onclick=()=>addPart(amt,'Móvil (QR · Stripe)',who);return}
       if(how==='Efectivo'){abrirCajon();addPart(amt,'Efectivo · cajón abierto',who);return}
+      if(tpvNativo()){$('#qrbox').innerHTML='<div class="note">Acerca la tarjeta o el móvil a la tablet…</div>';cobroNFC(amt,r=>{if(r.ok)addPart(amt,'Tarjeta (tablet)',who);else $('#qrbox').innerHTML='<div class="note"><b style="color:var(--bad)">No se ha cobrado.</b> '+esc(r.error||'')+'</div>'});return}
       addPart(amt,'Tarjeta (datáfono)',who)})});
   };
   const addPart=(amt,how,who)=>{a.parts.push({i:amt,how,who:who.nm});logCobro(amt,how.split(' ')[0],who,cur);a.paid=Math.round((a.paid+amt)*100)/100;sel={};if(accTotal(cur)-a.paid<0.005){finish('Por partes',who)}else draw()};
@@ -1107,7 +1128,8 @@ function enviar(bin){
   if(PRN.modo==='rawbt'){const b64=btoa(bin);const url='intent:base64,'+b64+'#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
     try{location.href=url}catch(e){tpvMsg='No se pudo enviar a la impresora. ¿Está instalada la app RawBT?'}return}
 }
-function imprimirHTML(txt){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(f);
+function imprimirHTML(txt){if(window.OhanaTPV&&OhanaTPV.imprimirHTML){try{OhanaTPV.imprimirHTML('<!doctype html><meta charset=utf8><style>@page{size:80mm auto;margin:3mm}body{margin:0;font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;white-space:pre}</style>'+esc(txt));return}catch(e){}}
+  const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(f);
   f.contentDocument.write('<!doctype html><meta charset=utf8><style>@page{size:80mm auto;margin:3mm}body{margin:0;font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;white-space:pre}</style>'+esc(txt));f.contentDocument.close();
   setTimeout(()=>{try{f.contentWindow.print()}catch(e){}setTimeout(()=>f.remove(),4000)},200)}
 function textoTicket(t){const L=[];

@@ -53,8 +53,9 @@ module.exports = async (req, res) => {
   const faltan = [!K && 'STRIPE_SECRET_KEY', !C && 'TPV_CLAVE'].filter(Boolean);
   if (faltan.length) return res.status(503).json({ error: 'Faltan variables en Vercel: ' + faltan.join(', ') });
 
-  const dada = Buffer.from(String(req.headers['x-tpv-clave'] || ''));
-  const buena = Buffer.from(C);
+  // Sin espacios al principio ni al final (al copiar o teclear se cuelan fácil).
+  const dada = Buffer.from(String(req.headers['x-tpv-clave'] || '').trim());
+  const buena = Buffer.from(String(C).trim());
   if (dada.length !== buena.length || !crypto.timingSafeEqual(dada, buena)) {
     return res.status(401).json({ error: 'Clave del TPV incorrecta' });
   }

@@ -204,6 +204,17 @@ label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:60
 .acard.st-quick .as{display:none}
 .acard.new{min-height:52px;font-size:13.5px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* 19 nov 2026 (dueño): categorías como botones con el dibujo de un producto del grupo */
+.tpv2 .cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px;padding:0;background:transparent;border:0;border-radius:0}
+.cats .cat{min-height:0;padding:8px 6px 10px;border-radius:14px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:12px;font-weight:700;line-height:1.15;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;text-align:center;box-shadow:0 1px 2px rgba(26,23,20,.05)}
+.cats .cat .cdot{display:flex;width:52px;height:52px;border-radius:14px;overflow:hidden;align-items:center;justify-content:center;flex:none}
+.cats .cat .cdot svg,.cats .cat .cdot img{width:46px;height:46px}
+.cats .cat:hover{background:#fff;border-color:#BDB4AA;color:var(--ink)}
+.cats .cat.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.cats .cat.on .cdot{box-shadow:0 0 0 2px rgba(255,255,255,.85)}
+.cats .cat.fav{border:1px solid #E9B48F;color:var(--accent)}
+.cats .cat.fav .cdot{font-size:28px!important}
+.cats .cat.fav.on{background:var(--accent);border-color:var(--accent);color:#fff}
 </style>
 
 <div class="app">

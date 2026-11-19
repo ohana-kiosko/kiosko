@@ -17,3 +17,9 @@ Cuenta propia del kiosko (kiosko@), separada de la escuela.
 - La lista de camareros sale de la web (Equipo, perfil Camarero, con sus horas ordinarias por semana). Cada uno crea su clave de 4 números la primera vez en este aparato.
 - Cada entrada y salida se guarda en una cola (`ohk-cola`) y se manda a `https://ohanasurf3piedras.com/api/monitores/` (acciones `kio_*`) en cuanto hay internet, con la hora en que se fichó.
 - En «Fichar» cada uno ve sus horas de la web y firma su mes (registro de jornada). Validar, pagos e informes para la Inspección: en la web, Dirección › Camareros.
+
+## Cobro con tarjeta en la tablet (19 nov 2026)
+- App Android «Kiosko Ohana» (carpeta `android/`): abre este programa a pantalla completa y cobra con el NFC de la tablet con Stripe Tap to Pay (cuenta Stripe «KIOSKO», separada de la escuela).
+- Se compila sola en GitHub Actions («App Android»). Descarga: https://github.com/ohana-kiosko/kiosko/releases/latest/download/kiosko-ohana.apk
+- Servidor: `api/tpv.js`. Variables en Vercel (las pone el dueño): `STRIPE_SECRET_KEY`, `STRIPE_LOCATION`, `TPV_CLAVE`.
+- En Chrome el botón Tarjeta sigue con los pasos de BBVA Cobros.

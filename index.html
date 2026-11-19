@@ -775,8 +775,8 @@ function cashModal(amount,done){
 }
 function cardModal(amount,done){
   modal(`<h2>Cobro con tarjeta · ${eur(amount)}</h2>
-  <div class="muted">Sin datáfono conectado: cobra ${eur(amount)} en el datáfono del banco y confirma aquí cuando salga «Aprobada».</div>
-  <div class="note">Si más adelante conectamos un datáfono integrado (por ejemplo, el lector de Stripe), el importe pasa solo y no hay que teclearlo.</div>
+  <div style="font-size:15px;line-height:1.5">1. Abre <b>BBVA Cobros</b> (botón de apps abiertas ▢ del TPV) y cobra <b style="font-size:20px">${eur(amount)}</b>.<br>2. El cliente acerca la tarjeta o el móvil a la pantalla del TPV.<br>3. Cuando salga <b>«Aprobada»</b>, vuelve aquí y pulsa <b>Aprobada</b>.</div>
+  <div class="muted" style="font-size:13px">También vale el datáfono del banco. El importe todavía no pasa solo a BBVA Cobros: hay que teclearlo allí.</div>
   <div style="display:flex;gap:10px"><button class="btn" data-close>Cancelar</button><button class="btn pri big grow" id="okt">Aprobada</button></div>`);
   $('#okt').onclick=done;
 }

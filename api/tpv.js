@@ -19,6 +19,8 @@ async function stripe(K, metodo, ruta, cuerpo) {
     body: cuerpo ? new URLSearchParams(cuerpo).toString() : undefined,
   });
   const j = await r.json();
+  // Para ver en Vercel › Logs qué contesta Stripe (solo el tipo de clave, nunca la clave).
+  if (!r.ok) console.error('Stripe', metodo, ruta.split('?')[0], r.status, (j.error && j.error.message) || '', 'clave:', K.slice(0, 8));
   return { ok: r.ok, j };
 }
 

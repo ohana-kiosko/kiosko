@@ -785,8 +785,9 @@ function nfcModal(amount,done){
   modal(`<h2>Cobro con tarjeta · ${eur(amount)}</h2>
   <div id="nfcst" style="font-size:16px;line-height:1.5">Pulsa <b>Cobrar</b> y que el cliente acerque la tarjeta o el móvil a la tablet.</div>
   <div class="muted" style="font-size:13px">${esc(est)}</div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-close>Cancelar</button><button class="btn" id="nfcbbva">Con el datáfono</button><button class="btn pri big grow" id="nfcgo">Cobrar ${eur(amount)}</button></div>`);
+  <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-close>Cancelar</button><button class="btn" id="nfcbbva">Con el datáfono</button><button class="btn" id="nfcclave" title="Volver a escribir la clave del TPV">Clave del TPV</button><button class="btn pri big grow" id="nfcgo">Cobrar ${eur(amount)}</button></div>`);
   $('#nfcbbva').onclick=()=>bbvaModal(amount,done);
+  $('#nfcclave').onclick=()=>{try{OhanaTPV.clave()}catch(e){}closeModal()};
   $('#nfcgo').onclick=()=>{const b=$('#nfcgo');b.disabled=true;b.textContent='Acerca la tarjeta…';
     cobroNFC(amount,r=>{if(r.ok){done();return}
       const s=$('#nfcst');if(!s)return;s.innerHTML='<b style="color:var(--bad)">No se ha cobrado.</b> '+esc(r.error||'')+'<br>Prueba otra vez, con otra tarjeta, o cobra con el datáfono.';

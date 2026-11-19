@@ -1,5 +1,6 @@
 # Compila la app Android «Kiosko Ohana» y deja el .apk para descargar
-# (Actions › App Android › la última ejecución › Artifacts › kiosko-ohana-apk).
+# Enlace fijo para bajarla desde la tablet:
+#   https://github.com/ohana-kiosko/kiosko/releases/latest/download/kiosko-ohana.apk
 name: App Android
 
 on:
@@ -7,6 +8,9 @@ on:
     branches: [main]
     paths: ['android/**', '.github/workflows/android.yml']
   workflow_dispatch: {}
+
+permissions:
+  contents: write
 
 jobs:
   compilar:
@@ -34,7 +38,11 @@ jobs:
       - name: Compilar
         working-directory: android
         run: gradle assembleRelease --stacktrace
-      - uses: actions/upload-artifact@v4
-        with:
-          name: kiosko-ohana-apk
-          path: android/app/build/outputs/apk/release/*.apk
+      - name: Publicar para descargar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk kiosko-ohana.apk
+          gh release create "app-${{ github.run_number }}" kiosko-ohana.apk --latest \
+            --title "App Kiosko Ohana 1.${{ github.run_number }}" \
+            --notes "App Android del kiosko (pantalla completa + cobro con tarjeta en la tablet). Descarga: kiosko-ohana.apk"

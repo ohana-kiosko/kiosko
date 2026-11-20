@@ -909,7 +909,7 @@ function resumenCierreTxt(r){const x=r[7]||{};return [centro(PRN.nombre),centro(
   lineaLR('Datafono (banco)',x.datafono==null?'-':eur(x.datafono)),lineaLR('Se deja en caja',eur(x.deja||0))].concat(x.nota?['',plano('Notas: '+x.nota)]:[])}
 V.cierre=()=>{
   const abierta=CAJA&&CAJA.abierta;
-  const pend=(()=>{const p=ACCS.filter(n=>n!==QUICK&&!ACC[n].hidden&&['due','part'].includes(accState(n)));return p.length?`<div class="note" style="font-size:14px;font-weight:600">Ojo: quedan ${p.length} cuentas sin cobrar (${eur(p.reduce((s,n)=>s+accTotal(n)-ACC[n].paid,0))}): ${p.map(esc).join(', ')}. Si cierras, siguen abiertas para la caja siguiente.</div>`:''})();
+  const pend=(()=>{const p=ACCS.filter(n=>n!==QUICK&&!ACC[n].hidden&&['due','part'].includes(accState(n)));return p.length?`<div class="note" style="font-size:14px;font-weight:600">Ojo: quedan ${p.length} cuentas sin cobrar (${eur(p.reduce((s,n)=>s+accTotal(n)-ACC[n].paid,0))}): ${p.map(esc).join(', ')}. Si cierras, siguen abiertas para la caja siguiente.<div style="margin-top:8px"><button class="btn sm" id="delpend" style="color:var(--bad);border-color:#E9A6A2">Borrar estas cuentas (eran pruebas)</button></div></div>`:''})();
   if(!abierta){
     const r=cierreRes, x=r&&r[7]||{};
     return `${r?`<section class="card"><h2>Caja cerrada ${cuandoTxt(x.hasta||Date.now())}</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
@@ -945,6 +945,10 @@ V.cierre=()=>{
   </div></section></div>`;
 };
 A.cierre=()=>{
+  /* Dueño, 20 nov 2026: borrar de golpe las cuentas sin cobrar que eran pruebas. */
+  if($('#delpend'))$('#delpend').onclick=()=>{const b=$('#delpend');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez: se borran todas las cuentas sin cobrar';return}
+    ACCS.filter(n=>n!==QUICK&&ACC[n]&&['due','part'].includes(accState(n))).forEach(n=>{ACCS=ACCS.filter(x=>x!==n);delete ACC[n]});
+    ACC[QUICK]={items:{},paid:0,parts:[],donde:'',opened:Date.now(),billed:{},hidden:false};cur=QUICK;render()};
   if(!(CAJA&&CAJA.abierta)){
     $$('[data-cf]').forEach(b=>b.onclick=()=>{$('#cfondo').value=b.dataset.cf});
     if($('#cimp'))$('#cimp').onclick=()=>{if(!cierreRes)return;const L=resumenCierreTxt(cierreRes);if(PRN.modo==='navegador')imprimirHTML(L.join('\n'));else enviar(ESC.ini+L.join('\n')+ESC.corte)};

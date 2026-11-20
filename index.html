@@ -1242,7 +1242,7 @@ function enviar(bin){
   if(PRN.modo!=='rawbt'&&PRN.modo!=='tablet')return;
   colaPRN+=bin;clearTimeout(tPRN);
   tPRN=setTimeout(()=>{const b=colaPRN;colaPRN='';
-    if(PRN.modo==='tablet'&&window.OhanaTPV&&window.OhanaTPV.imprimirRaw){try{OhanaTPV.imprimirRaw(PRN.dest||'',btoa(b))}catch(e){tpvMsg='No se pudo imprimir: '+e.message}return}
+    if(PRN.modo==='tablet'){if(window.OhanaTPV&&window.OhanaTPV.imprimirRaw){try{OhanaTPV.imprimirRaw(PRN.dest||'',btoa(b))}catch(e){tpvMsg='No se pudo imprimir: '+e.message}}else{tpvMsg='«Directo a la impresora de la tablet» solo funciona dentro de la app Kiosko Ohana (no en Chrome). Ábrela desde su icono o cambia «Cómo imprimir» a RawBT.';try{render()}catch(e){}}return}
     try{location.href='intent:base64,'+btoa(b)+'#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;'}catch(e){tpvMsg='No se pudo enviar a la impresora. ¿Está instalada la app RawBT?'}},40);
 }
 function imprimirHTML(txt){if(window.OhanaTPV&&OhanaTPV.imprimirHTML){try{OhanaTPV.imprimirHTML('<!doctype html><meta charset=utf8><style>@page{size:80mm auto;margin:3mm}body{margin:0;font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;white-space:pre}</style>'+esc(txt));return}catch(e){}}

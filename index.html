@@ -1359,6 +1359,8 @@ function avisoError(e){let b=document.getElementById('errbar');if(!b){b=document
 addEventListener('error',ev=>avisoError(ev.error||ev.message));
 const _render=render;render=function(){try{_render()}catch(e){console.error(e);try{sanea();_render()}catch(e2){avisoError(e2)}}guardar()};
 addEventListener('pagehide',guardar);
+/* Dueño, 20 nov 2026: guardar también cada 10 s y al salir de la app, para no perder nunca cuentas. */
+addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')guardar()});setInterval(guardar,10000);
 nav();render();showLock();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>

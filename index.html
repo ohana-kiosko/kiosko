@@ -724,7 +724,7 @@ A.tpv=()=>{
   $('#newacc').onclick=()=>openAcc(false);
   if($('#tocuenta'))$('#tocuenta').onclick=()=>openAcc(true);
   if($('#hideacc'))$('#hideacc').onclick=()=>{ACC[cur].hidden=true;cur=QUICK;render()};
-  if($('#pcash'))$('#pcash').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' en efectivo',who=>{abrirCajon();finish('Efectivo',who)})};
+  if($('#pcash'))$('#pcash').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' en efectivo',who=>cashModal(v,dado=>{abrirCajon();finish('Efectivo',who);if(dado>v+.004){tpvMsg+=' Te dio '+eur(dado)+', cambio '+eur(dado-v)+'.';render()}}))};
   if($('#pcard'))$('#pcard').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con el datáfono',who=>finish('Tarjeta',who))};
   if($('#ptab'))$('#ptab').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con la tablet',who=>tabletPantalla(v,()=>finish('Tarjeta',who)))};
   $('#pfalta2').onclick=openFalta;
@@ -772,18 +772,22 @@ function flavorModal(m){const M=$('#modal');M.hidden=false;M.innerHTML=`<div cla
  <button class="btn" id="flx">Cancelar</button></div>`;
  M.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{const it=ACC[cur].items;it[b.dataset.fl]=(it[b.dataset.fl]||0)+1;tpvMsg='';closeModal();render()});$('#flx').onclick=closeModal}
 function closeModal(){$('#modal').hidden=true;$('#modal').innerHTML=''}
+/* Dueño, 20 nov 2026: al cobrar en efectivo se ve cuánto te dan y cuánto devolver; el cajón se abre al pulsar «Cobrado»,
+   en la misma orden que el ticket. */
 function cashModal(amount,done){
-  abrirCajon();
-  modal(`<h2>Cobro en efectivo · ${eur(amount)}</h2>
-  <div class="drawerAnim">Cajón abierto</div>
-  <div style="font-weight:600">¿Cuánto te ha dado?</div>
-  <div class="chips">${[amount,5,10,20,50].filter((v,i)=>i===0||v>=amount).map(v=>`<button class="chip" data-gv="${v}">${eur(v)}</button>`).join('')}</div>
-  <input class="inp" id="given" type="number" step="0.01" placeholder="Otra cantidad" aria-label="Entregado" style="font-size:18px">
-  <div id="change" style="font-family:var(--display);font-size:30px;font-weight:700"></div>
-  <div style="display:flex;gap:10px"><button class="btn" data-close>Cancelar</button><button class="btn pri big grow" id="okc">Cobrado</button></div>`);
-  const upd=v=>{$('#given').value=v;const ch=v-amount;$('#change').innerHTML=isNaN(ch)?'':ch>=0?`Cambio: ${eur(ch)}`:`<span style="color:var(--bad)">Faltan ${eur(-ch)}</span>`};
-  $$('[data-gv]').forEach(b=>b.onclick=()=>upd(+b.dataset.gv));$('#given').oninput=e=>upd(parseFloat(e.target.value));
-  $('#okc').onclick=done;
+  const opts=[...new Set([5,10,20,50,100].filter(v=>v>amount+.004))].slice(0,4);
+  modal(`<h2>Cobro en efectivo</h2>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span style="font-weight:600">A cobrar</span><b style="font-family:var(--display);font-size:34px">${eur(amount)}</b></div>
+  <div style="font-weight:600">¿Cuánto te da?</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px"><button class="btn big" data-gv="${amount}">Justo</button>${opts.map(v=>`<button class="btn big" data-gv="${v}">${eur(v)}</button>`).join('')}</div>
+  <input class="inp" id="given" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Otra cantidad" aria-label="Te da" style="font-size:22px">
+  <div id="cdev" style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:14px 16px;border-radius:14px;background:var(--soft)"><span style="font-weight:600">Devuelve</span><b id="change" style="font-family:var(--display);font-size:40px">—</b></div>
+  <div style="display:flex;gap:10px"><button class="btn" data-close>Cancelar</button><button class="btn pri big grow" id="okc">Cobrado · abrir cajón</button></div>`);
+  let dado=NaN;
+  const pinta=()=>{const ch=dado-amount;$('#change').innerHTML=isNaN(dado)?'—':ch>=-0.004?eur(Math.max(0,ch)):`<span style="color:var(--bad)">Faltan ${eur(-ch)}</span>`};
+  $$('[data-gv]').forEach(b=>b.onclick=()=>{dado=+b.dataset.gv;$('#given').value=dado.toFixed(2);pinta()});
+  $('#given').oninput=e=>{dado=parseFloat(e.target.value);pinta()};
+  $('#okc').onclick=()=>{if(!isNaN(dado)&&dado<amount-.004){pinta();return}done(isNaN(dado)?amount:dado)};
 }
 /* ---------- Cobro con tarjeta en la propia tablet (dueño, 19 nov 2026) ----------
    Dentro de la app Android «Kiosko Ohana» (carpeta android/) existe window.OhanaTPV, que cobra con el NFC de la tablet

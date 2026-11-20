@@ -664,9 +664,9 @@ function showLock(msg){
 document.addEventListener('keydown',e=>{if(!$('#lock').hidden&&/^[0-9]$/.test(e.key)){const b=$(`#lock [data-k="${e.key}"]`);b&&b.click()}if(e.key==='Escape'&&!$('#modal').hidden)closeModal()});
 
 /* ---------- 1. Vender (TPV) ---------- */
-const accGross=a=>Object.keys(ACC[a].items).reduce((s,k)=>s+prod(k).p*ACC[a].items[k],0);
+const accGross=a=>Object.keys((ACC[a]||{}).items||{}).reduce((s,k)=>s+(prod(k)?prod(k).p:0)*ACC[a].items[k],0);
 const accTotal=a=>{const x=ACC[a],g=accGross(a);const pc=x.pct?g*x.pct.val/100:0;const d=(x.descs||[]).reduce((s,y)=>s+y.amt,0);return Math.max(0,Math.round((g-pc-d)*100)/100)};
-function accState(n){if(n===QUICK)return 'quick';const t=accTotal(n),p=t-ACC[n].paid;if(t<=0)return 'empty';if(p<=0.005)return 'paid';return ACC[n].paid>0?'part':'due'}
+function accState(n){if(n===QUICK)return 'quick';if(!ACC[n])return 'empty';const t=accTotal(n),p=t-ACC[n].paid;if(t<=0)return 'empty';if(p<=0.005)return 'paid';return ACC[n].paid>0?'part':'due'}
 const ago=t=>{const m=Math.round((Date.now()-t)/60e3);return m<60?`hace ${m} min`:`hace ${Math.floor(m/60)} h ${m%60?m%60+' min':''}`.trim()};
 function boardHTML(){
   const names=ACCS.filter(x=>x!==QUICK&&!ACC[x].hidden);
@@ -1339,12 +1339,25 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
   CAJA=d.CAJA||null;cierreRes=d.cierreRes||null;
   if(d.dia===hoyK()||(d.CAJA&&d.CAJA.abierta)){SALES=d.SALES||[];COBROS=d.COBROS||[];cierreHecho=false;if(!CAJA&&COBROS.length)CAJA={abierta:true,desde:COBROS[0].t||Date.now(),fondo:0,por:'—',auto:true}}
   else{SALES=[];COBROS=[];cierreHecho=false;ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true})}}
-cargar();
+cargar();try{sanea()}catch(e){}
 aplicaEquipo(lsJ(EQK,null));
 addEventListener('online',()=>{envia();refrescaEquipo()});
 setInterval(()=>{envia();refrescaEquipo()},120000);
 setTimeout(()=>{envia();refrescaEquipo()},1500);
-const _render=render;render=function(){_render();guardar()};
+/* Dueño, 20 nov 2026: si algo falla al pintar, no se bloquea todo: se arreglan los datos raros y sale un aviso rojo abajo. */
+function sanea(){
+  if(!Array.isArray(ACCS))ACCS=[QUICK];if(!ACC||typeof ACC!=='object')ACC={};
+  ACCS=[...new Set(ACCS)].filter(n=>n===QUICK||(ACC[n]&&typeof ACC[n]==='object'));if(!ACCS.includes(QUICK))ACCS.unshift(QUICK);
+  if(!ACC[QUICK])ACC[QUICK]={items:{},paid:0,parts:[],donde:'',opened:Date.now(),billed:{},hidden:false};
+  Object.keys(ACC).forEach(n=>{const a=ACC[n];if(!a||typeof a!=='object'){delete ACC[n];return}a.items=a.items||{};a.billed=a.billed||{};a.parts=a.parts||[];a.paid=+a.paid||0;
+    Object.keys(a.items).forEach(k=>{if(!prod(k)||!(a.items[k]>0)){delete a.items[k];delete a.billed[k]}})});
+  if(!ACC[cur])cur=QUICK;
+}
+function avisoError(e){let b=document.getElementById('errbar');if(!b){b=document.createElement('div');b.id='errbar';b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:10000;background:#A3231F;color:#fff;padding:10px 16px;font:14px/1.4 system-ui;display:flex;gap:10px;align-items:center;flex-wrap:wrap';document.body.appendChild(b)}
+  b.innerHTML='<b>Algo ha fallado:</b> <span style="flex:1;min-width:200px">'+esc(String(e&&e.message||e))+' (haz una foto y mándasela a Claude)</span><button id="errfix" style="background:#fff;color:#A3231F;border:0;border-radius:8px;padding:8px 12px;font-weight:700">Arreglar y seguir</button>';
+  document.getElementById('errfix').onclick=()=>{try{sanea();guardar()}catch(x){}b.remove();try{_render()}catch(x){avisoError(x)}}}
+addEventListener('error',ev=>avisoError(ev.error||ev.message));
+const _render=render;render=function(){try{_render()}catch(e){console.error(e);try{sanea();_render()}catch(e2){avisoError(e2)}}guardar()};
 addEventListener('pagehide',guardar);
 nav();render();showLock();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});

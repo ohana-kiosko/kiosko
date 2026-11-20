@@ -34,7 +34,17 @@ import com.stripe.stripeterminal.external.callable.*
 import com.stripe.stripeterminal.external.models.*
 import com.stripe.stripeterminal.log.LogLevel
 import com.stripe.stripeterminal.taptopay.TapToPay
+import org.json.JSONArray
 import org.json.JSONObject
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.location.LocationManager
+import android.provider.Settings
+import android.util.Base64
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
+import java.util.concurrent.Executors
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -194,7 +204,10 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (tienePermisos()) arrancar()
-        else estado = "Falta el permiso de ubicación (Stripe lo exige para cobrar). Ajustes › Aplicaciones › Kiosko Ohana › Permisos › Ubicación."
+        else {
+            estado = "Falta el permiso de ubicación (Stripe lo exige para cobrar). Activa Ubicación en los permisos de Kiosko Ohana."
+            abrirAjustesApp()
+        }
     }
 
     // ---------- Clave del TPV (la del TPV_CLAVE de Vercel) ----------
@@ -314,6 +327,16 @@ class MainActivity : Activity() {
     }
 
     private fun cobrarTarjeta(centimos: Long) {
+        if (!tienePermisos()) {
+            responder(false, null, "Falta el permiso de ubicación. Te abro los permisos de la app: activa Ubicación y vuelve.")
+            pedirPermisos()
+            return
+        }
+        if (!ubicacionEncendida()) {
+            responder(false, null, "La ubicación de la tablet está apagada. Te abro el ajuste: enciéndela y vuelve.")
+            try { startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) } catch (e: Exception) {}
+            return
+        }
         if (!conectado) {
             responder(false, null, "El cobro con tarjeta todavía no está listo. $estado")
             arrancar()
@@ -370,6 +393,68 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---------- Imprimir directo en la impresora de la tablet (sin RawBT). Dueño, 20 nov 2026 ----------
+    // Las tablets TPV traen la impresora interna como un aparato Bluetooth emparejado de fábrica o como un puerto serie.
+    private val colaImpresion = Executors.newSingleThreadExecutor()
+
+    @SuppressLint("MissingPermission")
+    private fun aparatosBt(): List<BluetoothDevice> = try {
+        (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter?.bondedDevices?.toList() ?: emptyList()
+    } catch (e: Exception) { emptyList() }
+
+    private val puertosSerie = listOf("/dev/ttyS1", "/dev/ttyS3", "/dev/ttyS4", "/dev/ttyS0", "/dev/ttyS2", "/dev/ttyS5", "/dev/ttyUSB0", "/dev/usb/lp0")
+
+    @SuppressLint("MissingPermission")
+    private fun listaImpresoras(): String {
+        val arr = JSONArray()
+        aparatosBt().forEach { arr.put(JSONObject().put("tipo", "bt").put("id", it.address).put("nombre", it.name ?: it.address)) }
+        puertosSerie.forEach { p -> val f = File(p); if (f.exists() && f.canWrite()) arr.put(JSONObject().put("tipo", "serie").put("id", p).put("nombre", "Puerto $p")) }
+        return arr.toString()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun imprimirDirecto(destino: String, datos: ByteArray) {
+        colaImpresion.execute {
+            var error = ""
+            try {
+                if (destino.startsWith("/dev/")) {
+                    FileOutputStream(destino).use { it.write(datos); it.flush() }
+                } else {
+                    val lista = aparatosBt()
+                    val dev = lista.firstOrNull { it.address == destino }
+                        ?: lista.firstOrNull { (it.name ?: "").contains(Regex("print|inner|pos|impres", RegexOption.IGNORE_CASE)) }
+                    if (dev != null) {
+                        val s = dev.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"))
+                        s.connect()
+                        s.outputStream.write(datos)
+                        s.outputStream.flush()
+                        Thread.sleep(400)
+                        s.close()
+                    } else {
+                        val p = puertosSerie.firstOrNull { File(it).let { f -> f.exists() && f.canWrite() } }
+                            ?: throw RuntimeException("no encuentro la impresora de la tablet (ni Bluetooth ni puerto serie). Elige una en la lista")
+                        FileOutputStream(p).use { it.write(datos); it.flush() }
+                    }
+                }
+            } catch (e: SecurityException) {
+                error = "falta el permiso «Dispositivos cercanos» de la app Kiosko Ohana"
+            } catch (e: Exception) {
+                error = e.message ?: e.toString()
+            }
+            val j = JSONObject().put("ok", error.isEmpty()).put("error", error)
+            runOnUiThread { web.evaluateJavascript("window.ohkPRN&&window.ohkPRN(${JSONObject.quote(j.toString())})", null) }
+        }
+    }
+
+    private fun ubicacionEncendida(): Boolean = try {
+        val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        if (Build.VERSION.SDK_INT >= 28) lm.isLocationEnabled else true
+    } catch (e: Exception) { true }
+
+    private fun abrirAjustesApp() {
+        try { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } catch (e: Exception) {}
+    }
+
     /** Lo que el programa del kiosko puede llamar: window.OhanaTPV.* */
     inner class Puente {
         @JavascriptInterface fun cobrar(centimos: Int, ref: String) { runOnUiThread { cobrarTarjeta(centimos.toLong()) } }
@@ -387,5 +472,8 @@ class MainActivity : Activity() {
         @JavascriptInterface fun clave() { runOnUiThread { pedirClave() } }
         @JavascriptInterface fun imprimirHTML(html: String) { runOnUiThread { imprimirHtml(html) } }
         @JavascriptInterface fun version(): String = BuildConfig.VERSION_NAME
+        @JavascriptInterface fun impresoras(): String = listaImpresoras()
+        @JavascriptInterface fun imprimirRaw(destino: String, b64: String) { imprimirDirecto(destino, Base64.decode(b64, Base64.DEFAULT)) }
+        @JavascriptInterface fun permisos() { runOnUiThread { abrirAjustesApp() } }
     }
 }

@@ -895,7 +895,7 @@ A.comandas=()=>$$('[data-done]').forEach(b=>b.onclick=()=>{COMANDAS.find(c=>c.n=
    haga falta: por ejemplo, Isidro cierra sus pruebas y deja la caja lista para Eli. Al cerrar se cuenta el efectivo, se pone
    el total del datáfono, el resumen queda en «Histórico y ventas» y las ventas vuelven a cero. Si alguien cobra sin abrir
    caja, se abre sola con el dinero que se dejó en el último cierre. */
-const DEN=[['50 €',50],['20 €',20],['10 €',10],['5 €',5],['2 €',2],['1 €',1],['0,50 €',.5],['0,20 €',.2],['0,10 €',.1]];
+const DEN=[['50 €',50],['20 €',20],['10 €',10],['5 €',5],['2 €',2],['1 €',1],['0,50 €',.5],['0,20 €',.2],['0,10 €',.1],['0,05 €',.05],['0,02 €',.02],['0,01 €',.01]];
 let conteo={}, CAJA=null, cierreRes=null, cierreConfirma=false;
 function cajaAbierta(){if(!CAJA||!CAJA.abierta)CAJA={abierta:true,desde:Date.now(),fondo:+((CAJA&&CAJA.deja)||0),por:(user&&user.nm)||'—',auto:true};return CAJA}
 const r2=x=>Math.round(x*100)/100;

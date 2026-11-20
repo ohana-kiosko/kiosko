@@ -681,6 +681,7 @@ function boardHTML(){
    <div class="board-h"><h2>Cuentas de hoy</h2>
     <div class="legend"><span><i style="background:#D13B30"></i>${due.filter(n=>accState(n)==='due').length} por cobrar</span><span><i style="background:#E39A16"></i>${due.filter(n=>accState(n)==='part').length} a medias</span><span><i style="background:#2E9E5B"></i>${paid.length} cobradas</span><span style="background:#FCE4E2;color:#A3231F">Pendiente total: ${eur(pendTot)}</span></div>
     <span class="grow"></span>
+    <button class="btn sm" id="hidepaid" ${paid.length?'':'disabled'} style="min-height:38px">Quitar cobradas</button>
     <div class="chips">${[['todas','Todas'],['pend','Por cobrar'],['paid','Cobradas']].map(([k,l])=>`<button class="chip ${accFilter===k?'on':''}" data-af="${k}" style="min-height:38px;font-size:13.5px">${l}</button>`).join('')}</div></div>
    <div class="accgrid">
     <button class="acard st-quick ${cur===QUICK?'on':''}" data-acc="${QUICK}"><span class="an">Venta rápida</span><span class="ad">pide y paga</span><span class="ab"><span class="am">${accTotal(QUICK)?eur(accTotal(QUICK)):''}</span><span class="as">Mostrador</span></span></button>
@@ -707,7 +708,8 @@ V.tpv=()=>{
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><button class="btn big pri" id="pcash" ${pend>0?'':'disabled'}>Efectivo</button><button class="btn big pri" id="pcard" ${pend>0?'':'disabled'}>Datáfono</button><button class="btn big pri" id="ptab" ${pend>0?'':'disabled'}>Tablet</button></div>
     <button class="btn big sea" id="pparts" ${pend>0?'':'disabled'}>Pagar por partes</button>
     ${cur===QUICK&&Object.keys(a.items).length?'<button class="btn" id="tocuenta">Pasar a una cuenta con nombre</button>':''}
-    ${cur!==QUICK?`<button class="btn" id="psend" ${MENU.some(m=>m.k&&a.items[m.id])?'':'disabled'}>Enviar comanda</button>`:''}`
+    ${cur!==QUICK?`<button class="btn" id="psend" ${MENU.some(m=>m.k&&a.items[m.id])?'':'disabled'}>Enviar comanda</button>`:''}
+    ${cur!==QUICK&&!ACC[cur].paid?'<button class="btn" id="delacc" style="color:var(--bad);border-color:#E9A6A2">Borrar esta cuenta</button>':''}`
     :`<div class="muted" style="font-size:13px">Si vuelven a pedir, toca productos: la cuenta se pone otra vez en rojo con lo nuevo.</div><button class="btn" id="hideacc">Quitar de la lista</button>`}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn sm" id="pcli">★ ${a.cli?'Cambiar cliente':'Cliente'}</button><button class="btn sm" id="pcanje">Canjear vale o código</button></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><button class="btn sm" id="pdrawer">Abrir cajón</button><button class="btn sm" id="preimp">Ticket</button><button class="btn sm" id="pfac">Factura</button><button class="btn sm" id="pfalta2" style="color:var(--bad);border-color:#E9A6A2">⚠ Falta</button></div>
@@ -724,6 +726,9 @@ A.tpv=()=>{
   $('#newacc').onclick=()=>openAcc(false);
   if($('#tocuenta'))$('#tocuenta').onclick=()=>openAcc(true);
   if($('#hideacc'))$('#hideacc').onclick=()=>{ACC[cur].hidden=true;cur=QUICK;render()};
+  /* Dueño, 20 nov 2026: quitar de golpe las cuentas cobradas y borrar cuentas de prueba sin cobrar. */
+  if($('#hidepaid'))$('#hidepaid').onclick=()=>{ACCS.forEach(n=>{const a=ACC[n];if(n!==QUICK&&a&&accState(n)==='paid')a.hidden=true});cur=QUICK;render()};
+  if($('#delacc'))$('#delacc').onclick=()=>{const b=$('#delacc');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez para borrarla';return}const n=cur;ACCS=ACCS.filter(x=>x!==n);delete ACC[n];cur=QUICK;tpvMsg='Cuenta «'+n+'» borrada.';render()};
   if($('#pcash'))$('#pcash').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' en efectivo',who=>cashModal(v,dado=>{abrirCajon();finish('Efectivo',who);if(dado>v+.004){tpvMsg+=' Te dio '+eur(dado)+', cambio '+eur(dado-v)+'.';render()}}))};
   if($('#pcard'))$('#pcard').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con el datáfono',who=>finish('Tarjeta',who))};
   if($('#ptab'))$('#ptab').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con la tablet',who=>tabletPantalla(v,()=>finish('Tarjeta',who)))};

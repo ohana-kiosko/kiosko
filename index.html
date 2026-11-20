@@ -488,7 +488,7 @@ let online=true,queued=0,syncMsg='';
 function netHTML(){return online?`<button class="netpill on" id="net" title="Conexión a internet">● Conectado${syncMsg?' · '+syncMsg:''}</button>`:`<button class="netpill off" id="net" title="Sin internet: las ventas se guardan en este aparato">● Sin internet · ${queued} ${queued===1?'venta guardada':'ventas guardadas'} en la pantalla</button>`}
 function drawNet(){online=navigator.onLine!==false;$('#netbox').innerHTML=netHTML()}
 addEventListener('online',drawNet);addEventListener('offline',drawNet);
-const logCobro=(amt,how,who,acc)=>{COBROS.push({t:Date.now(),acc,amt,how,who:who.nm});if(!online){queued++;drawNet()}};
+const logCobro=(amt,how,who,acc)=>{cajaAbierta();COBROS.push({t:Date.now(),acc,amt,how,who:who.nm});if(!online){queued++;drawNet()}};
 
 function rankHTML(title){const by={};COBROS.forEach(c=>{by[c.who]=by[c.who]||{n:0,i:0};by[c.who].n++;by[c.who].i+=c.amt});const rows=Object.entries(by).sort((a,b)=>b[1].i-a[1].i);const mx=Math.max(1,...rows.map(r=>r[1].i));
  return `<section class="card"><h2>${title}</h2><div class="bd"><div class="bars" style="display:flex;flex-direction:column;gap:12px">${rows.map(([w,v],i)=>`<div style="display:grid;grid-template-columns:110px 1fr 200px;gap:12px;align-items:center;font-size:14px"><b>${i===0?'🥇 ':''}${esc(w)}</b><div style="background:#EEEAE2;border-radius:7px"><div style="height:16px;border-radius:7px;background:var(--accent);width:${v.i/mx*100}%"></div></div><span style="text-align:right;font-variant-numeric:tabular-nums"><b>${eur(v.i)}</b> · ${v.n} cobros</span></div>`).join('')||'<span class="muted">Todavía no hay cobros.</span>'}</div><div class="muted" style="font-size:13px;margin-top:10px">Cada cobro se hace con la clave de quien cobra, así que aquí cuenta lo que ha cobrado cada uno.</div></div></section>`}
@@ -610,7 +610,7 @@ const NAVI={"tpv": "<path d=\"M3 6h18l-2 9H5z\"/><circle cx=\"8\" cy=\"19\" r=\"
 const PAGES=[
  {id:'tpv',n:'1',t:'Vender',s:'TPV táctil: toca, cobra y abre el cajón',g:'Día a día'},
  {id:'comandas',n:'2',t:'Comandas',s:'Smoothies, cócteles y cafés: lo que sale por la impresora para preparar',g:'Día a día'},
- {id:'cierre',n:'3',t:'Cierre de caja',s:'Lo hace el trabajador al terminar el día',g:'Día a día'},
+ {id:'cierre',n:'3',t:'Caja',s:'Abrir y cerrar caja, las veces que haga falta',g:'Día a día'},
  {id:'pedidos',n:'4',t:'Faltas y pedidos',s:'Lo que se está acabando y el pedido hecho solo',g:'Día a día'},
  {id:'facturas',n:'5',t:'Facturas',s:'Enviar facturas a clientes, leer las de proveedores y dejarlas cada semana en la carpeta de A3Doc Cloud',g:'Día a día'},
  {id:'fichar',n:'6',t:'Fichar',s:'Entrada, salida y mis horas',g:'Día a día'},
@@ -881,36 +881,84 @@ V.comandas=()=>{const open=COMANDAS.filter(c=>!c.done);return `<div class="muted
  ${COMANDAS.some(c=>c.done)?`<section class="card"><h2>Hechas hoy</h2><div class="tw"><table><tbody>${COMANDAS.filter(c=>c.done).map(c=>`<tr><td>${c.n}</td><td>${esc(c.acc)}</td><td>${c.l.map(x=>x[0]+'× '+x[1]).join(', ')}</td><td>${hhmm(c.t)}</td></tr>`).join('')}</tbody></table></div></section>`:''}`};
 A.comandas=()=>$$('[data-done]').forEach(b=>b.onclick=()=>{COMANDAS.find(c=>c.n==b.dataset.done).done=true;render()});
 
-/* ---------- 3. Cierre ---------- */
+/* ---------- 3. Caja: abrir y cerrar (dueño, 20 nov 2026) ----------
+   La caja se abre con un fondo (el dinero que hay en el cajón al empezar) y se cierra cuando haga falta, las veces que
+   haga falta: por ejemplo, Isidro cierra sus pruebas y deja la caja lista para Eli. Al cerrar se cuenta el efectivo, se pone
+   el total del datáfono, el resumen queda en «Histórico y ventas» y las ventas vuelven a cero. Si alguien cobra sin abrir
+   caja, se abre sola con el dinero que se dejó en el último cierre. */
 const DEN=[['50 €',50],['20 €',20],['10 €',10],['5 €',5],['2 €',2],['1 €',1],['0,50 €',.5],['0,20 €',.2],['0,10 €',.1]];
-let conteo={};
+let conteo={}, CAJA=null, cierreRes=null, cierreConfirma=false;
+function cajaAbierta(){if(!CAJA||!CAJA.abierta)CAJA={abierta:true,desde:Date.now(),fondo:+((CAJA&&CAJA.deja)||0),por:(user&&user.nm)||'—',auto:true};return CAJA}
+const r2=x=>Math.round(x*100)/100;
+const cobradoPor=re=>r2(COBROS.filter(c=>re.test(c.how)).reduce((a,c)=>a+c.amt,0));
+const cuandoTxt=t=>{const d=new Date(t),hoy=new Date();return (d.toDateString()===hoy.toDateString()?'hoy':dmy(t))+' a las '+hhmm(t)};
+function contadoCaja(){const tot=$('#ctotal')&&$('#ctotal').value!==''?parseFloat($('#ctotal').value):NaN;if(!isNaN(tot))return tot;const any=Object.values(conteo).some(x=>x!==''&&x!=null);return any?r2(DEN.reduce((a,[l,v],i)=>a+v*(+conteo[i]||0),0)):NaN}
+function resumenCierreTxt(r){const x=r[7]||{};return [centro(PRN.nombre),centro('CIERRE DE CAJA'),centro(r[0]),'-'.repeat(PRN.col),
+  lineaLR('Abrio',(x.abrio||'')+' '+(x.desde?hhmm(x.desde):'')),lineaLR('Cerro',r[1]),lineaLR('Fondo inicial',eur(x.fondo||0)),
+  lineaLR('Efectivo cobrado',eur(x.ef||0)),lineaLR('Tarjeta',eur(x.tj||0)),lineaLR('Otros',eur(x.ot||0)),lineaLR('TOTAL VENTAS',eur(r[2])),'-'.repeat(PRN.col),
+  lineaLR('Tendria que haber',eur((x.fondo||0)+(x.ef||0))),lineaLR('Contado',x.contado==null?'-':eur(x.contado)),lineaLR('Descuadre',eur(r[4])),
+  lineaLR('Datafono (banco)',x.datafono==null?'-':eur(x.datafono)),lineaLR('Se deja en caja',eur(x.deja||0))].concat(x.nota?['',plano('Notas: '+x.nota)]:[])}
 V.cierre=()=>{
-  const ef=SALES.filter(s=>s[4]==='Efectivo').reduce((a,s)=>a+s[3],0),tj=SALES.filter(s=>s[4]==='Tarjeta').reduce((a,s)=>a+s[3],0),pp=SALES.filter(s=>s[4]==='Por partes').reduce((a,s)=>a+s[3],0);
-  const fondo=100;
-  return `<div class="kpis"><div class="kpi"><div class="l">Ventas de hoy</div><div class="v">${eur(ef+tj+pp)}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(ef)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(tj)}</div></div><div class="kpi"><div class="l">Por partes</div><div class="v">${eur(pp)}</div></div><div class="kpi"><div class="l">Tickets</div><div class="v">${SALES.length}</div></div></div>
-  ${(()=>{const p=ACCS.filter(n=>n!==QUICK&&!ACC[n].hidden&&['due','part'].includes(accState(n)));return p.length?`<div class="note" style="font-size:14px;font-weight:600">Ojo: quedan ${p.length} cuentas sin cobrar (${eur(p.reduce((s,n)=>s+accTotal(n)-ACC[n].paid,0))}): ${p.map(esc).join(', ')}.</div>`:''})()}
-  ${cierreHecho?'<div class="status">Caja de hoy cerrada. El resumen está en «Histórico y ventas».</div>':''}
+  const abierta=CAJA&&CAJA.abierta;
+  const pend=(()=>{const p=ACCS.filter(n=>n!==QUICK&&!ACC[n].hidden&&['due','part'].includes(accState(n)));return p.length?`<div class="note" style="font-size:14px;font-weight:600">Ojo: quedan ${p.length} cuentas sin cobrar (${eur(p.reduce((s,n)=>s+accTotal(n)-ACC[n].paid,0))}): ${p.map(esc).join(', ')}. Si cierras, siguen abiertas para la caja siguiente.</div>`:''})();
+  if(!abierta){
+    const r=cierreRes, x=r&&r[7]||{};
+    return `${r?`<section class="card"><h2>Caja cerrada ${cuandoTxt(x.hasta||Date.now())}</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
+      <div class="kpis"><div class="kpi"><div class="l">Ventas</div><div class="v">${eur(r[2])}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(x.ef||0)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(x.tj||0)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(r[4])<.005?'Cuadra':eur(r[4])}</div></div><div class="kpi"><div class="l">Queda en caja</div><div class="v">${eur(x.deja||0)}</div></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="cimp">Imprimir resumen</button></div></div></section>`:''}
+    <section class="card" style="max-width:560px"><h2>Abrir caja</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
+      <div class="muted" style="font-size:14px">¿Cuánto dinero hay en el cajón para empezar? Es el fondo para dar cambio.</div>
+      <input class="inp" id="cfondo" type="number" step="0.01" min="0" inputmode="decimal" style="font-size:22px" value="${(CAJA&&CAJA.deja!=null)?CAJA.deja:''}" placeholder="0,00">
+      <div class="chips">${[0,50,100,150,200].map(v=>`<button class="chip" data-cf="${v}">${eur(v)}</button>`).join('')}</div>
+      <button class="btn big pri" id="cabrir">Abrir caja</button>
+      <div class="muted" style="font-size:13px">Si alguien cobra sin abrir caja, se abre sola con el dinero que se dejó en el último cierre.</div>
+    </div></section>`;
+  }
+  const ef=cobradoPor(/^Efectivo/),tj=cobradoPor(/^Tarjeta/),tot=r2(COBROS.reduce((a,c)=>a+c.amt,0)),ot=r2(tot-ef-tj);
+  return `<div class="status">Caja abierta ${cuandoTxt(CAJA.desde)} por <b>${esc(CAJA.por)}</b> con ${eur(CAJA.fondo)} de fondo${CAJA.auto?' (se abrió sola al primer cobro)':''}. <button class="btn sm" id="cfondoedit">Cambiar fondo</button></div>
+  <div class="kpis"><div class="kpi"><div class="l">Cobrado</div><div class="v">${eur(tot)}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(ef)}</div></div><div class="kpi"><div class="l">Tarjeta (datáfono y tablet)</div><div class="v">${eur(tj)}</div></div><div class="kpi"><div class="l">Otros</div><div class="v">${eur(ot)}</div></div><div class="kpi"><div class="l">Cobros</div><div class="v">${COBROS.length}</div></div></div>
+  ${pend}
   <div class="row">
-  ${(()=>{const by={};COBROS.forEach(c=>{const k=c.who;by[k]=by[k]||{ef:0,tj:0,ot:0};if(/^Efectivo/.test(c.how))by[k].ef+=c.amt;else if(/^Tarjeta/.test(c.how))by[k].tj+=c.amt;else by[k].ot+=c.amt});return `<section class="card" style="flex:1 1 100%"><h2>Cobrado por cada camarero hoy</h2><div class="tw"><table><thead><tr><th>Camarero</th><th class="r">Efectivo</th><th class="r">Tarjeta</th><th class="r">Móvil (QR)</th><th class="r">Total</th></tr></thead><tbody>${Object.entries(by).map(([w,v])=>`<tr><td><b>${esc(w)}</b></td><td class="r">${eur(v.ef)}</td><td class="r">${eur(v.tj)}</td><td class="r">${eur(v.ot)}</td><td class="r"><b>${eur(v.ef+v.tj+v.ot)}</b></td></tr>`).join('')}</tbody></table></div></section>`})()}
-  <section class="card" style="flex:2 1 520px"><h2>Cuenta el efectivo del cajón</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
+  ${(()=>{const by={};COBROS.forEach(c=>{const k=c.who;by[k]=by[k]||{ef:0,tj:0,ot:0};if(/^Efectivo/.test(c.how))by[k].ef+=c.amt;else if(/^Tarjeta/.test(c.how))by[k].tj+=c.amt;else by[k].ot+=c.amt});const rows=Object.entries(by);return rows.length?`<section class="card" style="flex:1 1 100%"><h2>Cobrado por cada uno en esta caja</h2><div class="tw"><table><thead><tr><th>Quién</th><th class="r">Efectivo</th><th class="r">Tarjeta</th><th class="r">Otros</th><th class="r">Total</th></tr></thead><tbody>${rows.map(([w,v])=>`<tr><td><b>${esc(w)}</b></td><td class="r">${eur(v.ef)}</td><td class="r">${eur(v.tj)}</td><td class="r">${eur(v.ot)}</td><td class="r"><b>${eur(v.ef+v.tj+v.ot)}</b></td></tr>`).join('')}</tbody></table></div></section>`:''})()}
+  <section class="card" style="flex:2 1 520px"><h2>1. Cuenta el efectivo del cajón</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
     <div class="cnt">${DEN.map(([l,v],i)=>`<label>${l}<input type="number" min="0" inputmode="numeric" data-den="${i}" value="${conteo[i]??''}" placeholder="0"></label>`).join('')}</div>
-    <dl class="kv"><dt>Fondo de caja</dt><dd>${eur(fondo)}</dd><dt>Efectivo vendido</dt><dd>${eur(ef)}</dd><dt>Tendría que haber</dt><dd>${eur(fondo+ef)}</dd><dt>Has contado</dt><dd id="contado">—</dd></dl>
+    <label class="f">O escribe directamente el total contado<input class="inp" id="ctotal" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00"></label>
+    <dl class="kv"><dt>Fondo al abrir</dt><dd>${eur(CAJA.fondo)}</dd><dt>Efectivo cobrado</dt><dd>${eur(ef)}</dd><dt>Tendría que haber</dt><dd>${eur(CAJA.fondo+ef)}</dd><dt>Has contado</dt><dd id="contado">—</dd></dl>
     <div id="desc"></div>
   </div></section>
-  <section class="card" style="flex:1 1 320px"><h2>Tarjeta y cierre</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
-    <label class="f">Total del datáfono (cierre del banco)<input class="inp" id="tjb" type="number" step="0.01" placeholder="${tj.toFixed(2)}"></label>
+  <section class="card" style="flex:1 1 320px"><h2>2. Datáfono y cierre</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
+    <label class="f">Total del datáfono (el cierre del banco)<input class="inp" id="tjb" type="number" step="0.01" placeholder="${tj.toFixed(2)}"></label>
     <div id="tjd" class="muted" style="font-size:13px">Debería coincidir con ${eur(tj)}.</div>
-    <label class="f">Notas para Isidro<textarea class="inp" id="nota" style="min-height:70px;padding:10px" placeholder="Ej.: se rompió un vaso, faltan 2 € de un cambio"></textarea></label>
-    <button class="btn big pri" id="cerrar" ${cierreHecho?'disabled':''}>Cerrar caja de hoy</button>
-    <div class="muted" style="font-size:13px">Lo puede hacer cualquier trabajador. Isidro recibe el resumen.</div>
+    <label class="f">Dinero que se deja en el cajón para la caja siguiente<input class="inp" id="cdeja" type="number" step="0.01" min="0" inputmode="decimal" value="${CAJA.fondo}"></label>
+    <label class="f">Notas<textarea class="inp" id="nota" style="min-height:70px;padding:10px" placeholder="Ej.: eran pruebas; se rompió un vaso; faltan 2 € de un cambio"></textarea></label>
+    <button class="btn big pri" id="cerrar">${cierreConfirma?'Pulsa otra vez para confirmar el cierre':'Cerrar caja'}</button>
+    <div class="muted" style="font-size:13px">Lo puede hacer cualquiera, las veces que haga falta. Al cerrar, las ventas vuelven a cero y el resumen queda en «Histórico y ventas».</div>
   </div></section></div>`;
 };
 A.cierre=()=>{
-  const ef=SALES.filter(s=>s[4]==='Efectivo').reduce((a,s)=>a+s[3],0)+100;
-  const upd=()=>{const c=DEN.reduce((a,[l,v],i)=>a+v*(+conteo[i]||0),0);const any=Object.values(conteo).some(x=>x!==''&&x!=null);$('#contado').textContent=any?eur(c):'—';if(!any){$('#desc').innerHTML='';return}const d=Math.round((c-ef)*100)/100;$('#desc').innerHTML=Math.abs(d)<.005?'<div class="status">Cuadra.</div>':`<div class="note">${d>0?'Sobran':'Faltan'} ${eur(Math.abs(d))}. Puedes cerrar igualmente y explicarlo en las notas.</div>`};
-  $$('[data-den]').forEach(i=>i.oninput=()=>{conteo[i.dataset.den]=i.value;upd()});upd();
-  $('#tjb').oninput=e=>{const tj=SALES.filter(s=>s[4]==='Tarjeta').reduce((a,s)=>a+s[3],0);const v=parseFloat(e.target.value);$('#tjd').innerHTML=isNaN(v)?`Debería coincidir con ${eur(tj)}.`:Math.abs(v-tj)<.005?'<span class="pill p-ok">Coincide</span>':`<span class="pill p-warn">Diferencia de ${eur(v-tj)}</span>`};
-  $('#cerrar').onclick=()=>{const tot=SALES.reduce((a,s)=>a+s[3],0);const c=DEN.reduce((a,[l,v],i)=>a+v*(+conteo[i]||0),0);HIST.unshift(['Hoy',user?.nm||'—',tot,tot,Math.round((c-ef)*100)/100||0,0,true]);cierreHecho=true;render()};
+  if(!(CAJA&&CAJA.abierta)){
+    $$('[data-cf]').forEach(b=>b.onclick=()=>{$('#cfondo').value=b.dataset.cf});
+    if($('#cimp'))$('#cimp').onclick=()=>{if(!cierreRes)return;const L=resumenCierreTxt(cierreRes);if(PRN.modo==='navegador')imprimirHTML(L.join('\n'));else enviar(ESC.ini+L.join('\n')+ESC.corte)};
+    $('#cabrir').onclick=()=>{const f=parseFloat($('#cfondo').value);CAJA={abierta:true,desde:Date.now(),fondo:isNaN(f)?0:r2(f),por:(user&&user.nm)||'—'};cierreRes=null;conteo={};cierreConfirma=false;render()};
+    return;
+  }
+  const ef=cobradoPor(/^Efectivo/),tj=cobradoPor(/^Tarjeta/);
+  const upd=()=>{const c=contadoCaja();$('#contado').textContent=isNaN(c)?'—':eur(c);if(isNaN(c)){$('#desc').innerHTML='';return}const d=r2(c-(CAJA.fondo+ef));$('#desc').innerHTML=Math.abs(d)<.005?'<div class="status">Cuadra.</div>':`<div class="note">${d>0?'Sobran':'Faltan'} ${eur(Math.abs(d))}. Puedes cerrar igualmente y explicarlo en las notas.</div>`};
+  $$('[data-den]').forEach(i=>i.oninput=()=>{conteo[i.dataset.den]=i.value;upd()});$('#ctotal').oninput=upd;upd();
+  $('#tjb').oninput=e=>{const v=parseFloat(e.target.value);$('#tjd').innerHTML=isNaN(v)?`Debería coincidir con ${eur(tj)}.`:Math.abs(v-tj)<.005?'<span class="pill p-ok">Coincide</span>':`<span class="pill p-warn">Diferencia de ${eur(v-tj)}</span>`};
+  $('#cfondoedit').onclick=()=>{const box=$('#cfondoedit').parentNode;box.innerHTML=`Fondo al abrir: <input class="inp" id="cfnew" type="number" step="0.01" min="0" style="width:120px;display:inline-block" value="${CAJA.fondo}"> <button class="btn sm pri" id="cfok">Guardar</button>`;$('#cfok').onclick=()=>{const f=parseFloat($('#cfnew').value);if(!isNaN(f))CAJA.fondo=r2(f);render()}};
+  $('#cerrar').onclick=()=>{
+    if(!cierreConfirma){cierreConfirma=true;$('#cerrar').textContent='Pulsa otra vez para confirmar el cierre';setTimeout(()=>{cierreConfirma=false;const b=$('#cerrar');if(b)b.textContent='Cerrar caja'},6000);return}
+    cierreConfirma=false;
+    const c=contadoCaja(),tot=r2(COBROS.reduce((a,x)=>a+x.amt,0)),ot=r2(tot-ef-tj),dj=parseFloat($('#cdeja').value),dat=parseFloat($('#tjb').value);
+    const ahora=Date.now(),desc=isNaN(c)?0:r2(c-(CAJA.fondo+ef));
+    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?0:r2(dj),nota:($('#nota').value||'').trim(),cobros:COBROS.length}];
+    HIST.unshift(reg);cierreRes=reg;
+    SALES=[];COBROS=[];conteo={};cierreHecho=false;
+    ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true});
+    CAJA={abierta:false,deja:reg[7].deja};
+    render();
+  };
 };
 
 /* ---------- 4. Faltas y pedidos ---------- */
@@ -1122,7 +1170,8 @@ A.ajustes=()=>{$$('[data-bc]').forEach(b=>b.onclick=()=>{ESPERA_BC=ESPERA_BC===b
     quitarProducto(m.id);guardar();render()});
   $$('[data-precio]').forEach(i=>i.onchange=()=>{const m=prod(i.dataset.precio),v=Math.round(parseFloat(String(i.value).replace(',','.'))*100)/100;if(!m||!(v>=0)){i.value=m?m.p:'';return}m.p=v;MENU.filter(x=>x.opts&&x.opts.some(o=>o[0]===m.id)).forEach(x=>{x.p=Math.min(...x.opts.map(o=>prod(o[0]).p))});guardar();i.style.outline='2px solid #2E9E5B';setTimeout(()=>i.style.outline='',900)});
   const sv=(id,v)=>{const e=$(id);if(e)e.value=v};sv('#prmodo',PRN.modo);sv('#prticket',PRN.ticket);sv('#prcom',PRN.comandas);sv('#prnom',PRN.nombre);sv('#prnif',PRN.nif);sv('#prdir',PRN.dir);
-  const lee=()=>{PRN.modo=$('#prmodo').value;PRN.ticket=$('#prticket').value;PRN.comandas=$('#prcom').value;PRN.nombre=$('#prnom').value.trim()||'OHANA SURF KIOSKO';PRN.nif=$('#prnif').value.trim();PRN.dir=$('#prdir').value.trim();guardaPRN()};
+  if($('#prdest')){let L=[];try{L=JSON.parse(OhanaTPV.impresoras())}catch(e){}$('#prdest').innerHTML='<option value="">Buscarla sola</option>'+L.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.nombre)+(x.tipo==='bt'?' (Bluetooth)':'')+'</option>').join('');$('#prdest').value=PRN.dest||''}sv('#prcaj',PRN.cajon||'todas');
+  const lee=()=>{if($('#prdest'))PRN.dest=$('#prdest').value;if($('#prcaj'))PRN.cajon=$('#prcaj').value;PRN.modo=$('#prmodo').value;PRN.ticket=$('#prticket').value;PRN.comandas=$('#prcom').value;PRN.nombre=$('#prnom').value.trim()||'OHANA SURF KIOSKO';PRN.nif=$('#prnif').value.trim();PRN.dir=$('#prdir').value.trim();guardaPRN()};
   if($('#prguardar'))$('#prguardar').onclick=()=>{lee();$('#prguardar').textContent='Guardado ✓'};
   if($('#prprueba'))$('#prprueba').onclick=()=>{lee();imprimirTicket({n:0,t:Date.now(),cuenta:QUICK,l:[[1,'Prueba de impresora',0]],tot:0,how:'Prueba',who:user?.nm||''},false)};
   if($('#prcajon'))$('#prcajon').onclick=()=>{lee();abrirCajon()};
@@ -1131,9 +1180,9 @@ V.ajustes=()=>`<div class="row"><section class="card" style="flex:2 1 520px"><h2
  ${MENU.filter(m=>!m.opts).map(m=>`<tr><td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colorOf(m.c)};margin-right:8px;vertical-align:-1px"></span>${m.nm}</td><td>${m.c}</td><td class="r" style="white-space:nowrap"><input class="inp" type="number" inputmode="decimal" step="0.05" min="0" data-precio="${m.id}" value="${m.p}" aria-label="Precio de ${esc(m.nm)}" style="width:96px;min-height:40px;text-align:right;font-weight:600"> €</td><td>${m.k?'<span class="pill p-acc">Sí</span>':'<span class="pill p-mute">No</span>'}</td><td><div style="display:flex;align-items:center;gap:8px"><span style="width:44px;height:44px;border-radius:8px;background:${TINT[m.c]};display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none">${artFor(m)}</span><label class="btn sm" style="position:relative">${m.foto?'Cambiar foto':'Poner foto'}<input type="file" accept="image/*" data-foto="${m.id}" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div></td><td style="white-space:nowrap">${m.bc?`<span class="pill p-mute">${esc(m.bc)}</span> `:''}<button class="btn sm" data-bc="${m.id}">${ESPERA_BC===m.id?'Pásalo por el escáner…':(m.bc?'Cambiar':'Escanear')}</button></td><td><button class="btn sm" data-borrar="${m.id}" style="color:var(--bad);border-color:#E9B5B2" aria-label="Quitar ${esc(m.nm)}">Quitar</button></td></tr>`).join('')}
  </tbody></table></div></section>
  <section class="card" style="flex:1 1 360px"><h2>Impresora y cajón</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
-  <div class="muted" style="font-size:13px">TPV ZAZOO NB11: impresora de tickets de 80 mm dentro del aparato y cajón conectado a él. Para imprimir desde el programa, instala en el TPV la app gratis <b>RawBT</b> (Google Play) y elige en ella la impresora interna.</div>
-  <label class="f">Cómo imprimir<select class="inp" id="prmodo"><option value="rawbt">Con la app RawBT (imprime, corta y abre el cajón)</option><option value="navegador">Con el diálogo de imprimir de Android</option><option value="ninguno">No imprimir</option></select></label>
-  <label class="f">Ticket al cobrar<select class="inp" id="prticket"><option value="siempre">Siempre</option><option value="pedir">Solo si lo pide el cliente (botón «Ticket»)</option></select></label>
+  <div class="muted" style="font-size:13px">TPV ZAZOO NB11: impresora de tickets de 80 mm dentro del aparato y cajón conectado a él. Dentro de la app <b>Kiosko Ohana</b> imprime directo a la impresora de la tablet, sin RawBT. Abierto en Chrome hace falta la app <b>RawBT</b> (Google Play) con la impresora interna elegida.</div>
+  <label class="f">Cómo imprimir<select class="inp" id="prmodo"><option value="tablet">Directo a la impresora de la tablet (app Kiosko Ohana, sin RawBT)</option><option value="rawbt">Con la app RawBT (imprime, corta y abre el cajón)</option><option value="navegador">Con el diálogo de imprimir de Android</option><option value="ninguno">No imprimir</option></select></label>
+  ${window.OhanaTPV&&window.OhanaTPV.impresoras?'<label class="f">Impresora de la tablet<select class="inp" id="prdest"></select></label>':''}<label class="f">Orden para abrir el cajón<select class="inp" id="prcaj"><option value="todas">Todas las conocidas (recomendado)</option><option value="dle">10,14,00,00,00 (tablets TPV)</option><option value="p2">ESC p · patilla 2</option><option value="p5">ESC p · patilla 5</option><option value="dle2">DLE DC4 · patilla 2</option></select></label><label class="f">Ticket al cobrar<select class="inp" id="prticket"><option value="siempre">Siempre</option><option value="pedir">Solo si lo pide el cliente (botón «Ticket»)</option></select></label>
   <label class="f">Comandas (smoothies, cócteles, cafés)<select class="inp" id="prcom"><option value="misma">Imprimirlas en la misma impresora</option><option value="pantalla">Solo en pantalla («2 Comandas»)</option></select></label>
   <label class="f">Nombre en el ticket<input class="inp" id="prnom"></label>
   <label class="f">NIF del titular (obligatorio en el ticket)<input class="inp" id="prnif" placeholder="Pon aquí el NIF"></label>
@@ -1161,9 +1210,19 @@ const plano=t=>String(t).replace(/€/g,'EUR').replace(/·/g,'-').normalize('NFD
 const lineaLR=(l,r,w=PRN.col)=>{l=plano(l);r=plano(r);if(l.length+r.length+1>w)l=l.slice(0,w-r.length-1);return l+' '.repeat(Math.max(1,w-l.length-r.length))+r};
 const centro=(t,w=PRN.col)=>{t=plano(t).slice(0,w);return ' '.repeat(Math.floor((w-t.length)/2))+t};
 const ESC={ini:'\x1b@',grande:'\x1d!\x11',normal:'\x1d!\x00',neg:'\x1bE\x01',fneg:'\x1bE\x00',corte:'\n\n\n\n\x1dV\x42\x00',cajon:'\x1bp\x00\x19\xfa'};
+/* Dueño, 20 nov 2026: todo lo que se manda a la vez (cajón + comanda + ticket) sale en UNA sola orden; si no, Android
+   solo hace caso a la primera y el ticket se perdía. En la app Kiosko Ohana se imprime directo, sin RawBT. */
+const CAJON={todas:'\x1bp\x00\x19\xfa\x1bp\x01\x19\xfa\x10\x14\x01\x00\x05\x10\x14\x00\x00\x00',p2:'\x1bp\x00\x19\xfa',p5:'\x1bp\x01\x19\xfa',dle:'\x10\x14\x00\x00\x00',dle2:'\x10\x14\x01\x00\x05'};
+Object.defineProperty(ESC,'cajon',{get:()=>CAJON[PRN.cajon]||CAJON.todas});
+if(window.OhanaTPV&&window.OhanaTPV.imprimirRaw&&!PRN.nativoVisto){PRN.nativoVisto=true;PRN.modo='tablet';guardaPRN()}
+let colaPRN='',tPRN=0;
+window.ohkPRN=r=>{try{r=typeof r==='string'?JSON.parse(r):r}catch(e){r={ok:false,error:String(r)}}if(!r.ok){tpvMsg='No se pudo imprimir: '+(r.error||'')+'. Mira «Productos y aparatos › Impresora y cajón».';try{render()}catch(e){}}};
 function enviar(bin){
-  if(PRN.modo==='rawbt'){const b64=btoa(bin);const url='intent:base64,'+b64+'#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
-    try{location.href=url}catch(e){tpvMsg='No se pudo enviar a la impresora. ¿Está instalada la app RawBT?'}return}
+  if(PRN.modo!=='rawbt'&&PRN.modo!=='tablet')return;
+  colaPRN+=bin;clearTimeout(tPRN);
+  tPRN=setTimeout(()=>{const b=colaPRN;colaPRN='';
+    if(PRN.modo==='tablet'&&window.OhanaTPV&&window.OhanaTPV.imprimirRaw){try{OhanaTPV.imprimirRaw(PRN.dest||'',btoa(b))}catch(e){tpvMsg='No se pudo imprimir: '+e.message}return}
+    try{location.href='intent:base64,'+btoa(b)+'#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;'}catch(e){tpvMsg='No se pudo enviar a la impresora. ¿Está instalada la app RawBT?'}},40);
 }
 function imprimirHTML(txt){if(window.OhanaTPV&&OhanaTPV.imprimirHTML){try{OhanaTPV.imprimirHTML('<!doctype html><meta charset=utf8><style>@page{size:80mm auto;margin:3mm}body{margin:0;font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;white-space:pre}</style>'+esc(txt));return}catch(e){}}
   const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(f);
@@ -1182,7 +1241,7 @@ function textoTicket(t){const L=[];
 function imprimirTicket(t,cajon){if(PRN.modo==='ninguno')return;
   if(PRN.modo==='navegador'){imprimirHTML(textoTicket(t).join('\n'));return}
   const L=textoTicket(t);enviar(ESC.ini+(cajon?ESC.cajon:'')+ESC.neg+L[0]+ESC.fneg+'\n'+L.slice(1).join('\n')+ESC.corte)}
-function abrirCajon(){if(PRN.modo==='rawbt')enviar(ESC.ini+ESC.cajon)}
+function abrirCajon(){if(PRN.modo==='rawbt'||PRN.modo==='tablet')enviar(ESC.ini+ESC.cajon)}
 function imprimirComanda(c){if(PRN.modo==='ninguno'||PRN.comandas!=='misma')return;
   const L=[centro('COMANDA '+c.n),centro(c.acc===QUICK?'Barra':c.acc),centro(hhmm(c.t)),'-'.repeat(PRN.col)].concat(c.l.map(([n,nm])=>plano(n+' x '+nm)));
   if(PRN.modo==='navegador'){imprimirHTML(L.join('\n'));return}
@@ -1249,14 +1308,15 @@ function quitarProducto(id){const i=MENU.findIndex(x=>x.id===id);if(i<0)return;M
   MENU.filter(x=>x.opts).forEach(x=>{x.opts=x.opts.filter(o=>o[0]!==id);if(!x.opts.length)quitarProducto(x.id);else x.p=Math.min(...x.opts.map(o=>prod(o[0]).p))})}
 /* ---------- Guardar en este aparato (hasta tener la base de datos del kiosko) ---------- */
 const SK='ohk-estado-v1', hoyK=()=>new Date().toLocaleDateString('sv-SE');
-function guardar(){try{localStorage.setItem(SK,JSON.stringify({dia:hoyK(),ACCS,ACC,COMANDAS,nextCom,nextTicket,SALES,COBROS,cierreHecho,HIST,FICHAJES,FALTAS,STOCK,ULTIMO,CLIENTES,VALES,PROMOS,FREC,FEMI,RULES,MENU:MENU.map(m=>({id:m.id,p:m.p,foto:m.foto||null,bc:m.bc||null})),BORRADOS,EXTRA:MENU.filter(m=>/^x/.test(m.id)).map(m=>({id:m.id,c:m.c,nm:m.nm,p:m.p,r:m.r,k:m.k,foto:m.foto||null,bc:m.bc||null}))}))}catch(e){console.warn('No se pudo guardar',e)}}
+function guardar(){try{localStorage.setItem(SK,JSON.stringify({dia:hoyK(),ACCS,ACC,COMANDAS,nextCom,nextTicket,SALES,COBROS,cierreHecho,CAJA,cierreRes,HIST,FICHAJES,FALTAS,STOCK,ULTIMO,CLIENTES,VALES,PROMOS,FREC,FEMI,RULES,MENU:MENU.map(m=>({id:m.id,p:m.p,foto:m.foto||null,bc:m.bc||null})),BORRADOS,EXTRA:MENU.filter(m=>/^x/.test(m.id)).map(m=>({id:m.id,c:m.c,nm:m.nm,p:m.p,r:m.r,k:m.k,foto:m.foto||null,bc:m.bc||null}))}))}catch(e){console.warn('No se pudo guardar',e)}}
 function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch(e){}if(!d)return;
   ACCS=d.ACCS||ACCS;ACC=d.ACC||ACC;COMANDAS=d.COMANDAS||[];nextCom=d.nextCom||1;nextTicket=d.nextTicket||1;
   HIST.splice(0,HIST.length,...(d.HIST||[]));FICHAJES=d.FICHAJES||[];ULTIMO=d.dia===hoyK()?d.ULTIMO||null:null;FALTAS=d.FALTAS||[];CLIENTES=d.CLIENTES||[];VALES=d.VALES||[];PROMOS=d.PROMOS||[];FREC=d.FREC||[];FEMI=d.FEMI||[];RULES=d.RULES||RULES;
   if(d.STOCK)Object.keys(d.STOCK).forEach(k=>{if(STOCK[k])Object.assign(STOCK[k],d.STOCK[k]);else if(/^x/.test(k))STOCK[k]=d.STOCK[k]});
   (d.EXTRA||[]).forEach(x=>{if(!prod(x.id))MENU.push(x)});(d.BORRADOS||[]).forEach(quitarProducto);
   (d.MENU||[]).forEach(x=>{const m=prod(x.id);if(m){m.p=x.p;if(x.foto)m.foto=x.foto;if(x.bc)m.bc=x.bc}});
-  if(d.dia===hoyK()){SALES=d.SALES||[];COBROS=d.COBROS||[];cierreHecho=!!d.cierreHecho}
+  CAJA=d.CAJA||null;cierreRes=d.cierreRes||null;
+  if(d.dia===hoyK()||(d.CAJA&&d.CAJA.abierta)){SALES=d.SALES||[];COBROS=d.COBROS||[];cierreHecho=false;if(!CAJA&&COBROS.length)CAJA={abierta:true,desde:COBROS[0].t||Date.now(),fondo:0,por:'—',auto:true}}
   else{SALES=[];COBROS=[];cierreHecho=false;ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true})}}
 cargar();
 aplicaEquipo(lsJ(EQK,null));

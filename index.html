@@ -494,7 +494,7 @@ let online=true,queued=0,syncMsg='';
 function netHTML(){return online?`<button class="netpill on" id="net" title="Conexión a internet">● Conectado${syncMsg?' · '+syncMsg:''}</button>`:`<button class="netpill off" id="net" title="Sin internet: las ventas se guardan en este aparato">● Sin internet · ${queued} ${queued===1?'venta guardada':'ventas guardadas'} en la pantalla</button>`}
 function drawNet(){online=navigator.onLine!==false;$('#netbox').innerHTML=netHTML()}
 addEventListener('online',drawNet);addEventListener('offline',drawNet);
-const logCobro=(amt,how,who,acc)=>{cajaAbierta();COBROS.push({t:Date.now(),acc,amt,how,who:who.nm});if(!online){queued++;drawNet()}};
+const logCobro=(amt,how,who,acc)=>{cajaAbierta();panelSucio=true;COBROS.push({t:Date.now(),acc,amt,how,who:who.nm});if(!online){queued++;drawNet()}};
 
 function rankHTML(title){const by={};COBROS.forEach(c=>{by[c.who]=by[c.who]||{n:0,i:0};by[c.who].n++;by[c.who].i+=c.amt});const rows=Object.entries(by).sort((a,b)=>b[1].i-a[1].i);const mx=Math.max(1,...rows.map(r=>r[1].i));
  return `<section class="card"><h2>${title}</h2><div class="bd"><div class="bars" style="display:flex;flex-direction:column;gap:12px">${rows.map(([w,v],i)=>`<div style="display:grid;grid-template-columns:110px 1fr 200px;gap:12px;align-items:center;font-size:14px"><b>${i===0?'🥇 ':''}${esc(w)}</b><div style="background:#EEEAE2;border-radius:7px"><div style="height:16px;border-radius:7px;background:var(--accent);width:${v.i/mx*100}%"></div></div><span style="text-align:right;font-variant-numeric:tabular-nums"><b>${eur(v.i)}</b> · ${v.n} cobros</span></div>`).join('')||'<span class="muted">Todavía no hay cobros.</span>'}</div><div class="muted" style="font-size:13px;margin-top:10px">Cada cobro se hace con la clave de quien cobra, así que aquí cuenta lo que ha cobrado cada uno.</div></div></section>`}
@@ -1002,7 +1002,7 @@ A.cierre=()=>{
     $$('[data-fden]').forEach(x=>x.oninput=()=>{conteoA[x.dataset.fden]=x.value;pintaSubs(conteoA,'data-fden');const t=sumaDen(conteoA);$('#cfondo').value=t?t.toFixed(2):'';$('#cfondotot').textContent=eur(t)});
     $('#cfondo').oninput=()=>{const v=parseFloat($('#cfondo').value);$('#cfondotot').textContent=eur(isNaN(v)?0:v)};
     if($('#cimp'))$('#cimp').onclick=()=>imprimirResumen(cierreRes);
-    $('#cabrir').onclick=()=>{const f=parseFloat($('#cfondo').value);CAJA={abierta:true,desde:Date.now(),fondo:isNaN(f)?0:r2(f),por:(user&&user.nm)||'—',billetes:Object.assign({},conteoA)};cierreRes=null;conteo={};conteoA={};cierreConfirma=false;render()};
+    $('#cabrir').onclick=()=>{const f=parseFloat($('#cfondo').value);CAJA={abierta:true,desde:Date.now(),fondo:isNaN(f)?0:r2(f),por:(user&&user.nm)||'—',billetes:Object.assign({},conteoA)};cierreRes=null;conteo={};conteoA={};cierreConfirma=false;render();marcaPanel(true)};
     return;
   }
   const ef=cobradoPor(/^Efectivo/),tj=cobradoPor(/^Tarjeta/);
@@ -1026,7 +1026,7 @@ A.cierre=()=>{
     SALES=[];COBROS=[];conteo={};cierreHecho=false;
     ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true});
     CAJA={abierta:false,deja:reg[7].deja};
-    render();
+    render();marcaPanel(true);
     if(PRN.modo==='rawbt'||PRN.modo==='tablet')imprimirResumen(reg);
   };
 };
@@ -1179,7 +1179,7 @@ V.fichar=()=>{const me=user;const f=fichado(me.id);const w=WEEK[me.id]||{ord:0,e
    <div>${f?`<span class="pill p-ok">Trabajando desde las ${hhmm(f.in)}</span>`:'<span class="pill p-mute">Sin fichar</span>'}</div>
    ${f?'<button class="btn big" id="fout">Fichar salida</button>':'<button class="btn big pri" id="fin">Fichar entrada</button>'}
    <div class="muted" style="font-size:13px">Entrar con tu clave no ficha. Pulsa «Fichar entrada» al empezar tu turno y «Fichar salida» al acabarlo (también desde el botón de abajo a la izquierda).</div></div></section>
-  <section class="card" style="flex:2 1 420px"><h2>Mis horas</h2><div class="bd" id="mishoras">${esWeb(me.id)?'<span class="muted">Cargando…</span>':'<span class="muted">'+(me.rol==='admin'?'El administrador no ficha en la web.':'Este aparato aún no está conectado con la web: Isidro lo conecta en «Equipo y sueldos».')+'</span>'}</div></section></div>
+  <section class="card" style="flex:2 1 420px"><h2>Mis horas</h2><div class="bd" id="mishoras" style="display:flex;flex-direction:column;gap:10px"></div></section></div>
  <section class="card"><h2>Quién está ahora</h2><div class="tw"><table><tbody>${STAFF.filter(s=>s.rol!=='admin').map(s=>{const x=fichado(s.id);return `<tr><td><b>${s.nm}</b></td><td>${s.puesto}</td><td>${x?`<span class="pill p-ok">Dentro desde ${hhmm(x.in)}</span>`:'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')}</tbody></table></div></section>`};
 A.fichar=()=>{if($('#fout'))$('#fout').onclick=()=>{const t=Date.now();fichado(user.id).out=t;encola(user.id,'out',t);render()};if($('#fin'))$('#fin').onclick=()=>{const t=Date.now();FICHAJES.push({p:user.id,in:t,out:null});encola(user.id,'in',t);render()};misHoras()};
 
@@ -1221,10 +1221,10 @@ V.escandallo=()=>{
 A.escandallo=()=>{$$('[data-esc]').forEach(b=>b.onclick=()=>{escSel=b.dataset.esc;render()});$('#epvp').onchange=e=>{const v=parseFloat(e.target.value);if(v>0){prod(escSel).p=v;render()}}};
 
 /* ---------- 9. Equipo y sueldos ---------- */
-V.equipo=()=>`${WEB?'':`<section class="card"><h2>Conectar este aparato con la web</h2><div class="bd" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start"><p class="muted" style="margin:0">Así los fichajes de los camareros quedan guardados en la web (registro de jornada, firma del mes e informes para la Inspección) y la lista de camareros sale del Equipo de la web. Se hace una sola vez.</p><input id="webclave" type="password" placeholder="Contraseña de la gestión de la escuela" style="padding:10px;font-size:16px;min-width:260px"><button class="btn pri" id="webcon">Conectar</button><div id="webmsg" class="muted"></div></div></section>`}
+V.equipo=()=>`<section class="card"><h2>Panel del móvil</h2><div class="bd" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">${PANEL?`<div>✅ Esta tablet está conectada con tu panel. ${panelUlt?'Último envío: '+(new Date(panelUlt).toDateString()===new Date().toDateString()?'hoy':new Date(panelUlt).toLocaleDateString('es-ES'))+' a las '+hhmm(panelUlt)+'.':'Aún no ha enviado nada.'}${panelMsg?' <span class="pill p-warn">'+esc(panelMsg)+'</span>':''}</div><div class="muted" style="font-size:13px">En el móvil abre <b>kiosko-topaz.vercel.app/panel</b>: cajas, horas de los camareros, horas ordinarias y extra. Los camareros nuevos se dan de alta allí.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="pnow">Enviar ahora</button><button class="btn sm" id="poff">Desconectar</button></div>`:`<p class="muted" style="margin:0">Conecta esta tablet una vez para ver en tu móvil las cajas y las horas de los camareros. Escribe la clave larga del TPV (la que pusiste en Vercel como TPV_CLAVE).</p><input id="pclave" class="inp" type="password" placeholder="Clave del TPV" style="padding:10px;font-size:16px;min-width:260px"><button class="btn pri" id="pcon">Conectar con el panel del móvil</button>`}<div id="pmsg" class="muted"></div></div></section>
  <section class="card"><h2>Esta semana</h2><div class="tw"><table><thead><tr><th>Persona</th><th class="r">Horas ordinarias</th><th class="r">Trabajadas</th><th class="r">Horas extra</th><th>Ahora</th></tr></thead><tbody>
- ${STAFF.filter(s=>s.rol!=='admin').map(s=>{const x=fichado(s.id);return `<tr><td><b>${s.nm}</b></td><td class="r">${s.web?s.ord+' h':'—'}</td><td class="r">${s.web?fmtQ(Math.round((s.semanaMin||0)/6)/10)+' h':'—'}</td><td class="r">${s.extraMin?`<span class="pill p-warn">${fmtQ(Math.round(s.extraMin/6)/10)} h</span>`:'0 h'}</td><td>${x?`<span class="pill p-ok">Dentro desde ${hhmm(x.in)}</span>`:'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Sin camareros. Dalos de alta en la web: Equipo, perfil Camarero.</td></tr>'}
- </tbody></table></div><div class="bd muted" style="font-size:13px">${WEB?`✅ Aparato conectado con la web${lsJ(COLA,[]).length?' · '+lsJ(COLA,[]).length+' fichajes esperando internet':''}. Las horas que pasan de las ordinarias de la semana son extra. Altas, horas ordinarias, validar, pagos y el registro de jornada para la Inspección: en la web, <b>ohanasurf3piedras.com/monitores</b> › Dirección › Camareros.`:'Conecta el aparato para ver aquí las horas guardadas en la web.'}</div></section>
+ ${STAFF.filter(x=>x.rol!=='admin').map(x=>{const f=fichado(x.id),w=horasSemana(x.id);return `<tr><td><b>${esc(x.nm)}</b></td><td class="r">${w.ord==null?'—':fmtQ(w.ord)+' h'}</td><td class="r">${hTxt(w.min)}</td><td class="r">${w.extra?`<span class="pill p-warn">${hTxt(w.extra)}</span>`:'0 h'}</td><td>${f?`<span class="pill p-ok">Dentro desde ${hhmm(f.in)}</span>`:'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Sin camareros. Dalos de alta en el panel del móvil.</td></tr>'}
+ </tbody></table></div><div class="bd muted" style="font-size:13px">${CFG&&CFG.camareros&&CFG.camareros.length?'Camareros y horas ordinarias puestos desde el panel del móvil. Lo que pasa de las ordinarias en la semana (de lunes a domingo) es extra.':'Aún no has puesto los camareros en el panel del móvil: las horas ordinarias salen allí.'}</div></section>
  <div class="row"><section class="card" style="flex:1 1 380px"><h2>Historial de fichajes</h2><div class="tw"><table><thead><tr><th>Día</th><th>Persona</th><th>Entrada</th><th>Salida</th><th class="r">Horas</th></tr></thead><tbody>
  ${FICHAJES.slice().reverse().slice(0,40).map(f=>{const st=STAFF.find(x=>x.id===f.p);const h=f.out?Math.round((f.out-f.in)/36e5*10)/10:null;return `<tr><td>${new Date(f.in).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}</td><td>${st?st.nm:f.p}</td><td>${hhmm(f.in)}</td><td>${f.out?hhmm(f.out):'—'}</td><td class="r">${h==null?'':fmtQ(h)}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Aún no hay fichajes.</td></tr>'}
  </tbody></table></div></section>
@@ -1232,7 +1232,10 @@ V.equipo=()=>`${WEB?'':`<section class="card"><h2>Conectar este aparato con la w
  ${[['Vender y cobrar','Sí','Sí'],['Comandas','Sí','Sí'],['Cerrar caja','Sí','Sí'],['Faltas y pedidos','Sí','Sí'],['Subir facturas','Sí','Sí'],['Fichar','Sí','Sí'],['Histórico y ventas','No','Sí'],['Escandallo','No','Sí'],['Sueldos y horas de todos','No','Sí'],['Cambiar precios','No','Sí']].map(r=>`<tr><td>${r[0]}</td><td>${r[1]==='Sí'?'<span class="pill p-ok">Sí</span>':'<span class="pill p-mute">No</span>'}</td><td><span class="pill p-ok">Sí</span></td></tr>`).join('')}
  </tbody></table></div></section></div>`;
 
-A.equipo=()=>{const b=$('#webcon');if(b)b.onclick=async()=>{const m=$('#webmsg');m.textContent='Conectando…';try{const r=await web({accion:'kio_alta',clave:$('#webclave').value,nombre:'Kiosko Tres Piedras'});WEB={tok:r.tok};lsS(WK,WEB);await refrescaEquipo();envia();render()}catch(e){m.textContent=e.message}}};
+A.equipo=()=>{
+  if($('#pcon'))$('#pcon').onclick=async()=>{const m=$('#pmsg');m.textContent='Conectando…';try{const r=await panelApi('POST','entrar',{clave:$('#pclave').value,quien:'tpv'});PANEL={tok:r.tok};lsS(PNK,PANEL);await subePanel();await leeConfig();render()}catch(e){m.textContent=e.message}};
+  if($('#pnow'))$('#pnow').onclick=async()=>{$('#pmsg').textContent='Enviando…';await subePanel();render();if($('#pmsg'))$('#pmsg').textContent=panelMsg?'No se pudo: '+panelMsg:'Enviado.'};
+  if($('#poff'))$('#poff').onclick=()=>{const b=$('#poff');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez para desconectar';return}PANEL=null;lsS(PNK,null);render()}};
 
 /* ---------- 10. Productos y aparatos ---------- */
 A.ajustes=()=>{$$('[data-bc]').forEach(b=>b.onclick=()=>{ESPERA_BC=ESPERA_BC===b.dataset.bc?null:b.dataset.bc;render()});
@@ -1328,44 +1331,56 @@ function imprimirComanda(c){if(PRN.modo==='ninguno'||PRN.comandas!=='misma')retu
   if(PRN.modo==='navegador'){imprimirHTML(L.join('\n'));return}
   enviar(ESC.ini+ESC.grande+plano('COMANDA '+c.n+'  '+hhmm(c.t))+'\n'+ESC.normal+'\x1d!\x01'+L.slice(1).join('\n')+ESC.normal+ESC.corte)}
 
-/* ---------- Fichajes en la web (dueño, 18 nov 2026: los camareros fichan solo aquí, en el kiosko, no con el móvil) ----------
-   El aparato se conecta una vez con la contraseña de la gestión de la escuela y recibe un código propio (nunca en el código: este
-   repositorio es público). Cada entrada y salida se guarda en una cola y se manda a la web en cuanto hay internet, con la hora en que
-   se fichó. La lista de camareros, sus horas ordinarias, el registro de jornada y la firma del mes viven en la web (api/monitores.js, kio_*). */
-const WEBAPI='https://ohanasurf3piedras.com/api/monitores/', WK='ohk-web', COLA='ohk-cola', EQK='ohk-equipo';
+/* ---------- Panel del dueño en el móvil (dueño, 21 nov 2026) ----------
+   Los camareros ya no se llevan en la web de la escuela («no lo voy a llevar por ahí»). La tablet se conecta una vez con la clave
+   del TPV (TPV_CLAVE, la que el dueño puso en Vercel) y sube a /api/panel (almacén privado del kiosko) las cajas cerradas, la caja
+   abierta y los fichajes: al abrir y cerrar caja, al fichar y como mucho una vez por hora si hubo ventas (el plan gratis da 2.000
+   escrituras al mes). En el panel del móvil (/panel/) el dueño pone los camareros, sus horas ordinarias por semana y corrige
+   fichajes; la tablet recoge esa configuración al abrir y cada media hora. */
+const PANELAPI='/api/panel', PNK='ohk-panel', CFGK='ohk-config', EQK='ohk-equipo';
 const lsJ=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?d:v}catch(e){return d}};
 const lsS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-let WEB=lsJ(WK,null);
-const esWeb=id=>!!(WEB&&STAFF.find(s=>s.id===id&&s.web));
-async function web(cuerpo){const r=await fetch(WEBAPI,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({},cuerpo,{tok:WEB&&WEB.tok}))});
-  const j=await r.json().catch(()=>({error:'Sin conexión con la web.'}));if(!r.ok){const e=new Error(j.error||('Error '+r.status));e.status=r.status;throw e}return j}
-function encola(id,tipo,t){if(!esWeb(id))return;const c=lsJ(COLA,[]);c.push({cid:Date.now().toString(36)+Math.random().toString(36).slice(2,8),id,tipo,t});lsS(COLA,c);envia()}
-let enviando=false;
-async function envia(){if(enviando||!WEB||navigator.onLine===false)return;enviando=true;
-  try{let c=lsJ(COLA,[]);while(c.length){try{await web(Object.assign({accion:'kio_fichar'},c[0]))}
-    catch(e){if(!e.status||e.status>=500||e.status===401||e.status===429)break;const er=lsJ('ohk-cola-err',[]);er.push(Object.assign({error:e.message},c[0]));lsS('ohk-cola-err',er)}
-    c=lsJ(COLA,[]);c.shift();lsS(COLA,c)}}finally{enviando=false}}
-function aplicaEquipo(lst){if(!Array.isArray(lst))return;const adm=STAFF.filter(s=>s.rol==='admin');
-  STAFF.splice(0,STAFF.length,...adm,...lst.map(x=>({id:x.id,nm:x.n,rol:'trabajador',puesto:'Camarero',eh:0,ord:x.ord,semanaMin:x.semanaMin||0,extraMin:x.extraMin||0,web:true})));
-  lst.forEach(x=>{if(x.abierta&&!fichado(x.id)&&!lsJ(COLA,[]).some(c=>c.id===x.id)){const t=new Date(x.abierta.d+'T'+x.abierta.e+':00').getTime();if(t)FICHAJES.push({p:x.id,in:t,out:null})}})}
-async function refrescaEquipo(){if(!WEB||navigator.onLine===false)return;try{const r=await web({accion:'kio_equipo'});lsS(EQK,r.camareros);aplicaEquipo(r.camareros);
-  if(!$('#lock').hidden&&!pinBuf&&!pinNuevo)showLock();else if(user&&['equipo','fichar'].includes(current().id)&&$('#modal').hidden)render()}
-  catch(e){if(e.status===401){WEB=null;lsS(WK,null)}}}
-const hTxt=m=>fmtQ(Math.round((m||0)/6)/10)+' h';
-async function misHoras(){const box=$('#mishoras');if(!box||!user||!esWeb(user.id))return;const id=user.id;
-  const hoy=new Date(),mes=hoy.toLocaleDateString('sv-SE').slice(0,7),ant=new Date(hoy.getFullYear(),hoy.getMonth()-1,15).toLocaleDateString('sv-SE').slice(0,7);
-  let r,p;try{[r,p]=await Promise.all([web({accion:'kio_horas',id,mes}),web({accion:'kio_horas',id,mes:ant})])}catch(e){box.innerHTML='<span class="muted">'+(navigator.onLine===false?'Sin internet: tus fichajes se guardan aquí y se mandan solos cuando vuelva.':e.message)+'</span>';return}
-  if(!$('#mishoras')||!user||user.id!==id)return;
-  const firma=(x,nm)=>{if(!x.entradas.length)return '';const f=x.firma;
-    return `<div class="card" style="margin:0;padding:12px;display:flex;flex-direction:column;gap:8px"><b>Firma de tus horas de ${nm}</b>${f&&f.vigente?`<span>${f.conforme?'✅ Firmado':'⚠️ Marcaste «no conforme»'} el ${f.t.slice(8,10)}/${f.t.slice(5,7)} a las ${f.t.slice(11,16)}</span>`:`${f?'<span class="pill p-warn">Tus horas cambiaron después de firmar: vuelve a firmar</span>':'<span class="muted">Es el registro de jornada que pide la ley. Revisa tus fichajes y confírmalos.</span>'}<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" data-firma="${x.mes}">Confirmo mis horas de ${nm}</button><button class="btn" data-nofirma="${x.mes}">No estoy conforme</button></div>`}</div>`};
-  const nm=m=>new Date(m+'-15T12:00:00').toLocaleDateString('es-ES',{month:'long'});
-  const ex=r.semanaMin-r.ord*60;
-  box.innerHTML=`<div class="kpis"><div class="kpi"><div class="l">Esta semana</div><div class="v">${hTxt(r.semanaMin)}</div></div><div class="kpi"><div class="l">Ordinarias</div><div class="v">${fmtQ(r.ord)} h</div></div><div class="kpi"><div class="l">Extra esta semana</div><div class="v">${hTxt(Math.max(0,ex))}</div></div></div>
-   ${firma(p,nm(ant))}
-   <div class="tw"><table><thead><tr><th>Día</th><th>Entrada</th><th>Salida</th><th class="r">Horas</th><th>Validado</th></tr></thead><tbody>${r.entradas.slice().reverse().map(e=>`<tr><td>${new Date(e.d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}</td><td>${e.e||''}</td><td>${e.s||'<span class="pill p-ok">en curso</span>'}</td><td class="r">${e.s?hTxt(e.m):''}</td><td>${e.ok?'✅':'⏳'}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Este mes aún no hay fichajes en la web.</td></tr>'}</tbody></table></div>
-   ${hoy.getDate()>=28?firma(r,nm(mes)):''}`;
-  box.querySelectorAll('[data-firma]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Confirmas que tus fichajes de '+nm(b.dataset.firma)+' son correctos?'))return;try{await web({accion:'kio_firmar',id,mes:b.dataset.firma,conforme:true});misHoras()}catch(e){alert(e.message)}});
-  box.querySelectorAll('[data-nofirma]').forEach(b=>b.onclick=async()=>{const n=prompt('¿Qué no cuadra? Le llega a Isidro.','');if(!n)return;try{await web({accion:'kio_firmar',id,mes:b.dataset.nofirma,conforme:false,nota:n});misHoras()}catch(e){alert(e.message)}})}
+let PANEL=lsJ(PNK,null), CFG=lsJ(CFGK,null), panelSucio=true, panelUlt=+lsJ('ohk-panel-ult',0)||0, panelMsg='', tPanel=0, subiendo=false;
+const esWeb=()=>false;
+async function panelApi(metodo,a,cuerpo){
+  const r=await fetch(PANELAPI+(metodo==='GET'?'?a='+a:''),{method:metodo,cache:'no-store',headers:Object.assign({'Content-Type':'application/json'},PANEL&&PANEL.tok?{'x-tok':PANEL.tok}:{}),body:metodo==='POST'?JSON.stringify(Object.assign({a},cuerpo)):undefined});
+  const j=await r.json().catch(()=>({error:'Sin conexión con internet.'}));
+  if(!r.ok){const e=new Error(j.error||('Error '+r.status));e.status=r.status;if(r.status===401&&a!=='entrar'){PANEL=null;lsS(PNK,null)}throw e}return j}
+function datosPanel(){
+  const sum=re=>Math.round(COBROS.filter(c=>!re||re.test(c.how)).reduce((x,c)=>x+(+c.amt||0),0)*100)/100;
+  let pend=0;try{pend=ACCS.filter(n=>n!==QUICK&&ACC[n]&&!ACC[n].hidden&&['due','part'].includes(accState(n))).reduce((x,n)=>x+accTotal(n)-ACC[n].paid,0)}catch(e){}
+  const desde=Date.now()-130*864e5;
+  return {t:Date.now(),
+    caja:CAJA&&CAJA.abierta?{abierta:true,desde:CAJA.desde,por:CAJA.por,fondo:CAJA.fondo,ef:sum(/^Efectivo/),tj:sum(/^Tarjeta/),total:sum(null),cobros:COBROS.length,pendiente:Math.round(pend*100)/100}:{abierta:false,deja:CAJA&&CAJA.deja!=null?CAJA.deja:null},
+    cierres:HIST.filter(h=>h&&h[7]&&h[7].hasta).slice(0,500).map(h=>Object.assign({},h[7],{f:h[0],cerro:h[1],ventas:h[2],desc:h[4]})),
+    fichajes:FICHAJES.filter(f=>f&&f.in>desde).map(f=>({p:f.p,in:f.in,out:f.out||null})),
+    staff:STAFF.filter(x=>x.rol!=='admin').map(x=>({id:x.id,nm:x.nm,ord:x.ord||0}))}}
+function marcaPanel(prisa){panelSucio=true;clearTimeout(tPanel);tPanel=setTimeout(subePanel,prisa?3000:20000)}
+async function subePanel(){if(!PANEL||subiendo||navigator.onLine===false)return;subiendo=true;
+  try{await panelApi('POST','subir',{datos:datosPanel()});panelSucio=false;panelUlt=Date.now();lsS('ohk-panel-ult',panelUlt);panelMsg=''}
+  catch(e){panelMsg=e.message}finally{subiendo=false}}
+function encola(id,tipo,t){marcaPanel(true)}
+const lunesK=d=>{const x=new Date(d+'T12:00:00');x.setDate(x.getDate()-(x.getDay()+6)%7);return x.toLocaleDateString('sv-SE')};
+function ordCfg(c,l){const v=((c&&c.ord)||[]).filter(o=>o.desde<=l).sort((p,q)=>p.desde<q.desde?-1:1).pop();return v?+v.h:20}
+function aplicaConfig(){if(!CFG||!Array.isArray(CFG.camareros)||!CFG.camareros.length)return false;const adm=STAFF.filter(x=>x.rol==='admin'),l=lunesK(hoyK());
+  STAFF.splice(0,STAFF.length,...adm,...CFG.camareros.filter(c=>c&&c.id&&c.activo!==false).map(c=>({id:c.id,nm:c.nm,rol:'trabajador',puesto:'Camarero',eh:0,ord:ordCfg(c,l)})));return true}
+/* Camareros que había traído la web de la escuela (solo nombres), hasta que el dueño los ponga en el panel. */
+function aplicaEquipo(lst){if(!Array.isArray(lst)||!lst.length)return;const adm=STAFF.filter(x=>x.rol==='admin');
+  STAFF.splice(0,STAFF.length,...adm,...lst.map(x=>({id:x.id,nm:x.n,rol:'trabajador',puesto:'Camarero',eh:0,ord:x.ord||0})))}
+async function leeConfig(){if(!PANEL||navigator.onLine===false)return;
+  try{const r=await panelApi('GET','config');const nueva=JSON.stringify(r.config||{});if(nueva===JSON.stringify(CFG||{}))return;CFG=r.config||{};lsS(CFGK,CFG);aplicaConfig();
+    if(!$('#lock').hidden&&!pinBuf&&!pinNuevo)showLock();else if(user&&['equipo','fichar'].includes(current().id)&&$('#modal').hidden)render()}catch(e){}}
+function fichajesEf(){const fix=(CFG&&CFG.fix)||{},o=[];FICHAJES.forEach(f=>{const x=fix[f.p+'|'+f.in];if(x&&x.x)return;o.push(Object.assign({},f,x||{}))});((CFG&&CFG.nuevos)||[]).forEach(n=>o.push(n));return o}
+function horasSemana(id){const l=lunesK(hoyK());const min=fichajesEf().filter(f=>f.p===id&&f.out&&new Date(f.in).toLocaleDateString('sv-SE')>=l).reduce((x,f)=>x+Math.max(0,Math.round((f.out-f.in)/6e4)),0);
+  const c=CFG&&Array.isArray(CFG.camareros)&&CFG.camareros.find(x=>x.id===id);const ord=c?ordCfg(c,l):null;return {min,ord,extra:ord==null?0:Math.max(0,min-ord*60)}}
+const hTxt=m=>{m=Math.round(m||0);const h=Math.floor(m/60),mm=m%60;return h+' h'+(mm?' '+String(mm).padStart(2,'0'):'')};
+function misHoras(){const box=$('#mishoras');if(!box||!user)return;const id=user.id;
+  if(user.rol==='admin'){box.innerHTML='<span class="muted">Las horas de los camareros se ven en «Equipo y sueldos» y en el panel del móvil.</span>';return}
+  const w=horasSemana(id),l=lunesK(hoyK()),ant=lunesK(new Date(Date.now()-7*864e5).toLocaleDateString('sv-SE'));
+  const L=fichajesEf().filter(f=>f.p===id&&new Date(f.in).toLocaleDateString('sv-SE')>=ant).sort((p,q)=>q.in-p.in);
+  box.innerHTML=`<div class="kpis"><div class="kpi"><div class="l">Esta semana</div><div class="v">${hTxt(w.min)}</div></div><div class="kpi"><div class="l">Ordinarias</div><div class="v">${w.ord==null?'—':fmtQ(w.ord)+' h'}</div></div><div class="kpi"><div class="l">Extra esta semana</div><div class="v">${hTxt(w.extra)}</div></div></div>
+   <div class="tw"><table><thead><tr><th>Día</th><th>Entrada</th><th>Salida</th><th class="r">Horas</th></tr></thead><tbody>${L.map(f=>`<tr><td>${new Date(f.in).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}</td><td>${hhmm(f.in)}</td><td>${f.out?hhmm(f.out):'<span class="pill p-ok">en curso</span>'}</td><td class="r">${f.out?hTxt((f.out-f.in)/6e4):''}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">Sin fichajes esta semana ni la anterior.</td></tr>'}</tbody></table></div>
+   <div class="muted" style="font-size:13px">La semana va de lunes a domingo. Lo que pase de tus horas ordinarias es extra.</div>`}
 
 /* ---------- Escáner del TPV (lector 1D/2D integrado, dueño 19 nov 2026) ----------
    El lector «escribe» el código como un teclado muy rápido y acaba con Intro. Se distingue de una persona por la velocidad.
@@ -1400,10 +1415,11 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
   if(d.dia===hoyK()||(d.CAJA&&d.CAJA.abierta)){SALES=d.SALES||[];COBROS=d.COBROS||[];cierreHecho=false;if(!CAJA&&COBROS.length)CAJA={abierta:true,desde:COBROS[0].t||Date.now(),fondo:0,por:'—',auto:true}}
   else{SALES=[];COBROS=[];cierreHecho=false;ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true})}}
 cargar();try{sanea()}catch(e){}try{achicaFotos()}catch(e){}
-aplicaEquipo(lsJ(EQK,null));
-addEventListener('online',()=>{envia();refrescaEquipo()});
-setInterval(()=>{envia();refrescaEquipo()},120000);
-setTimeout(()=>{envia();refrescaEquipo()},1500);
+if(!aplicaConfig())aplicaEquipo(lsJ(EQK,null));
+addEventListener('online',()=>{if(panelSucio)subePanel();leeConfig()});
+setInterval(leeConfig,30*60e3);
+setInterval(()=>{if(panelSucio&&Date.now()-panelUlt>55*60e3)subePanel()},5*60e3);
+setTimeout(()=>{leeConfig();if(Date.now()-panelUlt>10*60e3)subePanel()},2500);
 /* Dueño, 20 nov 2026: si algo falla al pintar, no se bloquea todo: se arreglan los datos raros y sale un aviso rojo abajo. */
 /* Dueño, 20 nov 2026: las fotos de producto se guardan pequeñas (máx. 360 px, JPEG). Tres fotos sin reducir ocupaban
    4,4 MB, casi toda la memoria del programa en la tablet, y al llenarse dejaba de guardar las cuentas sin avisar. */

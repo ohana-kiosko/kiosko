@@ -737,8 +737,8 @@ A.tpv=()=>{
   /* Dueño, 20 nov 2026: quitar de golpe las cuentas cobradas y borrar cuentas de prueba sin cobrar. */
   if($('#hidepaid'))$('#hidepaid').onclick=()=>{ACCS.forEach(n=>{const a=ACC[n];if(n!==QUICK&&a&&accState(n)==='paid')a.hidden=true});cur=QUICK;render()};
   if($('#delacc'))$('#delacc').onclick=()=>{const b=$('#delacc');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez para borrarla';return}const n=cur;ACCS=ACCS.filter(x=>x!==n);delete ACC[n];cur=QUICK;tpvMsg='Cuenta «'+n+'» borrada.';render()};
-  if($('#pcash'))$('#pcash').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' en efectivo',who=>cashModal(v,dado=>{abrirCajon();finish('Efectivo',who);if(dado>v+.004){tpvMsg+=' Te dio '+eur(dado)+', cambio '+eur(dado-v)+'.';render()}}))};
-  if($('#pcard'))$('#pcard').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con el datáfono',who=>finish('Tarjeta',who))};
+  if($('#pcash'))$('#pcash').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' en efectivo',who=>pantallaCobro('efectivo',v,dado=>{abrirCajon();finish('Efectivo',who);if(dado>v+.004){tpvMsg+=' Te dio '+eur(dado)+', cambio '+eur(dado-v)+'.';render()}},cur===QUICK?'':cur))};
+  if($('#pcard'))$('#pcard').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con el datáfono',who=>pantallaCobro('datafono',v,()=>finish('Tarjeta',who),cur===QUICK?'':cur))};
   if($('#ptab'))$('#ptab').onclick=()=>{const v=accTotal(cur)-ACC[cur].paid;askPin('Cobrar '+eur(v)+' con la tablet',who=>tabletPantalla(v,()=>finish('Tarjeta',who)))};
   $('#pfalta2').onclick=openFalta;
   $('#pcli').onclick=()=>clientModal(c=>{ACC[cur].cli=c;tpvMsg=`${c.nm} lleva ${eur(c.k)} en el kiosko este año.`;render()},true);
@@ -811,6 +811,32 @@ const tpvNativo=()=>!!(window.OhanaTPV&&window.OhanaTPV.cobrar);
 function cobroNFC(amount,cb){tpvCb=cb;try{OhanaTPV.cobrar(Math.round(amount*100),String(cur||''))}catch(e){tpvCb=null;cb({ok:false,error:e.message})}}
 /* Dueño, 19 nov 2026: tres botones de cobro. Efectivo (abre el cajón) y Datáfono cobran directamente;
    Tablet abre una pantalla entera con un botón enorme para cobrar con el NFC de la tablet. */
+/* Dueño, 21 nov 2026: pantalla naranja de cobro (efectivo y datáfono). Tapa toda la app y la cuenta solo queda cobrada al pulsar
+   «Cobrado». Así no se puede seguir vendiendo sin confirmar el cobro, ni dar por cobrada una cuenta que no se cobró. */
+function pantallaCobro(tipo,amount,done,titulo){
+  const v0=document.getElementById('cobrofull');if(v0)v0.remove();
+  const ef=tipo==='efectivo';
+  const o=document.createElement('div');o.id='cobrofull';o.setAttribute('role','dialog');o.setAttribute('aria-modal','true');
+  o.style.cssText='position:fixed;inset:0;z-index:9990;background:#C2560F;color:#fff;display:flex;flex-direction:column;padding:18px;gap:14px;overflow:auto';
+  const opts=[...new Set([5,10,20,50,100].filter(v=>v>amount+.004))].slice(0,4);
+  const blanco='color:#1A1714;background:#fff;border-color:#fff';
+  o.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:22px">${ef?'Cobro en efectivo':'Cobro con datáfono'}${titulo?' · '+esc(titulo):''}</b><button class="btn" id="cfx" style="${blanco}">Cancelar · no se ha cobrado</button></div>
+   <div style="text-align:center"><div style="font-size:18px;opacity:.9">A cobrar</div><div style="font-size:clamp(56px,10vw,120px);font-weight:800;line-height:1.05">${eur(amount)}</div></div>
+   ${ef?`<div style="display:flex;flex-direction:column;gap:10px;max-width:780px;width:100%;margin:0 auto">
+     <div style="font-weight:700;font-size:19px">¿Cuánto te da?</div>
+     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px"><button class="btn big" data-cg="${amount}" style="${blanco}">Justo</button>${opts.map(v=>`<button class="btn big" data-cg="${v}" style="${blanco}">${eur(v)}</button>`).join('')}</div>
+     <input class="inp" id="cgiven" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Otra cantidad" aria-label="Te da" style="font-size:24px;color:#1A1714;background:#fff">
+     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:14px 18px;border-radius:14px;background:rgba(0,0,0,.2)"><span style="font-weight:700;font-size:21px">Devuelve</span><b id="cchange" style="font-size:48px">—</b></div></div>`
+   :`<div style="text-align:center;font-size:clamp(20px,3vw,30px);font-weight:600;max-width:780px;margin:0 auto;line-height:1.35">Cobra <b>${eur(amount)}</b> en el datáfono.<br>Cuando salga <b>APROBADA</b>, pulsa el botón blanco.</div>`}
+   <button id="cfok" style="flex:1;min-height:130px;border:0;border-radius:24px;background:#fff;color:#C2560F;font:inherit;font-size:clamp(26px,4vw,46px);font-weight:800;cursor:pointer">${ef?'Cobrado · abrir cajón':'Aprobada · cobrado'}</button>
+   <div style="text-align:center;font-size:14px;opacity:.92">Hasta que no pulses el botón blanco la cuenta sigue sin cobrar y no se puede seguir vendiendo.</div>`;
+  document.body.appendChild(o);
+  let dado=NaN;
+  const pinta=()=>{if(!ef)return;const ch=dado-amount;o.querySelector('#cchange').innerHTML=isNaN(dado)?'—':ch>=-0.004?eur(Math.max(0,ch)):'<span style="color:#FFE1D1">Faltan '+eur(-ch)+'</span>'};
+  if(ef){o.querySelectorAll('[data-cg]').forEach(b=>b.onclick=()=>{dado=+b.dataset.cg;o.querySelector('#cgiven').value=dado.toFixed(2);pinta()});o.querySelector('#cgiven').oninput=e=>{dado=parseFloat(e.target.value);pinta()}}
+  o.querySelector('#cfx').onclick=()=>{o.remove();tpvMsg='Cobro cancelado: la cuenta sigue sin cobrar.';try{render()}catch(e){}};
+  o.querySelector('#cfok').onclick=()=>{if(ef&&!isNaN(dado)&&dado<amount-.004){pinta();return}o.remove();done(ef?(isNaN(dado)?amount:dado):amount)};
+}
 function tabletPantalla(amount,done){
   const v=document.getElementById('nfcfull');if(v)v.remove();
   const o=document.createElement('div');o.id='nfcfull';
@@ -884,9 +910,9 @@ function partsModal(){
     $$('[data-pp]').forEach(b=>b.onclick=()=>{const amt=amountNow();if(!(amt>0))return;const how=b.dataset.pp;if(how==='QR'&&!online){$('#qrbox').innerHTML='<div class="note">Sin internet no se puede pagar con el móvil. Cobra esta parte en efectivo o con tarjeta.</div>';return}askPin('Cobrar parte de '+eur(amt),who=>{
       if(how==='QR'){$('#qrbox').innerHTML=`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:12px">${qrGrid(a.parts.length+1)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0;flex:1"><b>Que escanee este QR con su móvil</b><span class="muted" style="font-size:13.5px">Paga ${eur(amt)} con tarjeta, Apple Pay o Google Pay (Stripe). También se puede imprimir en el ticket para cada uno.</span><button class="btn pri" id="qrok">Simular: ha pagado</button></div></div>`;
         $('#qrok').onclick=()=>addPart(amt,'Móvil (QR · Stripe)',who);return}
-      if(how==='Efectivo'){abrirCajon();addPart(amt,'Efectivo · cajón abierto',who);return}
+      if(how==='Efectivo'){pantallaCobro('efectivo',amt,()=>{abrirCajon();addPart(amt,'Efectivo · cajón abierto',who)},'una parte');return}
       if(tpvNativo()){$('#qrbox').innerHTML='<div class="note">Acerca la tarjeta o el móvil a la tablet…</div>';cobroNFC(amt,r=>{if(r.ok)addPart(amt,'Tarjeta (tablet)',who);else $('#qrbox').innerHTML='<div class="note"><b style="color:var(--bad)">No se ha cobrado.</b> '+esc(r.error||'')+'</div>'});return}
-      addPart(amt,'Tarjeta (datáfono)',who)})});
+      pantallaCobro('datafono',amt,()=>addPart(amt,'Tarjeta (datáfono)',who),'una parte')})});
   };
   const addPart=(amt,how,who)=>{a.parts.push({i:amt,how,who:who.nm});logCobro(amt,how.split(' ')[0],who,cur);a.paid=Math.round((a.paid+amt)*100)/100;sel={};if(accTotal(cur)-a.paid<0.005){finish('Por partes',who)}else draw()};
   $('#modal').hidden=false;$('#modal').onclick=e=>{if(e.target===$('#modal')){closeModal();render()}};draw();

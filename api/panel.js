@@ -16,6 +16,8 @@
 //   GET  ?a=todo                       (dueño)                        -> {estado, config}
 //   POST {a:'config', config}          (dueño)                        -> guarda config.json
 //   GET  ?a=salud                      (sin clave)                    -> comprueba que el almacén lee y escribe
+//   POST {a:'diag', datos}             (tablet)                       -> diagnóstico de impresora y cajón (kiosko/diag.json)
+//   GET  ?a=diag                       (sin clave)                    -> lo lee Claude: solo datos del aparato (USB, puertos, apps), sin ventas
 // El plan gratis da 2.000 escrituras al mes: la tablet sube solo al cerrar o abrir caja, al fichar y, como mucho, una vez
 // por hora si hubo ventas.
 const crypto = require('crypto');
@@ -76,6 +78,7 @@ module.exports = async (req, res) => {
       const otra = await leer('kiosko/salud.json');
       return res.status(200).json({ ok: !!(otra && otra.t), escrito });
     }
+    if (req.method === 'GET' && a === 'diag') return res.status(200).json({ diag: (await leer('kiosko/diag.json')) || null });
     if (req.method === 'GET') {
       const q = quienEs(req, C);
       if (!q) return res.status(401).json({ error: 'Hay que volver a entrar.' });
@@ -106,6 +109,13 @@ module.exports = async (req, res) => {
       d.recibido = Date.now();
       await escribir('kiosko/estado.json', d);
       return res.status(200).json({ ok: true, t: d.recibido });
+    }
+    if (b.a === 'diag' && q === 'tpv') {
+      const d = b.datos;
+      if (!d || typeof d !== 'object' || JSON.stringify(d).length > 300000) return res.status(400).json({ error: 'Datos no válidos' });
+      d.recibido = Date.now();
+      await escribir('kiosko/diag.json', d);
+      return res.status(200).json({ ok: true });
     }
     if (b.a === 'config' && q === 'dueno') {
       const c = b.config;

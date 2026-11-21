@@ -1,0 +1,54 @@
+# Compila la app Android «Panel Kiosko» (el panel del dueño en el móvil) y deja el .apk para descargar.
+# Enlace fijo:
+#   https://github.com/ohana-kiosko/kiosko/releases/download/panel/panel-kiosko.apk
+# No toca el enlace «latest» de la app de la tablet (kiosko-ohana.apk).
+name: App Panel Kiosko
+
+on:
+  push:
+    branches: [main]
+    paths: ['android-panel/**', '.github/workflows/panel.yml']
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+      - name: Firma e icono
+        env:
+          FIRMA: ${{ secrets.ANDROID_FIRMA_B64 }}
+        run: |
+          # Firma fija (secreto ANDROID_FIRMA_B64, la misma que la app de la tablet). Sin ella se crea una provisional:
+          # sirve, pero para instalar una versión nueva hay que desinstalar antes la anterior.
+          if [ -n "$FIRMA" ]; then echo "$FIRMA" | base64 -d > android-panel/app/firma.jks
+          else keytool -genkeypair -keystore android-panel/app/firma.jks -storetype PKCS12 -alias kiosko -keyalg RSA -keysize 2048 -validity 15000 -storepass ohana-kiosko -keypass ohana-kiosko -dname "CN=Kiosko Ohana"; echo "::warning::Firma provisional"; fi
+          printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx3g\n' > android-panel/gradle.properties
+          mkdir -p android-panel/app/src/main/res/mipmap-xxxhdpi
+          cp icon-192.png android-panel/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+      - name: Compilar
+        working-directory: android-panel
+        run: gradle assembleRelease --stacktrace
+      - name: Publicar para descargar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android-panel/app/build/outputs/apk/release/app-release.apk panel-kiosko.apk
+          if gh release view panel >/dev/null 2>&1; then
+            gh release upload panel panel-kiosko.apk --clobber
+            gh release edit panel --title "Panel Kiosko 1.${{ github.run_number }}" --latest=false
+          else
+            gh release create panel panel-kiosko.apk --latest=false \
+              --title "Panel Kiosko 1.${{ github.run_number }}" \
+              --notes "App Android del dueño: cajas del kiosko y horas de los camareros. Descarga: panel-kiosko.apk"
+          fi

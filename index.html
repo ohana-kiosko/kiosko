@@ -939,19 +939,25 @@ const r2=x=>Math.round(x*100)/100;
 const cobradoPor=re=>r2(COBROS.filter(c=>re.test(c.how)).reduce((a,c)=>a+c.amt,0));
 const cuandoTxt=t=>{const d=new Date(t),hoy=new Date();return (d.toDateString()===hoy.toDateString()?'hoy':dmy(t))+' a las '+hhmm(t)};
 function contadoCaja(){const tot=$('#ctotal')&&$('#ctotal').value!==''?parseFloat($('#ctotal').value):NaN;if(!isNaN(tot))return tot;const any=Object.values(conteo).some(x=>x!==''&&x!=null);return any?r2(DEN.reduce((a,[l,v],i)=>a+v*(+conteo[i]||0),0)):NaN}
-function resumenCierreTxt(r){const x=r[7]||{};return [centro(PRN.nombre),centro('CIERRE DE CAJA'),centro(r[0]),'-'.repeat(PRN.col),
-  lineaLR('Abrio',(x.abrio||'')+' '+(x.desde?hhmm(x.desde):'')),lineaLR('Cerro',r[1]),lineaLR('Fondo inicial',eur(x.fondo||0)),
-  lineaLR('Efectivo cobrado',eur(x.ef||0)),lineaLR('Tarjeta',eur(x.tj||0)),lineaLR('Otros',eur(x.ot||0)),lineaLR('TOTAL VENTAS',eur(r[2])),'-'.repeat(PRN.col),
-  lineaLR('Tendria que haber',eur((x.fondo||0)+(x.ef||0))),lineaLR('Contado',x.contado==null?'-':eur(x.contado)),lineaLR('Descuadre',eur(r[4])),
-  lineaLR('Datafono (banco)',x.datafono==null?'-':eur(x.datafono)),lineaLR('Se deja en caja',eur(x.deja||0))].concat(x.nota?['',plano('Notas: '+x.nota)]:[])}
+/* Dueño, 21 nov 2026: en cada cierre se saca el efectivo a un sobre cerrado. El resumen impreso va dentro del sobre:
+   datáfono, efectivo, cambio que se deja para la caja siguiente y efectivo que va en el sobre. */
+function resumenCierreTxt(r){const x=r[7]||{},R='-'.repeat(PRN.col),cu=d=>Math.abs(d||0)<.005?'Cuadra':eur(d);
+  return [centro(PRN.nombre),centro('RESUMEN DE CAJA'),centro(r[0]),R,
+  lineaLR('Abrio',(x.abrio||'')+' '+(x.desde?hhmm(x.desde):'')),lineaLR('Cerro',r[1]+' '+(x.hasta?hhmm(x.hasta):'')),R,
+  lineaLR('Ventas totales',eur(r[2])),lineaLR('Cobrado en efectivo',eur(x.ef||0)),lineaLR('Cobrado con tarjeta',eur(x.tj||0))].concat(x.ot?[lineaLR('Otros',eur(x.ot))]:[]).concat([R,
+  lineaLR('DATAFONO (banco)',x.datafono==null?'-':eur(x.datafono)),R,
+  lineaLR('Fondo al abrir',eur(x.fondo||0)),lineaLR('Tendria que haber',eur((x.fondo||0)+(x.ef||0))),lineaLR('EFECTIVO CONTADO',x.contado==null?'-':eur(x.contado)),lineaLR('Descuadre',cu(r[4])),R,
+  lineaLR('CAMBIO QUE SE DEJA',eur(x.deja||0)),lineaLR('EFECTIVO AL SOBRE',x.retirado==null?'-':eur(x.retirado)),'='.repeat(PRN.col)])
+  .concat(x.nota?[plano('Notas: '+x.nota)]:[]).concat(['','Firma de quien cierra:','','',' '+'_'.repeat(Math.max(10,PRN.col-2)),''])}
+function imprimirResumen(r){if(!r)return;const L=resumenCierreTxt(r);if(PRN.modo==='navegador')imprimirHTML(L.join('\n'));else enviar(ESC.ini+L.join('\n')+ESC.corte)}
 V.cierre=()=>{
   const abierta=CAJA&&CAJA.abierta;
   const pend=(()=>{const p=ACCS.filter(n=>n!==QUICK&&!ACC[n].hidden&&['due','part'].includes(accState(n)));return p.length?`<div class="note" style="font-size:14px;font-weight:600">Ojo: quedan ${p.length} cuentas sin cobrar (${eur(p.reduce((s,n)=>s+accTotal(n)-ACC[n].paid,0))}): ${p.map(esc).join(', ')}. Si cierras, siguen abiertas para la caja siguiente.<div style="margin-top:8px"><button class="btn sm" id="delpend" style="color:var(--bad);border-color:#E9A6A2">Borrar estas cuentas (eran pruebas)</button></div></div>`:''})();
   if(!abierta){
     const r=cierreRes, x=r&&r[7]||{};
     return `${r?`<section class="card"><h2>Caja cerrada ${cuandoTxt(x.hasta||Date.now())}</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
-      <div class="kpis"><div class="kpi"><div class="l">Ventas</div><div class="v">${eur(r[2])}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(x.ef||0)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(x.tj||0)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(r[4])<.005?'Cuadra':eur(r[4])}</div></div><div class="kpi"><div class="l">Queda en caja</div><div class="v">${eur(x.deja||0)}</div></div></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="cimp">Imprimir resumen</button></div></div></section>`:''}
+      <div class="kpis"><div class="kpi"><div class="l">Ventas</div><div class="v">${eur(r[2])}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(x.ef||0)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(x.tj||0)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(r[4])<.005?'Cuadra':eur(r[4])}</div></div><div class="kpi"><div class="l">Datáfono</div><div class="v">${x.datafono==null?'—':eur(x.datafono)}</div></div><div class="kpi"><div class="l">Al sobre</div><div class="v">${x.retirado==null?'—':eur(x.retirado)}</div></div><div class="kpi"><div class="l">Cambio que se deja</div><div class="v">${eur(x.deja||0)}</div></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="cimp">Imprimir resumen para el sobre</button></div></div></section>`:''}
     <section class="card" style="max-width:560px"><h2>Abrir caja</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
       <div class="muted" style="font-size:14px">Cuenta el dinero que hay en el cajón para empezar (el fondo para dar cambio): pon cuántos billetes y monedas hay de cada uno y el programa suma.</div>
       ${gridDen(conteoA,'data-fden')}
@@ -978,10 +984,12 @@ V.cierre=()=>{
   <section class="card" style="flex:1 1 320px"><h2>2. Datáfono y cierre</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
     <label class="f">Total del datáfono (el cierre del banco)<input class="inp" id="tjb" type="number" step="0.01" placeholder="${tj.toFixed(2)}"></label>
     <div id="tjd" class="muted" style="font-size:13px">Debería coincidir con ${eur(tj)}.</div>
-    <label class="f">Dinero que se deja en el cajón para la caja siguiente<input class="inp" id="cdeja" type="number" step="0.01" min="0" inputmode="decimal" value="${CAJA.fondo}"></label>
+    <label class="f">Cambio que se deja en el cajón para la caja siguiente<input class="inp" id="cdeja" type="number" step="0.01" min="0" inputmode="decimal" value="${CAJA.fondo}"></label>
+    <label class="f">Efectivo que se saca al sobre<input class="inp" id="cret" type="number" step="0.01" min="0" inputmode="decimal" style="font-size:22px;font-weight:700" placeholder="Cuenta primero el cajón"></label>
+    <div id="cretd" class="muted" style="font-size:13px">Sale solo: lo contado menos el cambio que se deja. El resumen impreso va dentro del sobre.</div>
     <label class="f">Notas<textarea class="inp" id="nota" style="min-height:70px;padding:10px" placeholder="Ej.: eran pruebas; se rompió un vaso; faltan 2 € de un cambio"></textarea></label>
     <button class="btn big pri" id="cerrar">${cierreConfirma?'Pulsa otra vez para confirmar el cierre':'Cerrar caja'}</button>
-    <div class="muted" style="font-size:13px">Lo puede hacer cualquiera, las veces que haga falta. Al cerrar, las ventas vuelven a cero y el resumen queda en «Histórico y ventas».</div>
+    <div class="muted" style="font-size:13px">Lo puede hacer cualquiera, las veces que haga falta. Al cerrar se imprime el resumen para meterlo en el sobre con el efectivo, las ventas vuelven a cero y el resumen queda en «Histórico y ventas».</div>
   </div></section></div>`;
 };
 A.cierre=()=>{
@@ -993,26 +1001,33 @@ A.cierre=()=>{
     $$('[data-cf]').forEach(b=>b.onclick=()=>{conteoA={};$$('[data-fden]').forEach(x=>x.value='');pintaSubs(conteoA,'data-fden');$('#cfondo').value=b.dataset.cf;$('#cfondotot').textContent=eur(+b.dataset.cf)});
     $$('[data-fden]').forEach(x=>x.oninput=()=>{conteoA[x.dataset.fden]=x.value;pintaSubs(conteoA,'data-fden');const t=sumaDen(conteoA);$('#cfondo').value=t?t.toFixed(2):'';$('#cfondotot').textContent=eur(t)});
     $('#cfondo').oninput=()=>{const v=parseFloat($('#cfondo').value);$('#cfondotot').textContent=eur(isNaN(v)?0:v)};
-    if($('#cimp'))$('#cimp').onclick=()=>{if(!cierreRes)return;const L=resumenCierreTxt(cierreRes);if(PRN.modo==='navegador')imprimirHTML(L.join('\n'));else enviar(ESC.ini+L.join('\n')+ESC.corte)};
+    if($('#cimp'))$('#cimp').onclick=()=>imprimirResumen(cierreRes);
     $('#cabrir').onclick=()=>{const f=parseFloat($('#cfondo').value);CAJA={abierta:true,desde:Date.now(),fondo:isNaN(f)?0:r2(f),por:(user&&user.nm)||'—',billetes:Object.assign({},conteoA)};cierreRes=null;conteo={};conteoA={};cierreConfirma=false;render()};
     return;
   }
   const ef=cobradoPor(/^Efectivo/),tj=cobradoPor(/^Tarjeta/);
   const upd=()=>{const c=contadoCaja();$('#contado').textContent=isNaN(c)?'—':eur(c);if(isNaN(c)){$('#desc').innerHTML='';return}const d=r2(c-(CAJA.fondo+ef));$('#desc').innerHTML=Math.abs(d)<.005?'<div class="status">Cuadra.</div>':`<div class="note">${d>0?'Sobran':'Faltan'} ${eur(Math.abs(d))}. Puedes cerrar igualmente y explicarlo en las notas.</div>`};
-  $$('[data-den]').forEach(i=>i.oninput=()=>{conteo[i.dataset.den]=i.value;pintaSubs(conteo,'data-den');const t=sumaDen(conteo);$('#cnttot').textContent=t?eur(t):'—';upd()});$('#ctotal').oninput=upd;upd();
+  let retMano=false;
+  function sobre(){const c=contadoCaja(),dj=parseFloat($('#cdeja').value)||0,r=$('#cret'),d=$('#cretd');if(!r)return;
+    if(!retMano)r.value=isNaN(c)?'':Math.max(0,r2(c-dj)).toFixed(2);
+    const v=parseFloat(r.value);if(isNaN(c)||isNaN(v)){d.textContent='Sale solo: lo contado menos el cambio que se deja. El resumen impreso va dentro del sobre.';return}
+    const dif=r2(c-dj-v);d.innerHTML=Math.abs(dif)<.005?`<span class="pill p-ok">Cuadra</span> ${eur(c)} contado = ${eur(dj)} de cambio + ${eur(v)} al sobre`:`<span class="pill p-warn">No cuadra</span> ${eur(c)} contado − ${eur(dj)} de cambio − ${eur(v)} al sobre = ${eur(dif)}`}
+  $$('[data-den]').forEach(i=>i.oninput=()=>{conteo[i.dataset.den]=i.value;pintaSubs(conteo,'data-den');const t=sumaDen(conteo);$('#cnttot').textContent=t?eur(t):'—';upd();sobre()});$('#ctotal').oninput=()=>{upd();sobre()};upd();
+  $('#cdeja').oninput=sobre;$('#cret').oninput=()=>{retMano=$('#cret').value!=='';sobre()};sobre();
   $('#tjb').oninput=e=>{const v=parseFloat(e.target.value);$('#tjd').innerHTML=isNaN(v)?`Debería coincidir con ${eur(tj)}.`:Math.abs(v-tj)<.005?'<span class="pill p-ok">Coincide</span>':`<span class="pill p-warn">Diferencia de ${eur(v-tj)}</span>`};
   $('#cfondoedit').onclick=()=>{const box=$('#cfondoedit').parentNode;box.innerHTML=`Fondo al abrir: <input class="inp" id="cfnew" type="number" step="0.01" min="0" style="width:120px;display:inline-block" value="${CAJA.fondo}"> <button class="btn sm pri" id="cfok">Guardar</button>`;$('#cfok').onclick=()=>{const f=parseFloat($('#cfnew').value);if(!isNaN(f))CAJA.fondo=r2(f);render()}};
   $('#cerrar').onclick=()=>{
     if(!cierreConfirma){cierreConfirma=true;$('#cerrar').textContent='Pulsa otra vez para confirmar el cierre';setTimeout(()=>{cierreConfirma=false;const b=$('#cerrar');if(b)b.textContent='Cerrar caja'},6000);return}
     cierreConfirma=false;
-    const c=contadoCaja(),tot=r2(COBROS.reduce((a,x)=>a+x.amt,0)),ot=r2(tot-ef-tj),dj=parseFloat($('#cdeja').value),dat=parseFloat($('#tjb').value);
+    const c=contadoCaja(),tot=r2(COBROS.reduce((a,x)=>a+x.amt,0)),ot=r2(tot-ef-tj),dj=parseFloat($('#cdeja').value),dat=parseFloat($('#tjb').value),ret=parseFloat($('#cret').value);
     const ahora=Date.now(),desc=isNaN(c)?0:r2(c-(CAJA.fondo+ef));
-    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?0:r2(dj),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
+    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?0:r2(dj),retirado:isNaN(ret)?null:r2(ret),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
     HIST.unshift(reg);cierreRes=reg;
     SALES=[];COBROS=[];conteo={};cierreHecho=false;
     ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true});
     CAJA={abierta:false,deja:reg[7].deja};
     render();
+    if(PRN.modo==='rawbt'||PRN.modo==='tablet')imprimirResumen(reg);
   };
 };
 
@@ -1182,10 +1197,12 @@ V.historico=()=>{
   <div class="row"><section class="card" style="flex:2 1 520px"><h2>Ventas por hora · hoy</h2><div class="bd"><div class="hours">${hours.map((h,i)=>`<div class="col"><em>${byH[i]?Math.round(byH[i])+' €':''}</em><div class="b ${i===top?'max':''}" style="height:${byH[i]/mx*150}px"></div><span>${h}h</span></div>`).join('')}</div></div></section>
   <section class="card" style="flex:1 1 340px"><h2>Ventas por producto · hoy</h2><div class="tw"><table><thead><tr><th>Producto</th><th class="r">Uds.</th><th class="r">Importe</th></tr></thead><tbody>${rows.map(([k,v])=>`<tr><td>${prod(k).nm}</td><td class="r">${v.u}</td><td class="r">${eur(v.i)}</td></tr>`).join('')}</tbody></table></div></section></div>
   ${rankHTML("Ventas por camarero · hoy")}
-  <section class="card"><h2>Cajas cerradas</h2><div class="tw"><table><thead><tr><th>Día</th><th>Cerró</th><th class="r">Ventas</th><th class="r">Descuadre</th><th></th></tr></thead><tbody>
-  ${HIST.map(h=>`<tr><td>${h[0]}</td><td>${h[1]}</td><td class="r">${eur(h[2])}</td><td class="r">${Math.abs(h[4])<.005?'<span class="pill p-ok">Cuadra</span>':`<span class="pill ${h[4]>0?'p-warn':'p-bad'}">${h[4]>0?'+':''}${eur(h[4])}</span>`}</td><td><button class="btn sm">Ver</button></td></tr>`).join('')}
+  <section class="card"><h2>Cajas cerradas</h2><div class="tw"><table><thead><tr><th>Día</th><th>Cerró</th><th class="r">Ventas</th><th class="r">Datáfono</th><th class="r">Al sobre</th><th class="r">Cambio que deja</th><th class="r">Descuadre</th><th></th></tr></thead><tbody>
+  ${HIST.map((h,hi)=>`<tr><td>${h[0]}</td><td>${esc(h[1])}</td><td class="r">${eur(h[2])}</td><td class="r">${h[7]&&h[7].datafono!=null?eur(h[7].datafono):'—'}</td><td class="r">${h[7]&&h[7].retirado!=null?'<b>'+eur(h[7].retirado)+'</b>':'—'}</td><td class="r">${h[7]?eur(h[7].deja||0):'—'}</td><td class="r">${Math.abs(h[4])<.005?'<span class="pill p-ok">Cuadra</span>':`<span class="pill ${h[4]>0?'p-warn':'p-bad'}">${h[4]>0?'+':''}${eur(h[4])}</span>`}</td><td>${h[7]?`<button class="btn sm" data-himp="${hi}">Imprimir</button>`:''}</td></tr>`).join('')}
   </tbody></table></div></section>`;
 };
+
+A.historico=()=>{$$('[data-himp]').forEach(b=>b.onclick=()=>imprimirResumen(HIST[+b.dataset.himp]))};
 
 /* ---------- 8. Escandallo ---------- */
 let escSel='combinado';

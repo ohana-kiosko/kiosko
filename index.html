@@ -176,6 +176,12 @@ label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:60
 .cnt{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
 .cnt label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;padding:8px;border:1px solid var(--line);border-radius:10px}
 .cnt input{min-height:38px;border:1px solid #CFC7B9;border-radius:8px;padding:0 8px;font-size:16px;width:100%}
+/* 21 nov 2026: contar billetes y monedas, más grande y con subtotales */
+.cnt input{min-height:50px;font-size:22px;text-align:center}
+.cnt label b{font-size:16px}
+.cnt .sub{font-size:12.5px;color:var(--muted);text-align:center;min-height:16px;font-weight:600}
+.cnttot{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:12px 16px;border-radius:12px;background:var(--soft);font-weight:700}
+.cnttot b{font-family:var(--display);font-size:32px}
 @media (max-width:1180px){.tpv2{grid-template-columns:minmax(0,1fr) 340px}}
 @media (max-width:860px){
   .app{flex-direction:column}
@@ -627,8 +633,10 @@ function nav(){
   $('#nav').innerHTML=PAGES.map(p=>{const head=p.g!==g?`<div class="grp">${p.g}${p.adm?' · solo Isidro':''}</div>`:'';g=p.g;const lk=p.adm&&!isAdm();
    const badge=p.id==='pedidos'?pedCount():p.id==='comandas'?COMANDAS.filter(x=>!x.done).length:0;
    return head+`<a href="#${p.id}" class="${p.id===c.id?'on':''} ${lk?'locked':''}" ${p.id===c.id?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAVI[p.id]||''}</svg>${p.t}${lk?' 🔒':''}${badge?`<span class="badge">${badge}</span>`:''}</a>`}).join('');
-  $('#who').innerHTML=user?`<div>Dentro: <b>${user.nm}</b><br>${user.rol==='admin'?'Administrador':'Trabajador'} · ${fichado(user.id)?'fichado '+hhmm(fichado(user.id).in):'sin fichar'}</div><button id="salir">Cambiar de persona</button>`:'';
+  $('#who').innerHTML=user?`<div>Dentro: <b>${user.nm}</b><br>${user.rol==='admin'?'Administrador':'Trabajador'} · ${fichado(user.id)?'fichado '+hhmm(fichado(user.id).in):'sin fichar'}</div><button id="whofi" style="margin-bottom:6px">${fichado(user.id)?'Fichar salida':'Fichar entrada'}</button><button id="salir">Cambiar de persona</button>`:'';
   if($('#salir'))$('#salir').onclick=()=>{user=null;showLock()};
+  /* Dueño, 21 nov 2026: fichar es un botón aparte; abrir el perfil de alguien no le ficha. */
+  if($('#whofi'))$('#whofi').onclick=()=>{const f=fichado(user.id),t=Date.now();if(f){f.out=t;encola(user.id,'out',t)}else{FICHAJES.push({p:user.id,in:t,out:null});encola(user.id,'in',t)}render()};
 }
 function render(){
   const p=current();nav();drawNet();$('#ttl').textContent=p.t;$('#sub').textContent=p.s;$('#clock').textContent=hhmm();
@@ -658,7 +666,7 @@ function showLock(msg){
     if(!hasPin(s.id)){if(!pinNuevo){pinNuevo=pinBuf;pinBuf='';return draw('Ahora repite la clave.')}
       if(pinBuf!==pinNuevo){pinNuevo=null;pinBuf='';return draw('No coinciden. Elige la clave otra vez.')}await setPin(s.id,pinBuf);pinNuevo=null}
     else if(!(await pinOk(s.id,pinBuf))){pinBuf='';return draw('Clave incorrecta. Prueba otra vez.')}
-    user=s;if(!fichado(s.id)){const t=Date.now();FICHAJES.push({p:s.id,in:t,out:null});encola(s.id,'in',t)}L.hidden=true;L.innerHTML='';render()};
+    user=s;L.hidden=true;L.innerHTML='';render()};
   draw(msg);
 }
 document.addEventListener('keydown',e=>{if(!$('#lock').hidden&&/^[0-9]$/.test(e.key)){const b=$(`#lock [data-k="${e.key}"]`);b&&b.click()}if(e.key==='Escape'&&!$('#modal').hidden)closeModal()});
@@ -896,7 +904,10 @@ A.comandas=()=>$$('[data-done]').forEach(b=>b.onclick=()=>{COMANDAS.find(c=>c.n=
    el total del datáfono, el resumen queda en «Histórico y ventas» y las ventas vuelven a cero. Si alguien cobra sin abrir
    caja, se abre sola con el dinero que se dejó en el último cierre. */
 const DEN=[['50 €',50],['20 €',20],['10 €',10],['5 €',5],['2 €',2],['1 €',1],['0,50 €',.5],['0,20 €',.2],['0,10 €',.1],['0,05 €',.05],['0,02 €',.02],['0,01 €',.01]];
-let conteo={}, CAJA=null, cierreRes=null, cierreConfirma=false;
+let conteo={}, conteoA={}, CAJA=null, cierreRes=null, cierreConfirma=false;
+const sumaDen=o=>r2(DEN.reduce((a,[l,v],i)=>a+v*(+o[i]||0),0));
+const gridDen=(o,attr)=>`<div class="cnt">${DEN.map(([l,v],i)=>`<label><b>${l}</b><input type="number" min="0" inputmode="numeric" ${attr}="${i}" value="${o[i]??''}" placeholder="0"><span class="sub" data-sub-${attr}="${i}">${+o[i]?eur(v*o[i]):''}</span></label>`).join('')}</div>`;
+const pintaSubs=(o,attr)=>{DEN.forEach(([l,v],i)=>{const e=document.querySelector(`[data-sub-${attr}="${i}"]`);if(e)e.textContent=+o[i]?eur(v*o[i]):''})};
 function cajaAbierta(){if(!CAJA||!CAJA.abierta)CAJA={abierta:true,desde:Date.now(),fondo:+((CAJA&&CAJA.deja)||0),por:(user&&user.nm)||'—',auto:true};return CAJA}
 const r2=x=>Math.round(x*100)/100;
 const cobradoPor=re=>r2(COBROS.filter(c=>re.test(c.how)).reduce((a,c)=>a+c.amt,0));
@@ -916,8 +927,10 @@ V.cierre=()=>{
       <div class="kpis"><div class="kpi"><div class="l">Ventas</div><div class="v">${eur(r[2])}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(x.ef||0)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(x.tj||0)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(r[4])<.005?'Cuadra':eur(r[4])}</div></div><div class="kpi"><div class="l">Queda en caja</div><div class="v">${eur(x.deja||0)}</div></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="cimp">Imprimir resumen</button></div></div></section>`:''}
     <section class="card" style="max-width:560px"><h2>Abrir caja</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
-      <div class="muted" style="font-size:14px">¿Cuánto dinero hay en el cajón para empezar? Es el fondo para dar cambio.</div>
-      <input class="inp" id="cfondo" type="number" step="0.01" min="0" inputmode="decimal" style="font-size:22px" value="${(CAJA&&CAJA.deja!=null)?CAJA.deja:''}" placeholder="0,00">
+      <div class="muted" style="font-size:14px">Cuenta el dinero que hay en el cajón para empezar (el fondo para dar cambio): pon cuántos billetes y monedas hay de cada uno y el programa suma.</div>
+      ${gridDen(conteoA,'data-fden')}
+      <div class="cnttot"><span>Fondo para empezar</span><b id="cfondotot">${eur(sumaDen(conteoA)||((CAJA&&CAJA.deja)||0))}</b></div>
+      <label class="f">O escribe el total directamente<input class="inp" id="cfondo" type="number" step="0.01" min="0" inputmode="decimal" style="font-size:22px" value="${(CAJA&&CAJA.deja!=null)?CAJA.deja:''}" placeholder="0,00"></label>
       <div class="chips">${[0,50,100,150,200].map(v=>`<button class="chip" data-cf="${v}">${eur(v)}</button>`).join('')}</div>
       <button class="btn big pri" id="cabrir">Abrir caja</button>
       <div class="muted" style="font-size:13px">Si alguien cobra sin abrir caja, se abre sola con el dinero que se dejó en el último cierre.</div>
@@ -930,7 +943,8 @@ V.cierre=()=>{
   <div class="row">
   ${(()=>{const by={};COBROS.forEach(c=>{const k=c.who;by[k]=by[k]||{ef:0,tj:0,ot:0};if(/^Efectivo/.test(c.how))by[k].ef+=c.amt;else if(/^Tarjeta/.test(c.how))by[k].tj+=c.amt;else by[k].ot+=c.amt});const rows=Object.entries(by);return rows.length?`<section class="card" style="flex:1 1 100%"><h2>Cobrado por cada uno en esta caja</h2><div class="tw"><table><thead><tr><th>Quién</th><th class="r">Efectivo</th><th class="r">Tarjeta</th><th class="r">Otros</th><th class="r">Total</th></tr></thead><tbody>${rows.map(([w,v])=>`<tr><td><b>${esc(w)}</b></td><td class="r">${eur(v.ef)}</td><td class="r">${eur(v.tj)}</td><td class="r">${eur(v.ot)}</td><td class="r"><b>${eur(v.ef+v.tj+v.ot)}</b></td></tr>`).join('')}</tbody></table></div></section>`:''})()}
   <section class="card" style="flex:2 1 520px"><h2>1. Cuenta el efectivo del cajón</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
-    <div class="cnt">${DEN.map(([l,v],i)=>`<label>${l}<input type="number" min="0" inputmode="numeric" data-den="${i}" value="${conteo[i]??''}" placeholder="0"></label>`).join('')}</div>
+    ${gridDen(conteo,'data-den')}
+    <div class="cnttot"><span>Total contado</span><b id="cnttot">${sumaDen(conteo)?eur(sumaDen(conteo)):'—'}</b></div>
     <label class="f">O escribe directamente el total contado<input class="inp" id="ctotal" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00"></label>
     <dl class="kv"><dt>Fondo al abrir</dt><dd>${eur(CAJA.fondo)}</dd><dt>Efectivo cobrado</dt><dd>${eur(ef)}</dd><dt>Tendría que haber</dt><dd>${eur(CAJA.fondo+ef)}</dd><dt>Has contado</dt><dd id="contado">—</dd></dl>
     <div id="desc"></div>
@@ -950,14 +964,16 @@ A.cierre=()=>{
     ACCS.filter(n=>n!==QUICK&&ACC[n]&&['due','part'].includes(accState(n))).forEach(n=>{ACCS=ACCS.filter(x=>x!==n);delete ACC[n]});
     ACC[QUICK]={items:{},paid:0,parts:[],donde:'',opened:Date.now(),billed:{},hidden:false};cur=QUICK;render()};
   if(!(CAJA&&CAJA.abierta)){
-    $$('[data-cf]').forEach(b=>b.onclick=()=>{$('#cfondo').value=b.dataset.cf});
+    $$('[data-cf]').forEach(b=>b.onclick=()=>{conteoA={};$$('[data-fden]').forEach(x=>x.value='');pintaSubs(conteoA,'data-fden');$('#cfondo').value=b.dataset.cf;$('#cfondotot').textContent=eur(+b.dataset.cf)});
+    $$('[data-fden]').forEach(x=>x.oninput=()=>{conteoA[x.dataset.fden]=x.value;pintaSubs(conteoA,'data-fden');const t=sumaDen(conteoA);$('#cfondo').value=t?t.toFixed(2):'';$('#cfondotot').textContent=eur(t)});
+    $('#cfondo').oninput=()=>{const v=parseFloat($('#cfondo').value);$('#cfondotot').textContent=eur(isNaN(v)?0:v)};
     if($('#cimp'))$('#cimp').onclick=()=>{if(!cierreRes)return;const L=resumenCierreTxt(cierreRes);if(PRN.modo==='navegador')imprimirHTML(L.join('\n'));else enviar(ESC.ini+L.join('\n')+ESC.corte)};
-    $('#cabrir').onclick=()=>{const f=parseFloat($('#cfondo').value);CAJA={abierta:true,desde:Date.now(),fondo:isNaN(f)?0:r2(f),por:(user&&user.nm)||'—'};cierreRes=null;conteo={};cierreConfirma=false;render()};
+    $('#cabrir').onclick=()=>{const f=parseFloat($('#cfondo').value);CAJA={abierta:true,desde:Date.now(),fondo:isNaN(f)?0:r2(f),por:(user&&user.nm)||'—',billetes:Object.assign({},conteoA)};cierreRes=null;conteo={};conteoA={};cierreConfirma=false;render()};
     return;
   }
   const ef=cobradoPor(/^Efectivo/),tj=cobradoPor(/^Tarjeta/);
   const upd=()=>{const c=contadoCaja();$('#contado').textContent=isNaN(c)?'—':eur(c);if(isNaN(c)){$('#desc').innerHTML='';return}const d=r2(c-(CAJA.fondo+ef));$('#desc').innerHTML=Math.abs(d)<.005?'<div class="status">Cuadra.</div>':`<div class="note">${d>0?'Sobran':'Faltan'} ${eur(Math.abs(d))}. Puedes cerrar igualmente y explicarlo en las notas.</div>`};
-  $$('[data-den]').forEach(i=>i.oninput=()=>{conteo[i.dataset.den]=i.value;upd()});$('#ctotal').oninput=upd;upd();
+  $$('[data-den]').forEach(i=>i.oninput=()=>{conteo[i.dataset.den]=i.value;pintaSubs(conteo,'data-den');const t=sumaDen(conteo);$('#cnttot').textContent=t?eur(t):'—';upd()});$('#ctotal').oninput=upd;upd();
   $('#tjb').oninput=e=>{const v=parseFloat(e.target.value);$('#tjd').innerHTML=isNaN(v)?`Debería coincidir con ${eur(tj)}.`:Math.abs(v-tj)<.005?'<span class="pill p-ok">Coincide</span>':`<span class="pill p-warn">Diferencia de ${eur(v-tj)}</span>`};
   $('#cfondoedit').onclick=()=>{const box=$('#cfondoedit').parentNode;box.innerHTML=`Fondo al abrir: <input class="inp" id="cfnew" type="number" step="0.01" min="0" style="width:120px;display:inline-block" value="${CAJA.fondo}"> <button class="btn sm pri" id="cfok">Guardar</button>`;$('#cfok').onclick=()=>{const f=parseFloat($('#cfnew').value);if(!isNaN(f))CAJA.fondo=r2(f);render()}};
   $('#cerrar').onclick=()=>{
@@ -965,7 +981,7 @@ A.cierre=()=>{
     cierreConfirma=false;
     const c=contadoCaja(),tot=r2(COBROS.reduce((a,x)=>a+x.amt,0)),ot=r2(tot-ef-tj),dj=parseFloat($('#cdeja').value),dat=parseFloat($('#tjb').value);
     const ahora=Date.now(),desc=isNaN(c)?0:r2(c-(CAJA.fondo+ef));
-    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?0:r2(dj),nota:($('#nota').value||'').trim(),cobros:COBROS.length}];
+    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?0:r2(dj),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
     HIST.unshift(reg);cierreRes=reg;
     SALES=[];COBROS=[];conteo={};cierreHecho=false;
     ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true});
@@ -1121,7 +1137,7 @@ V.fichar=()=>{const me=user;const f=fichado(me.id);const w=WEEK[me.id]||{ord:0,e
    <div style="font-family:var(--display);font-size:46px;font-weight:700">${hhmm()}</div>
    <div>${f?`<span class="pill p-ok">Trabajando desde las ${hhmm(f.in)}</span>`:'<span class="pill p-mute">Sin fichar</span>'}</div>
    ${f?'<button class="btn big" id="fout">Fichar salida</button>':'<button class="btn big pri" id="fin">Fichar entrada</button>'}
-   <div class="muted" style="font-size:13px">Al entrar con tu clave ya se ficha la entrada. Al acabar, ficha la salida y cambia de persona.</div></div></section>
+   <div class="muted" style="font-size:13px">Entrar con tu clave no ficha. Pulsa «Fichar entrada» al empezar tu turno y «Fichar salida» al acabarlo (también desde el botón de abajo a la izquierda).</div></div></section>
   <section class="card" style="flex:2 1 420px"><h2>Mis horas</h2><div class="bd" id="mishoras">${esWeb(me.id)?'<span class="muted">Cargando…</span>':'<span class="muted">'+(me.rol==='admin'?'El administrador no ficha en la web.':'Este aparato aún no está conectado con la web: Isidro lo conecta en «Equipo y sueldos».')+'</span>'}</div></section></div>
  <section class="card"><h2>Quién está ahora</h2><div class="tw"><table><tbody>${STAFF.filter(s=>s.rol!=='admin').map(s=>{const x=fichado(s.id);return `<tr><td><b>${s.nm}</b></td><td>${s.puesto}</td><td>${x?`<span class="pill p-ok">Dentro desde ${hhmm(x.in)}</span>`:'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')}</tbody></table></div></section>`};
 A.fichar=()=>{if($('#fout'))$('#fout').onclick=()=>{const t=Date.now();fichado(user.id).out=t;encola(user.id,'out',t);render()};if($('#fin'))$('#fin').onclick=()=>{const t=Date.now();FICHAJES.push({p:user.id,in:t,out:null});encola(user.id,'in',t);render()};misHoras()};
@@ -1237,7 +1253,8 @@ const CAJON={todas:'\x1bp\x00\x19\xfa\x1bp\x01\x19\xfa\x10\x14\x01\x00\x05\x10\x
 Object.defineProperty(ESC,'cajon',{get:()=>CAJON[PRN.cajon]||CAJON.todas});
 if(window.OhanaTPV&&window.OhanaTPV.imprimirRaw&&!PRN.nativoVisto){PRN.nativoVisto=true;PRN.modo='tablet';guardaPRN()}
 let colaPRN='',tPRN=0;
-window.ohkPRN=r=>{try{r=typeof r==='string'?JSON.parse(r):r}catch(e){r={ok:false,error:String(r)}}if(!r.ok){tpvMsg='No se pudo imprimir: '+(r.error||'')+'. Mira «Productos y aparatos › Impresora y cajón».';try{render()}catch(e){}}};
+function avisoPRN(t,ok){let b=document.getElementById('prnbar');if(!b){b=document.createElement('div');b.id='prnbar';document.body.appendChild(b)}b.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9998;padding:10px 16px;border-radius:12px;font:600 15px/1.35 system-ui;max-width:90vw;box-shadow:0 6px 20px rgba(0,0,0,.25);color:#fff;background:'+(ok?'#2E7D4F':'#A3231F');b.textContent=t;clearTimeout(b._t);b._t=setTimeout(()=>b.remove(),ok?2500:9000)}
+window.ohkPRN=r=>{try{r=typeof r==='string'?JSON.parse(r):r}catch(e){r={ok:false,error:String(r)}}if(r.ok){avisoPRN('Enviado a la impresora'+(r.via?' ('+r.via+')':''),true);return}avisoPRN('No se pudo imprimir: '+(r.error||''),false);if(!r.ok){tpvMsg='No se pudo imprimir: '+(r.error||'')+'. Mira «Productos y aparatos › Impresora y cajón».';try{render()}catch(e){}}};
 function enviar(bin){
   if(PRN.modo!=='rawbt'&&PRN.modo!=='tablet')return;
   colaPRN+=bin;clearTimeout(tPRN);

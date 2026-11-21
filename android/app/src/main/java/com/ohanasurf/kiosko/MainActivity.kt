@@ -481,7 +481,11 @@ class MainActivity : Activity() {
                         ?: throw RuntimeException("no encuentro la impresora USB")
                     imprimirUsb(d, datos); via = "USB"
                 } else if (destino.startsWith("/dev/")) {
-                    FileOutputStream(destino).use { it.write(datos); it.flush() }
+                    // «/dev/ttyS3@115200»: puerto serie con su velocidad (dueño, 21 nov 2026: pruebas del lunes)
+                    val ruta = destino.substringBefore("@")
+                    destino.substringAfter("@", "").toIntOrNull()?.let { ponerBaudios(ruta, it) }
+                    FileOutputStream(ruta).use { it.write(datos); it.flush() }
+                    via = "serie $destino"
                 } else {
                     val lista = aparatosBt()
                     val dev = lista.firstOrNull { it.address == destino }
@@ -493,10 +497,13 @@ class MainActivity : Activity() {
                         s.outputStream.flush()
                         Thread.sleep(400)
                         s.close()
+                        via = "Bluetooth " + (dev.name ?: dev.address)
                     } else {
                         val p = puertosSerie.firstOrNull { File(it).let { f -> f.exists() && f.canWrite() } }
                             ?: throw RuntimeException("no encuentro la impresora de la tablet (ni Bluetooth ni puerto serie). Elige una en la lista")
+                        ponerBaudios(p, 115200)
                         FileOutputStream(p).use { it.write(datos); it.flush() }
+                        via = "serie $p"
                     }
                 }
             } catch (e: SecurityException) {
@@ -505,6 +512,110 @@ class MainActivity : Activity() {
                 error = e.message ?: e.toString()
             }
             val j = JSONObject().put("ok", error.isEmpty()).put("error", error).put("via", via)
+            runOnUiThread { web.evaluateJavascript("window.ohkPRN&&window.ohkPRN(${JSONObject.quote(j.toString())})", null) }
+        }
+    }
+
+    // ---------- Diagnóstico de la impresora y del cajón (dueño, 21 nov 2026: «déjamelo preparado para el lunes») ----------
+    // El TPV ZAZOO / GEON NB11 (Rockchip RK3562, Android 13) no publica cómo se abre su cajón. Este diagnóstico apunta todo lo
+    // que la tablet enseña (USB, Bluetooth, puertos serie, ficheros del sistema con «cash/drawer/box», apps de impresora) y lo
+    // manda al panel para que Claude lo lea; las pruebas numeradas dicen qué camino imprime y cuál abre el cajón.
+    private fun ponerBaudios(ruta: String, baudios: Int) {
+        try {
+            val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", "stty -F $ruta $baudios raw -echo 2>/dev/null || toybox stty -F $ruta $baudios raw -echo"))
+            p.waitFor()
+        } catch (e: Exception) {}
+    }
+
+    private val reSistema = Regex("cash|drawer|money|kick|qianxiang|box|print|gpio|uart|serial", RegexOption.IGNORE_CASE)
+    private val reCajon = Regex("cash|drawer|money|kick|qianxiang|box", RegexOption.IGNORE_CASE)
+    private fun buscarEn(dir: File, prof: Int, res: JSONArray, dentroCajon: Boolean = false) {
+        if (prof < 0 || res.length() >= 300) return
+        val hijos = try { dir.listFiles() } catch (e: Exception) { null } ?: return
+        for (f in hijos) {
+            if (res.length() >= 300) return
+            val coincide = dentroCajon || reSistema.containsMatchIn(f.name)
+            if (coincide) res.put(f.path + (if (f.isDirectory) "/" else "") + (if (f.canWrite()) " [escribe]" else "") + (if (f.canRead()) " [lee]" else ""))
+            val enlace = try { java.nio.file.Files.isSymbolicLink(f.toPath()) } catch (e: Exception) { true }
+            val esCajon = reCajon.containsMatchIn(f.name)
+            if (f.isDirectory && (!enlace || coincide)) {
+                if (esCajon) buscarEn(f, 1, res, true) else if (prof > 0) buscarEn(f, prof - 1, res, dentroCajon)
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission", "QueryPermissionsNeeded")
+    private fun diagnosticoJson(): String {
+        val j = JSONObject()
+        try {
+            j.put("app", BuildConfig.VERSION_NAME)
+            j.put("aparato", JSONObject().put("fabricante", Build.MANUFACTURER).put("marca", Build.BRAND).put("modelo", Build.MODEL)
+                .put("producto", Build.PRODUCT).put("placa", Build.BOARD).put("hardware", Build.HARDWARE).put("android", Build.VERSION.RELEASE)
+                .put("sdk", Build.VERSION.SDK_INT).put("huella", Build.FINGERPRINT))
+            val usb = JSONArray()
+            try {
+                usbManager().deviceList.values.forEach { d ->
+                    val itfs = JSONArray()
+                    for (i in 0 until d.interfaceCount) {
+                        val itf = d.getInterface(i)
+                        val eps = JSONArray()
+                        for (e in 0 until itf.endpointCount) { val ep = itf.getEndpoint(e); eps.put("tipo${ep.type}/" + (if (ep.direction == UsbConstants.USB_DIR_OUT) "salida" else "entrada")) }
+                        itfs.put(JSONObject().put("clase", itf.interfaceClass).put("subclase", itf.interfaceSubclass).put("protocolo", itf.interfaceProtocol).put("puntos", eps))
+                    }
+                    usb.put(JSONObject().put("id", "usb:" + d.deviceName).put("nombre", nombreUsb(d)).put("vid", Integer.toHexString(d.vendorId)).put("pid", Integer.toHexString(d.productId))
+                        .put("clase", d.deviceClass).put("permiso", usbManager().hasPermission(d)).put("salida", salidaUsb(d) != null).put("interfaces", itfs))
+                }
+            } catch (e: Exception) { usb.put("error: " + e.message) }
+            j.put("usb", usb)
+            val bt = JSONArray()
+            try { aparatosBt().forEach { bt.put(JSONObject().put("id", it.address).put("nombre", it.name ?: "")) } } catch (e: Exception) { bt.put("error: " + e.message) }
+            j.put("bluetooth", bt)
+            val dev = JSONArray()
+            (File("/dev").listFiles() ?: emptyArray()).filter { Regex("^(tty(S|USB|ACM|HS|MT|GS|FIQ|AMA)\\d+|usb|lp\\d*|.*print.*|.*cash.*|.*drawer.*|.*box.*|gpio.*)$", RegexOption.IGNORE_CASE).matches(it.name) }
+                .forEach { dev.put(it.path + (if (it.canWrite()) " [escribe]" else "") + (if (it.canRead()) " [lee]" else "")) }
+            File("/dev/usb").listFiles()?.forEach { dev.put(it.path + (if (it.canWrite()) " [escribe]" else "")) }
+            j.put("dev", dev)
+            val sis = JSONArray()
+            buscarEn(File("/sys/class"), 2, sis); buscarEn(File("/sys/devices/platform"), 2, sis); buscarEn(File("/proc"), 1, sis)
+            j.put("sistema", sis)
+            val apps = JSONArray()
+            try {
+                val re = Regex("print|pos|cash|drawer|serial|gpio|sunmi|woyou|imin|telpo|senraise|reciept|receipt|nyx|hopestar|landi|ciontek|geon|zazoo|smart|xprinter|epson|bixolon|rawbt|escpos|rockchip", RegexOption.IGNORE_CASE)
+                packageManager.getInstalledPackages(0).filter { re.containsMatchIn(it.packageName) }.forEach { apps.put(it.packageName + " " + (it.versionName ?: "")) }
+            } catch (e: Exception) { apps.put("error: " + e.message) }
+            j.put("apps", apps)
+            val props = JSONArray()
+            try {
+                val p = Runtime.getRuntime().exec("getprop")
+                val re = Regex("ro\\.product\\.|ro\\.board|ro\\.hardware|ro\\.build\\.display|print|cash|drawer|pos\\.|serial|uart|ro\\.vendor\\.build\\.fingerprint", RegexOption.IGNORE_CASE)
+                p.inputStream.bufferedReader().readLines().filter { re.containsMatchIn(it) }.take(150).forEach { props.put(it) }
+            } catch (e: Exception) { props.put("error: " + e.message) }
+            j.put("propiedades", props)
+            j.put("stty", try { val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", "command -v stty || command -v toybox")); p.inputStream.bufferedReader().readText().trim() } catch (e: Exception) { "" })
+        } catch (e: Exception) { j.put("error", e.toString()) }
+        return j.toString()
+    }
+
+    /** Prueba de cajón por un fichero del sistema (GPIO): lee el valor, pone el contrario 0,2 s y lo deja como estaba. */
+    private fun probarCajonSistema(ruta: String) {
+        colaImpresion.execute {
+            var error = ""
+            try {
+                val f = File(ruta)
+                val antes = try { f.readText().trim() } catch (e: Exception) { "" }
+                val pulso = if (antes == "1") "0" else "1"
+                val vuelta = if (antes == "1") "1" else "0"
+                fun poner(v: String) {
+                    try { FileOutputStream(f).use { it.write(v.toByteArray()); it.flush() } }
+                    catch (e: Exception) {
+                        val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", "echo $v > '$ruta'"))
+                        p.waitFor()
+                        if (p.exitValue() != 0) throw RuntimeException("la tablet no deja escribir en $ruta")
+                    }
+                }
+                poner(pulso); Thread.sleep(200); poner(vuelta)
+            } catch (e: Exception) { error = e.message ?: e.toString() }
+            val j = JSONObject().put("ok", error.isEmpty()).put("error", error).put("via", ruta)
             runOnUiThread { web.evaluateJavascript("window.ohkPRN&&window.ohkPRN(${JSONObject.quote(j.toString())})", null) }
         }
     }
@@ -538,5 +649,7 @@ class MainActivity : Activity() {
         @JavascriptInterface fun impresoras(): String = listaImpresoras()
         @JavascriptInterface fun imprimirRaw(destino: String, b64: String) { imprimirDirecto(destino, Base64.decode(b64, Base64.DEFAULT)) }
         @JavascriptInterface fun permisos() { runOnUiThread { abrirAjustesApp() } }
+        @JavascriptInterface fun diagnostico(): String = diagnosticoJson()
+        @JavascriptInterface fun cajonSistema(ruta: String) { probarCajonSistema(ruta) }
     }
 }

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Panel del kiosko</title>
+<meta name="theme-color" content="#1A1714">
+<link rel="manifest" href="/panel/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Panel del dueño (21 nov 2026): se mira en el móvil. Mismos colores que el TPV: arena clara, tinta oscura, naranja atardecer. */
+:root{
+  --bg:#F1EFEA; --panel:#FFFFFF; --ink:#1A1714; --muted:#5E5850; --line:#E2DDD3; --soft:#F8F6F1;
+  --accent:#C2560F; --accent-soft:#FBE7D6; --sea:#0B6670;
+  --warn:#8A4B00; --warn-bg:#FDF0DD; --bad:#A3231F; --bad-bg:#FCE4E2; --ok:#0B5A3A; --ok-bg:#E1F5EA;
+  --display:'Space Grotesk',ui-sans-serif,system-ui,sans-serif; --body:Inter,ui-sans-serif,system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.4 var(--body);-webkit-text-size-adjust:100%;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
+.top{position:sticky;top:0;z-index:5;background:var(--ink);color:#F4EFE9;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;display:flex;align-items:center;gap:10px}
+.top h1{font-size:18px;flex:1}
+.top small{display:block;font:12px var(--body);color:#BDB4AA;letter-spacing:0}
+.ib{border:1px solid #4A433C;background:transparent;color:#F4EFE9;border-radius:10px;padding:8px 10px;min-height:40px}
+main{max-width:720px;margin:0 auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h2{font-size:16px;margin-bottom:10px}
+.muted{color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+.kpi{background:var(--soft);border-radius:10px;padding:10px}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font:600 20px var(--display);font-variant-numeric:tabular-nums}
+.kpi.big{background:var(--accent-soft)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 14px;min-height:44px;font-weight:600;cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.sm{min-height:36px;padding:6px 10px;font-size:14px}
+.btn.bad{color:var(--bad);border-color:#E9A6A2}
+.btn:disabled{opacity:.5}
+.pill{display:inline-block;border-radius:99px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-bg);color:var(--ok)}.p-warn{background:var(--warn-bg);color:var(--warn)}.p-bad{background:var(--bad-bg);color:var(--bad)}.p-mute{background:var(--soft);color:var(--muted)}
+.list{display:flex;flex-direction:column}
+.it{display:flex;gap:10px;align-items:center;padding:12px 2px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;cursor:pointer}
+.it:first-child{border-top:0}
+.it .t{font-weight:600}
+.it .s{font-size:13px;color:var(--muted)}
+.it .n{font:600 16px var(--display);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.day{font:600 13px var(--body);color:var(--muted);margin:6px 2px 0}
+.nav{display:flex;align-items:center;gap:8px}
+.nav b{flex:1;text-align:center;font-family:var(--display);font-size:16px}
+.nav .btn{min-width:48px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:8px 6px;border-top:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;border-top:0}
+td.r,th.r{text-align:right}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{border:0;background:none;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--muted);min-height:60px;cursor:pointer}
+.tabs button svg{width:24px;height:24px}
+.tabs button[aria-current="page"]{color:var(--accent);font-weight:600}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
+.inp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;background:#fff;font-size:16px;color:var(--ink);width:100%}
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(26,23,20,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet>div{background:var(--bg);width:100%;max-width:720px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+.sheet h3{font-size:18px;flex:1}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-variant-numeric:tabular-nums}
+.kv dt{color:var(--muted)}.kv dd{margin:0;text-align:right;font-weight:600}
+.kv .big{font-size:18px;color:var(--accent)}
+.note{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px}
+.err{background:var(--bad-bg);color:var(--bad);border-radius:10px;padding:10px 12px;font-size:14px}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.login .card{width:100%;max-width:380px;display:flex;flex-direction:column;gap:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:#fff;border-radius:10px;padding:10px 14px;z-index:30;font-size:14px;max-width:90vw}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+/* Panel del dueño (21 nov 2026). Lee lo que sube la tablet (cajas y fichajes) y guarda la configuración de los camareros:
+   horas ordinarias por semana y € por hora extra. Las semanas van de lunes a domingo; lo que pase de las ordinarias es extra.
+   Cada semana cuenta en el mes en que cae su domingo. Solo cuentan los fichajes cerrados (con salida). */
+const API='/api/panel', TK='ohp-tok';
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur=n=>(Math.round((+n||0)*100)/100).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const r2=n=>Math.round((+n||0)*100)/100;
+const hhmm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+const ymd=t=>new Date(t).toLocaleDateString('sv-SE');
+const hTxt=m=>{m=Math.round(m||0);const h=Math.floor(m/60),mm=m%60;return h+' h'+(mm?' '+String(mm).padStart(2,'0'):'')};
+const lsG=k=>{try{return localStorage.getItem(k)}catch(e){return null}}, lsP=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
+function lunesDe(d){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()-(x.getDay()+6)%7);return ymd(x)}
+function masDias(d,n){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return ymd(x)}
+const may=t=>t.charAt(0).toUpperCase()+t.slice(1);
+const diaTxt=d=>may(new Date(d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}));
+const diaCorto=d=>new Date(d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric'});
+const mesTxt=m=>may(new Date(m+'-15T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'}));
+const mesMas=(m,n)=>{const x=new Date(m+'-15T12:00:00');x.setMonth(x.getMonth()+n);return ymd(x).slice(0,7)};
+const semTxt=l=>{const a=new Date(l+'T12:00:00'),b=new Date(masDias(l,6)+'T12:00:00');return a.getDate()+(a.getMonth()!==b.getMonth()?' '+a.toLocaleDateString('es-ES',{month:'short'}):'')+' – '+b.getDate()+' '+b.toLocaleDateString('es-ES',{month:'short'})};
+const hace=t=>{if(!t)return 'nunca';const m=Math.round((Date.now()-t)/60000);if(m<1)return 'ahora mismo';if(m<60)return 'hace '+m+' min';const h=Math.round(m/60);if(h<24)return 'hace '+h+' h';return 'el '+new Date(t).toLocaleDateString('es-ES',{day:'numeric',month:'short'})+' a las '+hhmm(t)};
+
+let TOK=lsG(TK), EST=null, CFG=null, TAB=lsG('ohp-tab')||'cajas', MES=ymd(Date.now()).slice(0,7), SEM=lunesDe(ymd(Date.now())), cargando=false, error='';
+
+async function api(metodo,a,cuerpo){
+  const r=await fetch(API+(metodo==='GET'?'?a='+a:''),{method:metodo,headers:Object.assign({'Content-Type':'application/json'},TOK?{'x-tok':TOK}:{}),body:metodo==='POST'?JSON.stringify(Object.assign({a},cuerpo)):undefined});
+  const j=await r.json().catch(()=>({error:'Sin conexión'}));
+  if(r.status===401&&a!=='entrar'){TOK=null;lsP(TK,null)}
+  if(!r.ok)throw new Error(j.error||('Error '+r.status));return j}
+function toast(t){const o=document.createElement('div');o.className='toast';o.setAttribute('role','status');o.textContent=t;document.body.appendChild(o);setTimeout(()=>o.remove(),2600)}
+
+/* ---------- Datos ---------- */
+function config(){const c=CFG||{};c.camareros=Array.isArray(c.camareros)?c.camareros:[];c.extra=c.extra==null?10:+c.extra;c.fix=c.fix&&typeof c.fix==='object'?c.fix:{};c.nuevos=Array.isArray(c.nuevos)?c.nuevos:[];
+  // La primera vez, los camareros salen de los que conoce la tablet.
+  if(!c.camareros.length&&EST&&Array.isArray(EST.staff))c.camareros=EST.staff.map(s=>({id:s.id,nm:s.nm,activo:true,ord:[{desde:'2000-01-03',h:s.ord>0?+s.ord:20}]})),c.sinGuardar=true;
+  CFG=c;return c}
+const cams=()=>config().camareros;
+const camDe=id=>cams().find(x=>x.id===id);
+const nombre=id=>{const c=camDe(id);if(c)return c.nm;const s=EST&&EST.staff&&EST.staff.find(x=>x.id===id);return s?s.nm:id};
+function ordDe(c,lunes){const v=((c&&c.ord)||[]).filter(o=>o.desde<=lunes).sort((a,b)=>a.desde<b.desde?-1:1).pop();return v?+v.h:20}
+const clave=f=>f.p+'|'+f.in;
+/* Fichajes con las correcciones del dueño aplicadas. */
+function fichajes(){const c=config();const out=[];
+  ((EST&&EST.fichajes)||[]).forEach(f=>{const x=c.fix[clave(f)];if(x&&x.x)return;out.push(Object.assign({},f,x||{},{k:clave(f),corr:!!x}))});
+  c.nuevos.forEach(n=>out.push(Object.assign({},n,{k:'n|'+n.id,mano:true})));
+  return out.filter(f=>f.in).sort((a,b)=>a.in-b.in)}
+const minDe=f=>f.out&&f.out>f.in?Math.round((f.out-f.in)/60000):0;
+function semana(id,lunes,F){const fin=masDias(lunes,6);return (F||fichajes()).filter(f=>f.p===id&&ymd(f.in)>=lunes&&ymd(f.in)<=fin).reduce((a,f)=>a+minDe(f),0)}
+function resumenMes(id,mes,F){F=F||fichajes();const c=camDe(id);const sems=[];let l=lunesDe(mes+'-01');
+  const hoy=ymd(Date.now());while(masDias(l,6).slice(0,7)<=mes&&l<=hoy){if(masDias(l,6).slice(0,7)===mes){const m=semana(id,l,F),o=ordDe(c,l)*60;sems.push({lunes:l,min:m,ord:o,extra:Math.max(0,m-o),cerrada:masDias(l,6)<ymd(Date.now())})}l=masDias(l,7)}
+  const extra=sems.reduce((a,s)=>a+s.extra,0),tot=sems.reduce((a,s)=>a+s.min,0);return {sems,extra,tot,eur:r2(extra/60*config().extra)}}
+const dentro=(id,F)=>(F||fichajes()).filter(f=>f.p===id&&!f.out).pop();
+
+async function carga(){if(cargando)return;cargando=true;error='';pinta();
+  try{const r=await api('GET','todo');EST=r.estado;CFG=r.config||{};}catch(e){error=e.message}
+  cargando=false;pinta()}
+async function guardaCfg(msg){const c=config();const copia=Object.assign({},c);delete copia.sinGuardar;
+  try{const r=await api('POST','config',{config:copia});c.t=r.t;delete c.sinGuardar;toast(msg||'Guardado. La tablet lo recoge en unos minutos.')}catch(e){toast('No se pudo guardar: '+e.message)}pinta()}
+
+/* ---------- Pantallas ---------- */
+const ICO={cajas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18M7 15h3"/><path d="M8 7V5h8v2"/></svg>',
+ camareros:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+ ajustes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>'};
+function pinta(){
+  const app=$('#app');
+  if(!TOK){app.innerHTML=`<div class="login"><form class="card" id="lf"><h1 style="font-size:22px">Panel del kiosko</h1><p class="muted" style="margin:0">Cajas y horas de los camareros. Entra con la clave larga del TPV (la que pusiste en Vercel como TPV_CLAVE).</p>
+    <label class="f">Clave del TPV<input class="inp" id="lc" type="password" autocomplete="current-password" required></label><button class="btn pri" id="lb">Entrar</button><div id="lm" role="alert"></div></form></div>`;
+    $('#lf').onsubmit=async e=>{e.preventDefault();$('#lb').disabled=true;$('#lm').innerHTML='';try{const r=await api('POST','entrar',{clave:$('#lc').value,quien:'dueno'});TOK=r.tok;lsP(TK,TOK);carga()}catch(er){$('#lm').innerHTML='<div class="err">'+esc(er.message)+'</div>';$('#lb').disabled=false}};return}
+  const sub=EST?'La tablet subió datos '+hace(EST.recibido||EST.t):(cargando?'Cargando…':'La tablet aún no ha subido datos');
+  app.innerHTML=`<header class="top"><h1>Kiosko · ${TAB==='cajas'?'Cajas':TAB==='camareros'?'Camareros':'Ajustes'}<small>${esc(sub)}</small></h1><button class="ib" id="rf" aria-label="Actualizar">${cargando?'…':'Actualizar'}</button></header>
+  <main id="m">${error?`<div class="err">${esc(error)}</div>`:''}${!EST&&!cargando?`<div class="note">La tablet todavía no está conectada con este panel. En la tablet: menú «Equipo y sueldos» › «Conectar con el panel del móvil» y escribe la misma clave del TPV.</div>`:''}${TAB==='cajas'?vCajas():TAB==='camareros'?vCamareros():vAjustes()}</main>
+  <nav class="tabs" aria-label="Secciones">${[['cajas','Cajas'],['camareros','Camareros'],['ajustes','Ajustes']].map(([k,t])=>`<button data-tab="${k}" ${TAB===k?'aria-current="page"':''}>${ICO[k]}<span>${t}</span></button>`).join('')}</nav>`;
+  $('#rf').onclick=carga;
+  $$('[data-tab]').forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;lsP('ohp-tab',TAB);pinta();scrollTo(0,0)});
+  (TAB==='cajas'?aCajas:TAB==='camareros'?aCamareros:aAjustes)();
+}
+
+/* Cajas */
+const cierres=()=>((EST&&EST.cierres)||[]).filter(c=>c&&c.hasta);
+function vCajas(){
+  const k=EST&&EST.caja;let ahora='';
+  if(k&&k.abierta)ahora=`<section class="card"><div class="row"><h2 style="margin:0">Caja abierta</h2><span class="sp"></span><span class="pill p-ok">desde las ${hhmm(k.desde)}</span></div>
+    <p class="muted" style="margin:6px 0 10px">La abrió ${esc(k.por||'—')} con ${eur(k.fondo)} de cambio. Datos de ${hace(EST.t)}.</p>
+    <div class="kpis"><div class="kpi big"><div class="l">Cobrado</div><div class="v">${eur(k.total)}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(k.ef)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(k.tj)}</div></div>${k.pendiente?`<div class="kpi"><div class="l">Cuentas sin cobrar</div><div class="v">${eur(k.pendiente)}</div></div>`:''}</div></section>`;
+  else if(EST)ahora=`<section class="card"><div class="row"><h2 style="margin:0">Caja cerrada</h2><span class="sp"></span><span class="pill p-mute">${k&&k.deja!=null?'deja '+eur(k.deja)+' de cambio':'—'}</span></div></section>`;
+  const L=cierres().filter(c=>ymd(c.hasta).slice(0,7)===MES).sort((a,b)=>b.hasta-a.hasta);
+  const S=(f)=>r2(L.reduce((a,c)=>a+(+f(c)||0),0));
+  const tot={v:S(c=>c.ventas),ef:S(c=>c.ef),tj:S(c=>c.tj),dat:S(c=>c.datafono),sob:S(c=>c.retirado),des:S(c=>c.desc)};
+  let dia='',lista='';
+  L.forEach(c=>{const d=ymd(c.hasta);if(d!==dia){dia=d;lista+=`<div class="day">${diaTxt(d)}</div>`}
+    const i=cierres().indexOf(c);
+    lista+=`<button class="it" data-ci="${i}"><div class="sp"><div class="t">${hhmm(c.desde||c.hasta)}–${hhmm(c.hasta)} · ${esc(c.cerro||'')}</div><div class="s">Sobre ${c.retirado==null?'—':eur(c.retirado)} · Datáfono ${c.datafono==null?'—':eur(c.datafono)}</div></div>
+      <div><div class="n">${eur(c.ventas)}</div><div style="text-align:right">${Math.abs(c.desc||0)<.005?'<span class="pill p-ok">Cuadra</span>':`<span class="pill ${c.desc>0?'p-warn':'p-bad'}">${c.desc>0?'+':''}${eur(c.desc)}</span>`}</div></div></button>`});
+  return ahora+`<section class="card"><div class="nav"><button class="btn sm" id="mp" aria-label="Mes anterior">‹</button><b>${mesTxt(MES)}</b><button class="btn sm" id="mn" aria-label="Mes siguiente" ${MES>=ymd(Date.now()).slice(0,7)?'disabled':''}>›</button></div>
+    <div class="kpis" style="margin-top:12px"><div class="kpi big"><div class="l">Ventas</div><div class="v">${eur(tot.v)}</div></div><div class="kpi"><div class="l">En sobres</div><div class="v">${eur(tot.sob)}</div></div><div class="kpi"><div class="l">Datáfono</div><div class="v">${eur(tot.dat)}</div></div><div class="kpi"><div class="l">Efectivo cobrado</div><div class="v">${eur(tot.ef)}</div></div><div class="kpi"><div class="l">Tarjeta cobrada</div><div class="v">${eur(tot.tj)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(tot.des)<.005?'0,00 €':eur(tot.des)}</div></div></div></section>
+  <section class="card"><h2>Cierres de caja (${L.length})</h2><div class="list">${lista||'<p class="muted" style="margin:0">No hay cierres este mes.</p>'}</div></section>`}
+function aCajas(){$('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
+  $$('[data-ci]').forEach(b=>b.onclick=()=>verCierre(cierres()[+b.dataset.ci]))}
+const DEN=[['50 €',50],['20 €',20],['10 €',10],['5 €',5],['2 €',2],['1 €',1],['0,50 €',.5],['0,20 €',.2],['0,10 €',.1],['0,05 €',.05],['0,02 €',.02],['0,01 €',.01]];
+function hoja(html,a){const o=document.createElement('div');o.className='sheet';o.innerHTML='<div role="dialog" aria-modal="true">'+html+'</div>';document.body.appendChild(o);
+  const cierra=()=>o.remove();o.addEventListener('click',e=>{if(e.target===o)cierra()});o.querySelectorAll('[data-x]').forEach(b=>b.onclick=cierra);if(a)a(o,cierra);return o}
+function verCierre(c){if(!c)return;const b=c.billetes||{};const bil=DEN.map(([l,v],i)=>+b[i]?`<tr><td>${l}</td><td class="r">${+b[i]}</td><td class="r">${eur(v*b[i])}</td></tr>`:'').join('');
+  hoja(`<div class="row"><h3>Cierre ${diaCorto(ymd(c.hasta))} · ${hhmm(c.hasta)}</h3><button class="btn sm" data-x>Cerrar</button></div>
+  <section class="card"><dl class="kv"><dt>Abrió</dt><dd>${esc(c.abrio||'—')} ${c.desde?hhmm(c.desde):''}</dd><dt>Cerró</dt><dd>${esc(c.cerro||'—')} ${hhmm(c.hasta)}</dd><dt>Cobros</dt><dd>${c.cobros||0}</dd></dl></section>
+  <section class="card"><dl class="kv"><dt>Ventas</dt><dd>${eur(c.ventas)}</dd><dt>Efectivo cobrado</dt><dd>${eur(c.ef)}</dd><dt>Tarjeta cobrada</dt><dd>${eur(c.tj)}</dd>${c.ot?`<dt>Otros</dt><dd>${eur(c.ot)}</dd>`:''}<dt>Datáfono (banco)</dt><dd>${c.datafono==null?'—':eur(c.datafono)}</dd></dl></section>
+  <section class="card"><dl class="kv"><dt>Cambio al abrir</dt><dd>${eur(c.fondo)}</dd><dt>Tendría que haber</dt><dd>${eur((+c.fondo||0)+(+c.ef||0))}</dd><dt>Contado</dt><dd>${c.contado==null?'—':eur(c.contado)}</dd><dt>Descuadre</dt><dd>${Math.abs(c.desc||0)<.005?'Cuadra':eur(c.desc)}</dd><dt>Cambio que dejó</dt><dd>${eur(c.deja)}</dd><dt>Al sobre</dt><dd class="big">${c.retirado==null?'—':eur(c.retirado)}</dd></dl></section>
+  ${c.nota?`<section class="card"><h2>Notas</h2><p style="margin:0">${esc(c.nota)}</p></section>`:''}
+  ${bil?`<section class="card"><h2>Billetes y monedas contados</h2><table><thead><tr><th></th><th class="r">Cuántos</th><th class="r">Importe</th></tr></thead><tbody>${bil}</tbody></table></section>`:''}`)}
+
+/* Camareros */
+function vCamareros(){const c=config(),F=fichajes(),hoyL=lunesDe(ymd(Date.now()));
+  const act=c.camareros.filter(x=>x.activo!==false);
+  const filas=act.map(x=>{const m=semana(x.id,SEM,F),o=ordDe(x,SEM)*60,ex=Math.max(0,m-o),d=dentro(x.id,F);
+    return `<button class="it" data-cam="${esc(x.id)}"><div class="sp"><div class="t">${esc(x.nm)} ${d?`<span class="pill p-ok">dentro desde ${hhmm(d.in)}</span>`:''}</div><div class="s">${hTxt(m)} de ${hTxt(o)} ordinarias</div></div><div class="n">${ex?`<span class="pill p-warn">+${hTxt(ex)} extra</span>`:'<span class="pill p-mute">sin extra</span>'}</div></button>`}).join('');
+  const mesF=ymd(Date.now()).slice(0,7);
+  const resM=act.map(x=>Object.assign({x},resumenMes(x.id,MES,F)));
+  const olvidos=F.filter(f=>!f.out&&Date.now()-f.in>14*3600e3);
+  return `${c.sinGuardar?`<div class="note">He cogido los camareros de la tablet con 20 h ordinarias por semana. Revísalos y toca uno para cambiar sus horas: al guardar quedan fijos.</div>`:''}
+  ${olvidos.length?`<div class="note">${olvidos.map(f=>esc(nombre(f.p))+' no fichó la salida del '+diaCorto(ymd(f.in))).join('; ')}. Toca su nombre y corrige el fichaje.</div>`:''}
+  <section class="card"><div class="nav"><button class="btn sm" id="sp" aria-label="Semana anterior">‹</button><b>Semana ${semTxt(SEM)}</b><button class="btn sm" id="sn" aria-label="Semana siguiente" ${SEM>=hoyL?'disabled':''}>›</button></div>
+   <div class="list" style="margin-top:6px">${filas||'<p class="muted" style="margin:8px 0 0">No hay camareros. Añade uno abajo.</p>'}</div></section>
+  <section class="card"><div class="nav"><button class="btn sm" id="mp" aria-label="Mes anterior">‹</button><b>${mesTxt(MES)}</b><button class="btn sm" id="mn" aria-label="Mes siguiente" ${MES>=mesF?'disabled':''}>›</button></div>
+   <table style="margin-top:10px"><thead><tr><th>Camarero</th><th class="r">Trabajadas</th><th class="r">Extra</th><th class="r">A pagar</th></tr></thead><tbody>${resM.map(r=>`<tr><td>${esc(r.x.nm)}</td><td class="r">${hTxt(r.tot)}</td><td class="r">${hTxt(r.extra)}</td><td class="r"><b>${eur(r.eur)}</b></td></tr>`).join('')||'<tr><td colspan="4" class="muted">—</td></tr>'}
+   ${resM.length>1?`<tr><td><b>Total</b></td><td class="r">${hTxt(resM.reduce((a,r)=>a+r.tot,0))}</td><td class="r">${hTxt(resM.reduce((a,r)=>a+r.extra,0))}</td><td class="r"><b>${eur(resM.reduce((a,r)=>a+r.eur,0))}</b></td></tr>`:''}</tbody></table>
+   <p class="muted" style="font-size:13px;margin:8px 0 0">Extra a ${eur(c.extra)}/h (se cambia en Ajustes). Cada semana cuenta en el mes de su domingo.</p></section>
+  <button class="btn" id="cnew">Añadir camarero</button>
+  ${c.camareros.some(x=>x.activo===false)?`<section class="card"><h2>De baja</h2><div class="list">${c.camareros.filter(x=>x.activo===false).map(x=>`<button class="it" data-cam="${esc(x.id)}"><div class="sp t">${esc(x.nm)}</div><span class="pill p-mute">de baja</span></button>`).join('')}</div></section>`:''}`}
+function aCamareros(){$('#sp').onclick=()=>{SEM=masDias(SEM,-7);pinta()};$('#sn').onclick=()=>{SEM=masDias(SEM,7);pinta()};
+  $('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
+  $$('[data-cam]').forEach(b=>b.onclick=()=>verCam(b.dataset.cam));
+  $('#cnew').onclick=()=>editaCam(null)}
+function verCam(id){const x=camDe(id);if(!x)return;let mes=MES;
+  const draw=(o)=>{const F=fichajes(),r=resumenMes(id,mes,F);const lst=F.filter(f=>f.p===id&&ymd(f.in).slice(0,7)===mes).reverse();
+    o.firstChild.innerHTML=`<div class="row"><h3>${esc(x.nm)}</h3><button class="btn sm" data-ed>Cambiar</button><button class="btn sm" data-x>Cerrar</button></div>
+    <section class="card"><dl class="kv"><dt>Horas ordinarias por semana</dt><dd>${ordDe(x,lunesDe(ymd(Date.now())))} h</dd><dt>Hora extra</dt><dd>${eur(config().extra)}</dd></dl></section>
+    <section class="card"><div class="nav"><button class="btn sm" data-mp aria-label="Mes anterior">‹</button><b>${mesTxt(mes)}</b><button class="btn sm" data-mn aria-label="Mes siguiente" ${mes>=ymd(Date.now()).slice(0,7)?'disabled':''}>›</button></div>
+     <table style="margin-top:10px"><thead><tr><th>Semana</th><th class="r">Trabajadas</th><th class="r">Ordinarias</th><th class="r">Extra</th></tr></thead><tbody>${r.sems.map(s=>`<tr><td>${semTxt(s.lunes)}${s.cerrada?'':' <span class="pill p-mute">en curso</span>'}</td><td class="r">${hTxt(s.min)}</td><td class="r">${hTxt(s.ord)}</td><td class="r">${s.extra?'<b>'+hTxt(s.extra)+'</b>':'—'}</td></tr>`).join('')}
+     <tr><td><b>Mes</b></td><td class="r"><b>${hTxt(r.tot)}</b></td><td></td><td class="r"><b>${hTxt(r.extra)}</b></td></tr></tbody></table>
+     <div class="kpis" style="margin-top:10px"><div class="kpi big"><div class="l">Extra a pagar</div><div class="v">${eur(r.eur)}</div></div></div></section>
+    <section class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">Fichajes</h2><span class="sp"></span><button class="btn sm" data-add>Añadir</button></div>
+     <div class="list">${lst.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaCorto(ymd(f.in))}</div><div class="s">${hhmm(f.in)} – ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano?' · puesto a mano':''}</div></div><div class="n">${f.out?hTxt(minDe(f)):(Date.now()-f.in>14*3600e3?'<span class="pill p-bad">sin salida</span>':'<span class="pill p-ok">dentro</span>')}</div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes este mes.</p>'}</div></section>`;
+    o.querySelector('[data-x]').onclick=()=>o.remove();
+    o.querySelector('[data-ed]').onclick=()=>{o.remove();editaCam(id)};
+    o.querySelector('[data-mp]').onclick=()=>{mes=mesMas(mes,-1);draw(o)};o.querySelector('[data-mn]').onclick=()=>{mes=mesMas(mes,1);draw(o)};
+    o.querySelector('[data-add]').onclick=()=>editaFichaje(id,null,()=>draw(o));
+    o.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>editaFichaje(id,fichajes().find(f=>f.k===b.dataset.f),()=>draw(o)))};
+  const o=hoja('');draw(o)}
+function editaCam(id){const c=config();const x=id?camDe(id):null;const hoyL=lunesDe(ymd(Date.now()));
+  hoja(`<div class="row"><h3>${x?'Cambiar '+esc(x.nm):'Nuevo camarero'}</h3><button class="btn sm" data-x>Cancelar</button></div>
+  <section class="card" style="display:flex;flex-direction:column;gap:12px"><label class="f">Nombre<input class="inp" id="en" maxlength="40" value="${x?esc(x.nm):''}" required></label>
+   <div class="row"><label class="f">Horas ordinarias por semana<input class="inp" id="eo" type="number" min="0" max="60" step="0.5" inputmode="decimal" value="${x?ordDe(x,hoyL):20}"></label>
+   <label class="f">Desde la semana del<input class="inp" id="ed" type="date" value="${hoyL}"></label></div>
+   <p class="muted" style="font-size:13px;margin:0">Lo que pase de estas horas en una semana (de lunes a domingo) cuenta como extra. Un cambio vale desde esa semana; las anteriores se quedan como estaban.</p>
+   ${x?'':'<p class="muted" style="font-size:13px;margin:0">Saldrá en la tablet en unos minutos. La primera vez que entre, creará su clave de 4 números.</p>'}
+   <button class="btn pri" id="eg">Guardar</button>${x?`<button class="btn ${x.activo===false?'':'bad'}" id="eb">${x.activo===false?'Volver a dar de alta':'Dar de baja'}</button>`:''}</section>`,(o,cierra)=>{
+    o.querySelector('#eg').onclick=()=>{const nm=o.querySelector('#en').value.trim();const h=parseFloat(o.querySelector('#eo').value);const d=lunesDe(o.querySelector('#ed').value||hoyL);
+      if(!nm){o.querySelector('#en').focus();return}if(isNaN(h)||h<0){o.querySelector('#eo').focus();return}
+      let y=x;if(!y){y={id:'c'+Date.now().toString(36),nm,activo:true,ord:[]};c.camareros.push(y)}
+      y.nm=nm;y.ord=(y.ord||[]).filter(v=>v.desde!==d);if(ordDe(y,d)!==h||!y.ord.length)y.ord.push({desde:d,h});y.ord.sort((a,b)=>a.desde<b.desde?-1:1);
+      cierra();guardaCfg()};
+    const eb=o.querySelector('#eb');if(eb)eb.onclick=()=>{x.activo=x.activo===false;cierra();guardaCfg(x.activo?'Dado de alta.':'Dado de baja. Ya no sale en la tablet.')}})}
+const aHora=(d,t)=>{if(!d||!t)return null;const v=new Date(d+'T'+t+':00').getTime();return isNaN(v)?null:v};
+function editaFichaje(id,f,despues){const c=config();const d0=f?ymd(f.in):ymd(Date.now());
+  hoja(`<div class="row"><h3>${f?'Corregir fichaje':'Añadir fichaje'} · ${esc(nombre(id))}</h3><button class="btn sm" data-x>Cancelar</button></div>
+  <section class="card" style="display:flex;flex-direction:column;gap:12px"><label class="f">Día<input class="inp" id="fd" type="date" value="${d0}"></label>
+   <div class="row"><label class="f">Entrada<input class="inp" id="fe" type="time" value="${f?hhmm(f.in):''}"></label><label class="f">Salida<input class="inp" id="fs" type="time" value="${f&&f.out?hhmm(f.out):''}"></label></div>
+   <p class="muted" style="font-size:13px;margin:0">Si la salida es antes que la entrada, cuenta como del día siguiente (turno de noche). Los cambios se guardan aquí; en la tablet queda el fichaje original.</p>
+   <div id="fm" role="alert"></div><button class="btn pri" id="fg">Guardar</button>${f?'<button class="btn bad" id="fb">Borrar este fichaje</button>':''}</section>`,(o,cierra)=>{
+    o.querySelector('#fg').onclick=()=>{const d=o.querySelector('#fd').value,e=aHora(d,o.querySelector('#fe').value);let s=aHora(d,o.querySelector('#fs').value);
+      if(!e){o.querySelector('#fm').innerHTML='<div class="err">Pon la hora de entrada.</div>';return}
+      if(s&&s<=e)s+=24*3600e3;
+      if(f&&f.mano){const n=c.nuevos.find(z=>'n|'+z.id===f.k);if(n){n.in=e;n.out=s}}
+      else if(f){c.fix[f.k]={in:e,out:s}}
+      else c.nuevos.push({id:Date.now().toString(36),p:id,in:e,out:s});
+      cierra();guardaCfg('Fichaje guardado.').then(despues)};
+    const fb=o.querySelector('#fb');if(fb)fb.onclick=()=>{if(fb.dataset.ok!=='1'){fb.dataset.ok='1';fb.textContent='Pulsa otra vez para borrarlo';return}
+      if(f.mano)c.nuevos=c.nuevos.filter(z=>'n|'+z.id!==f.k);else c.fix[f.k]={x:1};cierra();guardaCfg('Fichaje borrado.').then(despues)}})}
+
+/* Ajustes */
+function vAjustes(){const c=config();return `<section class="card" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">Horas extra</h2>
+  <label class="f">Precio de la hora extra (€)<input class="inp" id="ax" type="number" min="0" step="0.5" inputmode="decimal" value="${c.extra}"></label><button class="btn pri" id="ag">Guardar</button></section>
+  <section class="card"><h2>La tablet</h2><dl class="kv"><dt>Último envío</dt><dd>${EST?hace(EST.recibido||EST.t):'—'}</dd><dt>Cierres guardados</dt><dd>${cierres().length}</dd><dt>Fichajes guardados</dt><dd>${(EST&&EST.fichajes||[]).length}</dd></dl>
+  <p class="muted" style="font-size:13px;margin:10px 0 0">La tablet manda los datos al abrir y cerrar caja, al fichar y cada hora si hubo ventas. Sin internet los guarda y los manda cuando vuelve.</p></section>
+  <button class="btn" id="as">Salir de este móvil</button>`}
+function aAjustes(){$('#ag').onclick=()=>{const v=parseFloat($('#ax').value);if(isNaN(v)||v<0)return;config().extra=v;guardaCfg()};
+  $('#as').onclick=()=>{TOK=null;lsP(TK,null);EST=null;CFG=null;pinta()}}
+
+pinta();if(TOK)carga();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&TOK&&!document.querySelector('.sheet'))carga()});
+</script>
+</body>
+</html>

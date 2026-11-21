@@ -1290,6 +1290,8 @@ A.ajustes=()=>{$$('[data-bc]').forEach(b=>b.onclick=()=>{ESPERA_BC=ESPERA_BC===b
   if($('#prguardar'))$('#prguardar').onclick=()=>{lee();$('#prguardar').textContent='Guardado ✓'};
   if($('#prprueba'))$('#prprueba').onclick=()=>{lee();imprimirTicket({n:0,t:Date.now(),cuenta:QUICK,l:[[1,'Prueba de impresora',0]],tot:0,how:'Prueba',who:user?.nm||''},false)};
   if($('#prcajon'))$('#prcajon').onclick=()=>{lee();abrirCajon()};
+  if($('#prdiag'))$('#prdiag').onclick=()=>{lee();diagnosticoImpresora()};
+  if($('#prcsoff'))$('#prcsoff').onclick=()=>{delete PRN.cajonSys;guardaPRN();render()};
   /* Copia de seguridad (dueño, 20 nov 2026): todo lo que el programa guarda en el aparato (claves ohk-*) en un texto para copiar y pegar. */
   if($('#bkcopy'))$('#bkcopy').onclick=async()=>{try{guardar()}catch(e){}const o={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(/^ohk-/.test(k))o[k]=localStorage.getItem(k)}const t='OHK1:'+btoa(unescape(encodeURIComponent(JSON.stringify(o))));$('#bktxt').value=t;let ok=false;try{await navigator.clipboard.writeText(t);ok=true}catch(e){$('#bktxt').select();try{ok=document.execCommand('copy')}catch(e2){}}$('#bkmsg').textContent=ok?'Copiada. Ahora en la app nueva: mantén pulsado el recuadro › Pegar › Recuperar.':'Mantén pulsado el texto del recuadro, selecciónalo todo y cópialo.'};
   if($('#bkrest'))$('#bkrest').onclick=()=>{const t=($('#bktxt').value||'').trim();if(!/^OHK1:/.test(t)){$('#bkmsg').textContent='Pega primero la copia (empieza por OHK1:).';return}try{const o=JSON.parse(decodeURIComponent(escape(atob(t.slice(5)))));Object.keys(o).forEach(k=>{if(/^ohk-/.test(k))localStorage.setItem(k,o[k])});$('#bkmsg').textContent='Recuperado. Se recarga el programa…';setTimeout(()=>location.reload(),600)}catch(e){$('#bkmsg').textContent='Esa copia no se puede leer: '+e.message}};
@@ -1305,7 +1307,7 @@ V.ajustes=()=>`<div class="row"><section class="card" style="flex:2 1 520px"><h2
   <label class="f">Nombre en el ticket<input class="inp" id="prnom"></label>
   <label class="f">NIF del titular (obligatorio en el ticket)<input class="inp" id="prnif" placeholder="Pon aquí el NIF"></label>
   <label class="f">Dirección<input class="inp" id="prdir"></label>
-  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="prguardar">Guardar</button><button class="btn" id="prprueba">Imprimir prueba</button><button class="btn" id="prcajon">Abrir cajón</button></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="prguardar">Guardar</button><button class="btn" id="prprueba">Imprimir prueba</button><button class="btn" id="prcajon">Abrir cajón</button><button class="btn" id="prdiag">Diagnóstico y pruebas</button></div>${PRN.cajonSys?`<div class="muted" style="font-size:13px">El cajón se abre por ${esc(PRN.cajonSys)}. <button class="btn sm" id="prcsoff">Volver a la orden de la impresora</button></div>`:''}
   <div class="muted" style="font-size:13px">Datáfono: de momento el del banco, aparte (se confirma en pantalla). Veri*factu: a elegir con el gestor.</div>
  </div></section></div>
  <section class="card"><h2>Copia de seguridad del aparato</h2><div class="bd" style="display:flex;flex-direction:column;gap:10px">
@@ -1336,7 +1338,7 @@ const ESC={ini:'\x1b@',grande:'\x1d!\x11',normal:'\x1d!\x00',neg:'\x1bE\x01',fne
 /* Dueño, 20 nov 2026: todo lo que se manda a la vez (cajón + comanda + ticket) sale en UNA sola orden; si no, Android
    solo hace caso a la primera y el ticket se perdía. En la app Kiosko Ohana se imprime directo, sin RawBT. */
 const CAJON={todas:'\x1bp\x00\x19\xfa\x1bp\x01\x19\xfa\x10\x14\x01\x00\x05\x10\x14\x00\x00\x00',p2:'\x1bp\x00\x19\xfa',p5:'\x1bp\x01\x19\xfa',dle:'\x10\x14\x00\x00\x00',dle2:'\x10\x14\x01\x00\x05'};
-Object.defineProperty(ESC,'cajon',{get:()=>CAJON[PRN.cajon]||CAJON.todas});
+Object.defineProperty(ESC,'cajon',{get:()=>PRN.cajonSys?'':(CAJON[PRN.cajon]||CAJON.todas)});
 if(window.OhanaTPV&&window.OhanaTPV.imprimirRaw&&!PRN.nativoVisto){PRN.nativoVisto=true;PRN.modo='tablet';guardaPRN()}
 let colaPRN='',tPRN=0;
 function avisoPRN(t,ok){let b=document.getElementById('prnbar');if(!b){b=document.createElement('div');b.id='prnbar';document.body.appendChild(b)}b.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9998;padding:10px 16px;border-radius:12px;font:600 15px/1.35 system-ui;max-width:90vw;box-shadow:0 6px 20px rgba(0,0,0,.25);color:#fff;background:'+(ok?'#2E7D4F':'#A3231F');b.textContent=t;clearTimeout(b._t);b._t=setTimeout(()=>b.remove(),ok?2500:9000)}
@@ -1362,10 +1364,47 @@ function textoTicket(t){const L=[];
   L.push(lineaLR('IVA incluido (10%)',eur(t.tot-t.tot/1.10)));
   L.push(lineaLR('Pago',t.how));if(t.who)L.push(lineaLR('Le atendio',t.who));
   L.push('');L.push(centro('Gracias. ¡Buen surf!'));return L}
-function imprimirTicket(t,cajon){if(PRN.modo==='ninguno')return;
+function imprimirTicket(t,cajon){if(cajon&&PRN.cajonSys)cajonSistema();if(PRN.modo==='ninguno')return;
   if(PRN.modo==='navegador'){imprimirHTML(textoTicket(t).join('\n'));return}
   const L=textoTicket(t);enviar(ESC.ini+(cajon?ESC.cajon:'')+ESC.neg+L[0]+ESC.fneg+'\n'+L.slice(1).join('\n')+ESC.corte)}
-function abrirCajon(){if(PRN.modo==='rawbt'||PRN.modo==='tablet')enviar(ESC.ini+ESC.cajon)}
+function abrirCajon(){if(PRN.cajonSys){cajonSistema();return}if(PRN.modo==='rawbt'||PRN.modo==='tablet')enviar(ESC.ini+ESC.cajon)}
+function cajonSistema(){try{if(window.OhanaTPV&&OhanaTPV.cajonSistema)OhanaTPV.cajonSistema(PRN.cajonSys)}catch(e){}}
+/* ---------- Diagnóstico y pruebas de impresora y cajón (dueño, 21 nov 2026: «déjamelo preparado para el lunes») ----------
+   Necesita la app Kiosko Ohana con diagnóstico (OhanaTPV.diagnostico). Manda a Claude lo que ve la tablet (si está conectada al
+   panel) y enseña pruebas numeradas: P = imprime un papel con su número por ese camino; C = manda la orden del cajón por ese
+   camino; S = abre el cajón por un fichero del sistema. La que funcione se guarda con «Usar esta». */
+let DIAG=null;
+function rutasDiag(d){const R=[];(d.usb||[]).forEach(u=>{if(u&&u.salida)R.push({id:u.id,nm:'USB '+(u.nombre||'')+' ('+u.vid+':'+u.pid+')'})});
+  (d.bluetooth||[]).forEach(b=>{if(b&&b.id)R.push({id:b.id,nm:'Bluetooth '+(b.nombre||b.id)})});
+  (d.dev||[]).forEach(x=>{const m=String(x).match(/^(\/dev\/(tty\w+|usb\/lp\d+|lp\d+))\s.*\[escribe\]/);if(!m)return;if(/tty/.test(m[2]))[115200,9600,38400,19200].forEach(b=>R.push({id:m[1]+'@'+b,nm:m[1]+' a '+b}));else R.push({id:m[1],nm:m[1]})});
+  return R}
+function sistemaDiag(d){return (d.sistema||[]).map(String).filter(x=>/\[escribe\]/.test(x)).map(x=>x.split(' [')[0]).filter(p=>!p.endsWith('/')&&/cash|drawer|money|kick|qianxiang|box/i.test(p))}
+async function diagnosticoImpresora(){
+  if(!(window.OhanaTPV&&OhanaTPV.diagnostico)){modal(`<h2>Diagnóstico de impresora y cajón</h2><p>Esto solo funciona dentro de la app <b>Kiosko Ohana</b> nueva (la que tiene diagnóstico). Haz la copia de seguridad, instala la app nueva desde el enlace de Claude y vuelve aquí.</p><button class="btn" data-close>Cerrar</button>`);return}
+  let d={};try{d=JSON.parse(OhanaTPV.diagnostico())}catch(e){d={error:String(e)}}DIAG=d;
+  const pub=JSON.parse(JSON.stringify(d));(pub.bluetooth||[]).forEach(b=>{if(b&&b.id)b.id='(oculto)'});
+  const R=rutasDiag(d),S=sistemaDiag(d),a=d.aparato||{};
+  modal(`<h2>Diagnóstico de impresora y cajón</h2>
+   <div id="dgenv" class="status" role="status">Enviando el diagnóstico a Claude…</div>
+   <div class="muted" style="font-size:13px">${esc((a.fabricante||'')+' '+(a.modelo||''))} · Android ${esc(a.android||'')} · USB: ${(d.usb||[]).length} · Bluetooth: ${(d.bluetooth||[]).length} · puertos: ${(d.dev||[]).length} · ficheros del cajón: ${S.length}</div>
+   <div><b>1. Pruebas de impresión</b> <span class="muted" style="font-size:13px">— toca una a una; apunta cuál saca papel</span></div>
+   <div style="display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto">${R.map((r,i)=>`<div style="display:flex;gap:8px;align-items:center"><button class="btn sm pri" data-dgp="${i}">P${i+1}</button><span style="flex:1;font-size:13.5px">${esc(r.nm)}</span><button class="btn sm" data-dgu="${i}">Usar esta</button></div>`).join('')||'<span class="muted">La tablet no enseña ninguna impresora.</span>'}</div>
+   <div><b>2. Pruebas del cajón</b> <span class="muted" style="font-size:13px">— apunta cuál lo abre</span></div>
+   <div style="display:flex;flex-wrap:wrap;gap:6px">${R.map((r,i)=>`<button class="btn sm" data-dgc="${i}" title="${esc(r.nm)}">C${i+1}</button>`).join('')}${S.map((p,i)=>`<button class="btn sm" data-dgs="${i}" title="${esc(p)}">S${i+1}</button>`).join('')}</div>
+   ${S.length?`<div class="muted" style="font-size:12.5px">${S.map((p,i)=>'S'+(i+1)+' = '+esc(p)).join('<br>')}</div>`:''}
+   <div id="dglog" class="muted" style="font-size:13px;max-height:110px;overflow:auto"></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="dgcopy">Copiar diagnóstico</button><button class="btn" data-close>Cerrar</button></div>`);
+  const log=t=>{const b=$('#dglog');if(b)b.innerHTML=esc(hhmm()+' '+t)+'<br>'+b.innerHTML};
+  const manda=(id,bin,etq)=>{try{OhanaTPV.imprimirRaw(id,btoa(bin));log(etq+' enviada')}catch(e){log(etq+': '+e.message)}};
+  $$('[data-dgp]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dgp,r=R[i];manda(r.id,ESC.ini+'\x1d!\x11PRUEBA P'+(i+1)+'\x1d!\x00\n'+r.nm+'\n'+(d.aparato&&d.aparato.modelo||'')+' '+hhmm()+ESC.corte,'P'+(i+1))});
+  $$('[data-dgc]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dgc;manda(R[i].id,ESC.ini+CAJON.todas,'C'+(i+1))});
+  $$('[data-dgs]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dgs;try{OhanaTPV.cajonSistema(S[i]);log('S'+(i+1)+' enviada')}catch(e){log('S'+(i+1)+': '+e.message)}
+    if(!$('#dgsu'+i)){b.insertAdjacentHTML('afterend',`<button class="btn sm pri" id="dgsu${i}">¿Abrió? Usar S${i+1}</button>`);$('#dgsu'+i).onclick=()=>{PRN.cajonSys=S[i];guardaPRN();log('Guardado: el cajón se abre con S'+(i+1))}}});
+  $$('[data-dgu]').forEach(b=>b.onclick=()=>{const r=R[+b.dataset.dgu];PRN.modo='tablet';PRN.dest=r.id;guardaPRN();log('Guardado: imprime por '+r.nm)});
+  $('#dgcopy').onclick=async()=>{const t=JSON.stringify(pub);try{await navigator.clipboard.writeText(t);$('#dgcopy').textContent='Copiado: pégaselo a Claude'}catch(e){$('#dgcopy').textContent='No se pudo copiar'}};
+  let msg;if(PANEL){try{await panelApi('POST','diag',{datos:pub});msg='✅ Diagnóstico enviado a Claude. Ahora haz las pruebas y dile qué número sacó papel y cuál abrió el cajón.'}catch(e){msg='No se pudo enviar ('+e.message+'). Toca «Copiar diagnóstico» y pégaselo a Claude.'}}
+  else msg='Esta tablet no está conectada al panel: toca «Copiar diagnóstico» y pégaselo a Claude (o conéctala en «Equipo y sueldos»).';
+  if($('#dgenv'))$('#dgenv').textContent=msg}
 function imprimirComanda(c){if(PRN.modo==='ninguno'||PRN.comandas!=='misma')return;
   const L=[centro('COMANDA '+c.n),centro(c.acc===QUICK?'Barra':c.acc),centro(hhmm(c.t)),'-'.repeat(PRN.col)].concat(c.l.map(([n,nm])=>plano(n+' x '+nm)));
   if(PRN.modo==='navegador'){imprimirHTML(L.join('\n'));return}

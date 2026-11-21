@@ -954,12 +954,13 @@ V.cierre=()=>{
   const abierta=CAJA&&CAJA.abierta;
   const pend=(()=>{const p=ACCS.filter(n=>n!==QUICK&&!ACC[n].hidden&&['due','part'].includes(accState(n)));return p.length?`<div class="note" style="font-size:14px;font-weight:600">Ojo: quedan ${p.length} cuentas sin cobrar (${eur(p.reduce((s,n)=>s+accTotal(n)-ACC[n].paid,0))}): ${p.map(esc).join(', ')}. Si cierras, siguen abiertas para la caja siguiente.<div style="margin-top:8px"><button class="btn sm" id="delpend" style="color:var(--bad);border-color:#E9A6A2">Borrar estas cuentas (eran pruebas)</button></div></div>`:''})();
   if(!abierta){
+    if(!Object.keys(conteoA).length&&CAJA&&CAJA.billetes)conteoA=Object.assign({},CAJA.billetes);
     const r=cierreRes, x=r&&r[7]||{};
     return `${r?`<section class="card"><h2>Caja cerrada ${cuandoTxt(x.hasta||Date.now())}</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
       <div class="kpis"><div class="kpi"><div class="l">Ventas</div><div class="v">${eur(r[2])}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(x.ef||0)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(x.tj||0)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(r[4])<.005?'Cuadra':eur(r[4])}</div></div><div class="kpi"><div class="l">Datáfono</div><div class="v">${x.datafono==null?'—':eur(x.datafono)}</div></div><div class="kpi"><div class="l">Al sobre</div><div class="v">${x.retirado==null?'—':eur(x.retirado)}</div></div><div class="kpi"><div class="l">Cambio que se deja</div><div class="v">${eur(x.deja||0)}</div></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="cimp">Imprimir resumen para el sobre</button></div></div></section>`:''}
     <section class="card" style="max-width:560px"><h2>Abrir caja</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
-      <div class="muted" style="font-size:14px">Cuenta el dinero que hay en el cajón para empezar (el fondo para dar cambio): pon cuántos billetes y monedas hay de cada uno y el programa suma.</div>
+      <div class="muted" style="font-size:14px">Cuenta el dinero que hay en el cajón para empezar (el fondo para dar cambio): pon cuántos billetes y monedas hay de cada uno y el programa suma.${CAJA&&CAJA.deja!=null?` Ya está puesto el cambio que se dejó en el último cierre (${eur(CAJA.deja)}); si añades cambio, súmalo.`:''}</div>
       ${gridDen(conteoA,'data-fden')}
       <div class="cnttot"><span>Fondo para empezar</span><b id="cfondotot">${eur(sumaDen(conteoA)||((CAJA&&CAJA.deja)||0))}</b></div>
       <label class="f">O escribe el total directamente<input class="inp" id="cfondo" type="number" step="0.01" min="0" inputmode="decimal" style="font-size:22px" value="${(CAJA&&CAJA.deja!=null)?CAJA.deja:''}" placeholder="0,00"></label>
@@ -984,9 +985,11 @@ V.cierre=()=>{
   <section class="card" style="flex:1 1 320px"><h2>2. Datáfono y cierre</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
     <label class="f">Total del datáfono (el cierre del banco)<input class="inp" id="tjb" type="number" step="0.01" placeholder="${tj.toFixed(2)}"></label>
     <div id="tjd" class="muted" style="font-size:13px">Debería coincidir con ${eur(tj)}.</div>
-    <label class="f">Cambio que se deja en el cajón para la caja siguiente<input class="inp" id="cdeja" type="number" step="0.01" min="0" inputmode="decimal" value="${CAJA.fondo}"></label>
-    <label class="f">Efectivo que se saca al sobre<input class="inp" id="cret" type="number" step="0.01" min="0" inputmode="decimal" style="font-size:22px;font-weight:700" placeholder="Cuenta primero el cajón"></label>
-    <div id="cretd" class="muted" style="font-size:13px">Sale solo: lo contado menos el cambio que se deja. El resumen impreso va dentro del sobre.</div>
+    <label class="f">Efectivo que retiras al sobre (normalmente los billetes grandes)<input class="inp" id="cret" type="number" step="0.01" min="0" inputmode="decimal" style="font-size:22px;font-weight:700" placeholder="0,00"></label>
+    <details><summary style="cursor:pointer;font-size:14px;font-weight:600">Contar los billetes que metes en el sobre</summary><div class="cnt" style="margin-top:8px">${DEN.slice(0,4).map(([l,v],i)=>`<label><b>${l}</b><input type="number" min="0" inputmode="numeric" data-rden="${i}" placeholder="0"><span class="sub" data-sub-rden="${i}"></span></label>`).join('')}</div></details>
+    <div class="cnttot"><span>Se queda de cambio para mañana</span><b id="cdejatot">—</b></div>
+    <input type="hidden" id="cdeja" value="">
+    <div id="cretd" class="muted" style="font-size:13px">Pon solo lo que retiras al sobre. Todo lo demás del cajón se queda como cambio para la caja siguiente; al abrir se puede añadir más cambio si hace falta.</div>
     <label class="f">Notas<textarea class="inp" id="nota" style="min-height:70px;padding:10px" placeholder="Ej.: eran pruebas; se rompió un vaso; faltan 2 € de un cambio"></textarea></label>
     <button class="btn big pri" id="cerrar">${cierreConfirma?'Pulsa otra vez para confirmar el cierre':'Cerrar caja'}</button>
     <div class="muted" style="font-size:13px">Lo puede hacer cualquiera, las veces que haga falta. Al cerrar se imprime el resumen para meterlo en el sobre con el efectivo, las ventas vuelven a cero y el resumen queda en «Histórico y ventas».</div>
@@ -1007,25 +1010,32 @@ A.cierre=()=>{
   }
   const ef=cobradoPor(/^Efectivo/),tj=cobradoPor(/^Tarjeta/);
   const upd=()=>{const c=contadoCaja();$('#contado').textContent=isNaN(c)?'—':eur(c);if(isNaN(c)){$('#desc').innerHTML='';return}const d=r2(c-(CAJA.fondo+ef));$('#desc').innerHTML=Math.abs(d)<.005?'<div class="status">Cuadra.</div>':`<div class="note">${d>0?'Sobran':'Faltan'} ${eur(Math.abs(d))}. Puedes cerrar igualmente y explicarlo en las notas.</div>`};
-  let retMano=false;
-  function sobre(){const c=contadoCaja(),dj=parseFloat($('#cdeja').value)||0,r=$('#cret'),d=$('#cretd');if(!r)return;
-    if(!retMano)r.value=isNaN(c)?'':Math.max(0,r2(c-dj)).toFixed(2);
-    const v=parseFloat(r.value);if(isNaN(c)||isNaN(v)){d.textContent='Sale solo: lo contado menos el cambio que se deja. El resumen impreso va dentro del sobre.';return}
-    const dif=r2(c-dj-v);d.innerHTML=Math.abs(dif)<.005?`<span class="pill p-ok">Cuadra</span> ${eur(c)} contado = ${eur(dj)} de cambio + ${eur(v)} al sobre`:`<span class="pill p-warn">No cuadra</span> ${eur(c)} contado − ${eur(dj)} de cambio − ${eur(v)} al sobre = ${eur(dif)}`}
+  /* Dueño, 21 nov 2026: no se da por hecho que se deja el mismo cambio que al abrir. Se pone lo que se retira al sobre
+     (normalmente los billetes grandes) y todo lo demás que hay en el cajón se queda de cambio para la caja siguiente. */
+  let retB={};
+  function sobre(){const c=contadoCaja(),r=parseFloat($('#cret').value)||0,d=$('#cretd'),t=$('#cdejatot'),h=$('#cdeja');if(!t)return;
+    if(isNaN(c)){t.textContent='—';h.value='';d.textContent='Cuenta primero el efectivo del cajón (paso 1). Lo que no retires se queda de cambio para mañana.';return}
+    const dj=r2(c-r);h.value=dj;t.textContent=eur(dj);
+    d.innerHTML=dj<0?`<span class="pill p-bad">Retiras más de lo que hay</span> En el cajón hay ${eur(c)}.`:`${eur(c)} contado − ${eur(r)} al sobre = <b>${eur(dj)}</b> de cambio para mañana.`}
   $$('[data-den]').forEach(i=>i.oninput=()=>{conteo[i.dataset.den]=i.value;pintaSubs(conteo,'data-den');const t=sumaDen(conteo);$('#cnttot').textContent=t?eur(t):'—';upd();sobre()});$('#ctotal').oninput=()=>{upd();sobre()};upd();
-  $('#cdeja').oninput=sobre;$('#cret').oninput=()=>{retMano=$('#cret').value!=='';sobre()};sobre();
+  $('#cret').oninput=()=>{retB={};$$('[data-rden]').forEach(x=>x.value='');pintaSubs(retB,'data-rden');sobre()};
+  $$('[data-rden]').forEach(x=>x.oninput=()=>{retB[x.dataset.rden]=x.value;pintaSubs(retB,'data-rden');const t=sumaDen(retB);$('#cret').value=t?t.toFixed(2):'';sobre()});sobre();
   $('#tjb').oninput=e=>{const v=parseFloat(e.target.value);$('#tjd').innerHTML=isNaN(v)?`Debería coincidir con ${eur(tj)}.`:Math.abs(v-tj)<.005?'<span class="pill p-ok">Coincide</span>':`<span class="pill p-warn">Diferencia de ${eur(v-tj)}</span>`};
   $('#cfondoedit').onclick=()=>{const box=$('#cfondoedit').parentNode;box.innerHTML=`Fondo al abrir: <input class="inp" id="cfnew" type="number" step="0.01" min="0" style="width:120px;display:inline-block" value="${CAJA.fondo}"> <button class="btn sm pri" id="cfok">Guardar</button>`;$('#cfok').onclick=()=>{const f=parseFloat($('#cfnew').value);if(!isNaN(f))CAJA.fondo=r2(f);render()}};
   $('#cerrar').onclick=()=>{
+    {const c0=contadoCaja(),r0=parseFloat($('#cret').value)||0;if(!isNaN(c0)&&r0>c0+.005){$('#cretd').innerHTML='<span class="pill p-bad">Retiras más de lo que hay en el cajón</span> Corrige el efectivo al sobre.';return}}
     if(!cierreConfirma){cierreConfirma=true;$('#cerrar').textContent='Pulsa otra vez para confirmar el cierre';setTimeout(()=>{cierreConfirma=false;const b=$('#cerrar');if(b)b.textContent='Cerrar caja'},6000);return}
     cierreConfirma=false;
     const c=contadoCaja(),tot=r2(COBROS.reduce((a,x)=>a+x.amt,0)),ot=r2(tot-ef-tj),dj=parseFloat($('#cdeja').value),dat=parseFloat($('#tjb').value),ret=parseFloat($('#cret').value);
     const ahora=Date.now(),desc=isNaN(c)?0:r2(c-(CAJA.fondo+ef));
-    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?0:r2(dj),retirado:isNaN(ret)?null:r2(ret),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
+    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?Math.max(0,r2(CAJA.fondo+ef-(isNaN(ret)?0:ret))):r2(dj),retirado:isNaN(ret)?0:r2(ret),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
+    /* Billetes y monedas que se quedan en el cajón: salen solos al abrir la caja siguiente (si se contó por billetes). */
+    const bd={};if(sumaDen(conteo)>0&&(Object.keys(retB).length||!(ret>0)))DEN.forEach((x,i)=>{const n=(+conteo[i]||0)-(+retB[i]||0);if(n>0)bd[i]=String(n)});
+    reg[7].billetesDeja=bd;
     HIST.unshift(reg);cierreRes=reg;
-    SALES=[];COBROS=[];conteo={};cierreHecho=false;
+    SALES=[];COBROS=[];conteo={};conteoA=Object.assign({},bd);cierreHecho=false;
     ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true});
-    CAJA={abierta:false,deja:reg[7].deja};
+    CAJA={abierta:false,deja:reg[7].deja,billetes:Object.keys(bd).length?bd:null};
     render();marcaPanel(true);
     if(PRN.modo==='rawbt'||PRN.modo==='tablet')imprimirResumen(reg);
   };
@@ -1034,6 +1044,28 @@ A.cierre=()=>{
 /* ---------- 4. Faltas y pedidos ---------- */
 function faltas(){return Object.entries(STOCK).filter(([k,s])=>s.a<s.mn)}
 let FALTAS=[];
+/* Dueño, 21 nov 2026: los proveedores los cambia él (nombre y teléfono para mandar el pedido por WhatsApp) y elige el
+   proveedor de cada producto del almacén. Se guardan en el aparato (PROVS). */
+let PROVS=[];
+function provs(){const ya=new Set(PROVS.map(p=>p.nm));[...Object.values(STOCK).map(s=>s.pv),...FALTAS.map(f=>f.pv)].forEach(n=>{if(n&&!ya.has(n)){ya.add(n);PROVS.push({nm:n,tel:''})}});return PROVS}
+const provDe=n=>provs().find(p=>p.nm===n);
+const telWa=t=>{let d=String(t||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.length===9&&/^[6789]/.test(d))d='34'+d;return d.length>=10?d:''};
+const esAdmin=()=>!!(user&&user.rol==='admin');
+function editaProv(nm){const p=nm?provDe(nm):null;const usa=p?Object.values(STOCK).filter(s=>s.pv===p.nm).length:0;
+  modal(`<h2>${p?'Cambiar '+esc(p.nm):'Nuevo proveedor'}</h2>
+  <label class="f">Nombre<input class="inp" id="pvn" value="${p?esc(p.nm):''}" maxlength="40"></label>
+  <label class="f">Teléfono de WhatsApp para los pedidos<input class="inp" id="pvt" type="tel" inputmode="tel" value="${p?esc(p.tel||''):''}" placeholder="600 000 000"></label>
+  <div class="muted" style="font-size:13px">El móvil del comercial o de la tienda. Si es de España basta con los 9 números; si es de fuera, ponlo con el prefijo (+351…).</div>
+  <div id="pvm" role="alert"></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn pri" id="pvg">Guardar</button>${p?`<button class="btn" id="pvb" style="color:var(--bad);border-color:#E9A6A2">Quitar proveedor</button>`:''}<button class="btn" data-close>Cancelar</button></div>`);
+  $('#pvg').onclick=()=>{const n=$('#pvn').value.trim(),t=$('#pvt').value.trim();if(!n){$('#pvn').focus();return}
+    if(t&&!telWa(t)){$('#pvm').innerHTML='<div class="note">Ese teléfono no parece bien. Pon los 9 números (o con prefijo si es de fuera).</div>';return}
+    if(provs().some(x=>x.nm.toLowerCase()===n.toLowerCase()&&x!==p)){$('#pvm').innerHTML='<div class="note">Ya hay un proveedor con ese nombre.</div>';return}
+    if(p){if(p.nm!==n){Object.values(STOCK).forEach(s=>{if(s.pv===p.nm)s.pv=n});FALTAS.forEach(f=>{if(f.pv===p.nm)f.pv=n});p.nm=n}p.tel=t}else PROVS.push({nm:n,tel:t});
+    pedMsg=p?'Proveedor guardado.':'Proveedor añadido: '+n+'.';closeModal();render()};
+  if($('#pvb'))$('#pvb').onclick=()=>{if(usa||FALTAS.some(f=>f.pv===p.nm)){$('#pvm').innerHTML=`<div class="note">${esc(p.nm)} tiene ${usa} productos del almacén${FALTAS.some(f=>f.pv===p.nm)?' y faltas apuntadas':''}. Cámbialos antes a otro proveedor (en «Almacén», columna Proveedor).</div>`;return}
+    const b=$('#pvb');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez para quitarlo';return}
+    PROVS=PROVS.filter(x=>x!==p);pedMsg='Proveedor quitado.';closeModal();render()}}
 function pedidoLines(){
   const byPv={};const add=(pv,row)=>(byPv[pv]=byPv[pv]||[]).push(row);
   faltas().forEach(([k,s])=>add(s.pv,{k,nm:s.nm,hay:fmtQ(Math.round(s.a*10)/10)+' '+s.u,q:Math.ceil(s.mx-s.a)+' '+s.u,c:Math.ceil(s.mx-s.a)*s.c,by:null}));
@@ -1042,11 +1074,11 @@ function pedidoLines(){
 }
 const pedCount=()=>Object.values(pedidoLines()).reduce((a,l)=>a+l.length,0);
 function openFalta(){
-  const provs=[...new Set(Object.values(STOCK).map(s=>s.pv))];
+  const pvs=provs().map(p=>p.nm);
   modal(`<h2>Apuntar falta</h2><div class="muted">Toca lo que se ha acabado o se está acabando. Va directo al próximo pedido de su proveedor.</div>
   <input class="inp" id="fq" placeholder="Buscar: manzanilla, hielo, tercios…" style="font-size:18px" autocomplete="off">
   <div id="flist" style="display:flex;flex-wrap:wrap;gap:8px;max-height:280px;overflow-y:auto"></div>
-  <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end"><label class="f" style="flex:2 1 200px">¿No está en la lista? Escríbelo<input class="inp" id="ftxt" placeholder="Ej.: Manzanilla La Gitana, pajitas, vasos de tubo"></label><label class="f" style="flex:1 1 150px">Proveedor<select class="inp" id="fpv2">${provs.map(p=>`<option>${p}</option>`).join('')}</select></label><button class="btn pri" id="fadd">Apuntar</button></div>
+  <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end"><label class="f" style="flex:2 1 200px">¿No está en la lista? Escríbelo<input class="inp" id="ftxt" placeholder="Ej.: Manzanilla La Gitana, pajitas, vasos de tubo"></label><label class="f" style="flex:1 1 150px">Proveedor<select class="inp" id="fpv2">${pvs.map(p=>`<option>${esc(p)}</option>`).join('')}</select></label><button class="btn pri" id="fadd">Apuntar</button></div>
   <div style="display:flex;gap:10px"><button class="btn" data-close>Cerrar</button></div>`);
   const draw=()=>{const q=norm($('#fq').value);$('#flist').innerHTML=Object.entries(STOCK).filter(([k,s])=>!q||norm(s.nm+' '+s.pv).includes(q)).map(([k,s])=>{const ya=FALTAS.some(f=>f.k===k);return `<button class="chip ${ya?'on':''}" data-fk="${k}" style="min-height:48px">${esc(s.nm)} <span style="font-weight:500;opacity:.7;font-size:12.5px">· ${esc(s.pv)}</span></button>`}).join('')||'<span class="muted">No está. Escríbelo abajo.</span>';
    $$('[data-fk]').forEach(b=>b.onclick=()=>{const k=b.dataset.fk;if(!FALTAS.some(f=>f.k===k))FALTAS.push({k,txt:STOCK[k].nm,pv:STOCK[k].pv,who:user?.nm||'—',t:Date.now()});tpvMsg=`Falta apuntada: ${STOCK[k].nm}. Va en el pedido de ${STOCK[k].pv}.`;closeModal();render()})};
@@ -1060,19 +1092,27 @@ V.pedidos=()=>{
   ${pedMsg?`<div class="status" role="status">${pedMsg}</div>`:''}
   <div class="note">Dos formas de que algo entre en el pedido: el programa lo detecta solo cuando baja del mínimo, o un camarero toca «Apuntar falta» (también está en Vender). Mínimos, máximos y costes, de ejemplo.</div>
   <section class="card"><h2>Pedidos de la semana, por proveedor</h2><div class="bd" style="display:flex;flex-direction:column;gap:16px">
-  ${Object.entries(byPv).map(([pv,l])=>`<div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px">${pv}</b><span class="pill p-mute">${l.length} ${l.length===1?'cosa':'cosas'}</span><span class="grow"></span><button class="btn sm" data-wa="${esc(pv)}">${pv==='Makro'?'Lista de la compra':'Enviar por WhatsApp'}</button><button class="btn sm pri" data-rec="${esc(pv)}">${pv==='Makro'?'Comprado':'Ha llegado'}</button></div>
+  ${Object.entries(byPv).map(([pv,l])=>`<div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px">${pv}</b><span class="pill p-mute">${l.length} ${l.length===1?'cosa':'cosas'}</span><span class="grow"></span><button class="btn sm" data-wa="${esc(pv)}">${telWa(provDe(pv)?.tel)?'Enviar por WhatsApp':pv==='Makro'?'Lista de la compra':'Ver el pedido'}</button><button class="btn sm pri" data-rec="${esc(pv)}">${pv==='Makro'?'Comprado':'Ha llegado'}</button></div>
    <div class="tw"><table><thead><tr><th>Producto</th><th>Por qué</th><th class="r">Hay</th><th class="r">Pedir</th><th></th></tr></thead><tbody>${l.map(r=>`<tr><td><b>${esc(r.nm)}</b></td><td>${r.by?`<span class="pill p-acc">Apuntó ${esc(r.by.who)} · ${hhmm(r.by.t)}</span>`:'<span class="pill p-mute">Bajo mínimo</span>'}</td><td class="r">${r.hay}</td><td class="r"><b>${r.q}</b></td><td>${r.by?`<button class="btn sm" data-unf="${FALTAS.indexOf(r.by)}" aria-label="Quitar">Quitar</button>`:''}</td></tr>`).join('')}</tbody></table></div><div class="wa" id="wa-${esc(pv).replace(/\W/g,'')}"></div></div>`).join('')||'<div class="muted">No falta nada.</div>'}
   </div></section>
+  <section class="card"><h2>Proveedores <span class="grow"></span>${esAdmin()?'<button class="btn sm pri" id="pvnew">Añadir proveedor</button>':''}</h2><div class="tw"><table><thead><tr><th>Proveedor</th><th>WhatsApp</th><th class="r">Productos</th><th></th></tr></thead><tbody>
+  ${provs().map(p=>`<tr><td><b>${esc(p.nm)}</b></td><td>${p.tel?esc(p.tel):'<span class="pill p-warn">Sin teléfono</span>'}</td><td class="r">${Object.values(STOCK).filter(s=>s.pv===p.nm).length}</td><td>${esAdmin()?`<button class="btn sm" data-pved="${esc(p.nm)}">Cambiar</button>`:''}</td></tr>`).join('')}
+  </tbody></table></div><div class="bd muted" style="font-size:13px">${esAdmin()?'Con el teléfono puesto, «Enviar por WhatsApp» abre WhatsApp con el pedido ya escrito: solo hay que darle a enviar. El proveedor de cada producto se cambia en la tabla de abajo.':'Los proveedores y sus teléfonos los cambia Isidro.'}</div></section>
   <section class="card"><h2>Almacén <span class="muted" style="font-weight:400;font-size:13px">se descuenta solo con cada venta, según el escandallo</span></h2><div class="tw"><table><thead><tr><th>Producto</th><th class="r">Hay</th><th class="r">Mínimo</th><th class="r">Máximo</th><th>Proveedor</th><th></th></tr></thead><tbody>
-  ${Object.entries(STOCK).map(([k,s])=>`<tr><td>${s.nm}</td><td class="r">${fmtQ(Math.round(s.a*10)/10)} ${s.u}</td><td class="r">${s.mn}</td><td class="r">${s.mx}</td><td>${s.pv}</td><td>${s.a<s.mn||FALTAS.some(f=>f.k===k)?'<span class="pill p-bad">Falta</span>':s.a<s.mn*1.3?'<span class="pill p-warn">Justo</span>':'<span class="pill p-ok">Bien</span>'}</td></tr>`).join('')}
+  ${Object.entries(STOCK).map(([k,s])=>`<tr><td>${s.nm}</td><td class="r">${fmtQ(Math.round(s.a*10)/10)} ${s.u}</td><td class="r">${s.mn}</td><td class="r">${s.mx}</td><td>${esAdmin()?`<select class="inp" data-spv="${k}" style="min-height:36px;padding:4px 8px;font-size:14px" aria-label="Proveedor de ${esc(s.nm)}">${provs().map(p=>`<option ${p.nm===s.pv?'selected':''}>${esc(p.nm)}</option>`).join('')}</select>`:esc(s.pv)}</td><td>${s.a<s.mn||FALTAS.some(f=>f.k===k)?'<span class="pill p-bad">Falta</span>':s.a<s.mn*1.3?'<span class="pill p-warn">Justo</span>':'<span class="pill p-ok">Bien</span>'}</td></tr>`).join('')}
   </tbody></table></div></section>`;
 };
 A.pedidos=()=>{
   $('#pfalta').onclick=openFalta;
   $$('[data-unf]').forEach(b=>b.onclick=()=>{FALTAS.splice(+b.dataset.unf,1);render()});
-  $$('[data-wa]').forEach(b=>b.onclick=()=>{const pv=b.dataset.wa;const l=pedidoLines()[pv]||[];const txt=(pv==='Makro'?`Lista de la compra para Makro:\n`:`Hola, pedido del Kiosko Ohana Tres Piedras:\n`)+l.map(r=>`- ${r.q} de ${r.nm}`).join('\n')+(pv==='Makro'?'':`\nGracias.`);
-    const box=$('#wa-'+pv.replace(/\W/g,''));box.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px"><pre style="margin:0;white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:12px;font:14px var(--body)">${esc(txt)}</pre><button class="btn sm" style="align-self:flex-start">Copiar el texto</button></div>`;
-    box.querySelector('button').onclick=e=>{navigator.clipboard?.writeText(txt).then(()=>e.target.textContent='Copiado',()=>e.target.textContent='Selecciona el texto y cópialo')}});
+  if($('#pvnew'))$('#pvnew').onclick=()=>editaProv(null);
+  $$('[data-pved]').forEach(b=>b.onclick=()=>editaProv(b.dataset.pved));
+  $$('[data-spv]').forEach(x=>x.onchange=()=>{STOCK[x.dataset.spv].pv=x.value;pedMsg=`${STOCK[x.dataset.spv].nm}: ahora se pide a ${x.value}.`;render()});
+  $$('[data-wa]').forEach(b=>b.onclick=()=>{const pv=b.dataset.wa;const l=pedidoLines()[pv]||[];const tel=telWa(provDe(pv)?.tel);const compra=pv==='Makro'&&!tel;
+    const txt=(compra?`Lista de la compra para Makro:\n`:`Hola, pedido del Kiosko Ohana Tres Piedras:\n`)+l.map(r=>`- ${r.q} de ${r.nm}`).join('\n')+(compra?'':`\nGracias.`);
+    if(tel){location.href='https://wa.me/'+tel+'?text='+encodeURIComponent(txt);return}
+    const box=$('#wa-'+pv.replace(/\W/g,''));box.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px"><pre style="margin:0;white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:12px;font:14px var(--body)">${esc(txt)}</pre><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-copy>Copiar el texto</button>${compra?'':`<span class="muted" style="font-size:13px;align-self:center">${esAdmin()?'Pon el teléfono de '+esc(pv)+' en «Proveedores» para mandarlo directo por WhatsApp.':'Falta el teléfono de '+esc(pv)+': avisa a Isidro.'}</span>`}</div></div>`;
+    box.querySelector('[data-copy]').onclick=e=>{navigator.clipboard?.writeText(txt).then(()=>e.target.textContent='Copiado',()=>e.target.textContent='Selecciona el texto y cópialo')}});
   $$('[data-rec]').forEach(b=>b.onclick=()=>{const pv=b.dataset.rec;faltas().filter(([k,s])=>s.pv===pv).forEach(([k,s])=>s.a=s.mx);FALTAS.filter(f=>f.pv===pv&&f.k).forEach(f=>STOCK[f.k].a=STOCK[f.k].mx);FALTAS=FALTAS.filter(f=>f.pv!==pv);pedMsg=`Pedido de ${pv} recibido. Ya está sumado al almacén.`;render()});
 };
 
@@ -1404,10 +1444,10 @@ function quitarProducto(id){const i=MENU.findIndex(x=>x.id===id);if(i<0)return;M
   MENU.filter(x=>x.opts).forEach(x=>{x.opts=x.opts.filter(o=>o[0]!==id);if(!x.opts.length)quitarProducto(x.id);else x.p=Math.min(...x.opts.map(o=>prod(o[0]).p))})}
 /* ---------- Guardar en este aparato (hasta tener la base de datos del kiosko) ---------- */
 const SK='ohk-estado-v1', hoyK=()=>new Date().toLocaleDateString('sv-SE');
-function guardar(){try{localStorage.setItem(SK,JSON.stringify({dia:hoyK(),ACCS,ACC,COMANDAS,nextCom,nextTicket,SALES,COBROS,cierreHecho,CAJA,cierreRes,HIST,FICHAJES,FALTAS,STOCK,ULTIMO,CLIENTES,VALES,PROMOS,FREC,FEMI,RULES,MENU:MENU.map(m=>({id:m.id,p:m.p,foto:m.foto||null,bc:m.bc||null})),BORRADOS,EXTRA:MENU.filter(m=>/^x/.test(m.id)).map(m=>({id:m.id,c:m.c,nm:m.nm,p:m.p,r:m.r,k:m.k,foto:m.foto||null,bc:m.bc||null}))}))}catch(e){console.warn('No se pudo guardar',e);try{avisoError('La tablet no ha podido guardar (memoria llena). Quita fotos de productos en «Productos y aparatos» y avisa a Claude.')}catch(x){}}}
+function guardar(){try{localStorage.setItem(SK,JSON.stringify({dia:hoyK(),ACCS,ACC,COMANDAS,nextCom,nextTicket,SALES,COBROS,cierreHecho,CAJA,cierreRes,HIST,FICHAJES,FALTAS,PROVS,STOCK,ULTIMO,CLIENTES,VALES,PROMOS,FREC,FEMI,RULES,MENU:MENU.map(m=>({id:m.id,p:m.p,foto:m.foto||null,bc:m.bc||null})),BORRADOS,EXTRA:MENU.filter(m=>/^x/.test(m.id)).map(m=>({id:m.id,c:m.c,nm:m.nm,p:m.p,r:m.r,k:m.k,foto:m.foto||null,bc:m.bc||null}))}))}catch(e){console.warn('No se pudo guardar',e);try{avisoError('La tablet no ha podido guardar (memoria llena). Quita fotos de productos en «Productos y aparatos» y avisa a Claude.')}catch(x){}}}
 function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch(e){}if(!d)return;
   ACCS=d.ACCS||ACCS;ACC=d.ACC||ACC;COMANDAS=d.COMANDAS||[];nextCom=d.nextCom||1;nextTicket=d.nextTicket||1;
-  HIST.splice(0,HIST.length,...(d.HIST||[]));FICHAJES=d.FICHAJES||[];ULTIMO=d.dia===hoyK()?d.ULTIMO||null:null;FALTAS=d.FALTAS||[];CLIENTES=d.CLIENTES||[];VALES=d.VALES||[];PROMOS=d.PROMOS||[];FREC=d.FREC||[];FEMI=d.FEMI||[];RULES=d.RULES||RULES;
+  HIST.splice(0,HIST.length,...(d.HIST||[]));FICHAJES=d.FICHAJES||[];ULTIMO=d.dia===hoyK()?d.ULTIMO||null:null;FALTAS=d.FALTAS||[];PROVS=Array.isArray(d.PROVS)?d.PROVS:[];CLIENTES=d.CLIENTES||[];VALES=d.VALES||[];PROMOS=d.PROMOS||[];FREC=d.FREC||[];FEMI=d.FEMI||[];RULES=d.RULES||RULES;
   if(d.STOCK)Object.keys(d.STOCK).forEach(k=>{if(STOCK[k])Object.assign(STOCK[k],d.STOCK[k]);else if(/^x/.test(k))STOCK[k]=d.STOCK[k]});
   (d.EXTRA||[]).forEach(x=>{if(!prod(x.id))MENU.push(x)});(d.BORRADOS||[]).forEach(quitarProducto);
   (d.MENU||[]).forEach(x=>{const m=prod(x.id);if(m){m.p=x.p;if(x.foto)m.foto=x.foto;if(x.bc)m.bc=x.bc}});

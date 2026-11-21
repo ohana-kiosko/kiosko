@@ -24,6 +24,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.14.3'
+      # La misma firma en cada versión para poder actualizar la app sin desinstalarla (desinstalar borra lo guardado en la
+      # tablet). Se guarda en la caché privada de Actions del repositorio; nunca va en el código. Dueño, 21 nov 2026.
+      - name: Firma guardada
+        uses: actions/cache@v4
+        with:
+          path: android/app/firma.jks
+          key: firma-kiosko-v1
       - name: Firma e icono
         env:
           FIRMA: ${{ secrets.ANDROID_FIRMA_B64 }}
@@ -31,6 +38,7 @@ jobs:
           # Firma fija guardada como secreto del repositorio (ANDROID_FIRMA_B64). Sin ella se crea una
           # provisional: sirve para probar, pero cada versión nueva obliga a desinstalar la anterior.
           if [ -n "$FIRMA" ]; then echo "$FIRMA" | base64 -d > android/app/firma.jks
+          elif [ -s android/app/firma.jks ]; then echo "Firma guardada de la versión anterior"
           else keytool -genkeypair -keystore android/app/firma.jks -storetype PKCS12 -alias kiosko -keyalg RSA -keysize 2048 -validity 15000 -storepass ohana-kiosko -keypass ohana-kiosko -dname "CN=Kiosko Ohana"; echo "::warning::Firma provisional"; fi
           printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx3g\n' > android/gradle.properties
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi

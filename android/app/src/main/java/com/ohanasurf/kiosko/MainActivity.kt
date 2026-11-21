@@ -45,6 +45,12 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 import java.util.concurrent.Executors
+import android.app.PendingIntent
+import android.hardware.usb.UsbConstants
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbEndpoint
+import android.hardware.usb.UsbInterface
+import android.hardware.usb.UsbManager
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -404,9 +410,60 @@ class MainActivity : Activity() {
 
     private val puertosSerie = listOf("/dev/ttyS1", "/dev/ttyS3", "/dev/ttyS4", "/dev/ttyS0", "/dev/ttyS2", "/dev/ttyS5", "/dev/ttyUSB0", "/dev/usb/lp0")
 
+    // Impresora interna por USB (lo más habitual en los TPV Android con impresora de 80 mm). Dueño, 21 nov 2026.
+    private fun usbManager() = getSystemService(Context.USB_SERVICE) as UsbManager
+
+    private fun salidaUsb(d: UsbDevice): Pair<UsbInterface, UsbEndpoint>? {
+        var mejor: Pair<UsbInterface, UsbEndpoint>? = null
+        for (i in 0 until d.interfaceCount) {
+            val itf = d.getInterface(i)
+            for (e in 0 until itf.endpointCount) {
+                val ep = itf.getEndpoint(e)
+                if (ep.type == UsbConstants.USB_ENDPOINT_XFER_BULK && ep.direction == UsbConstants.USB_DIR_OUT) {
+                    if (itf.interfaceClass == UsbConstants.USB_CLASS_PRINTER) return Pair(itf, ep)
+                    if (mejor == null) mejor = Pair(itf, ep)
+                }
+            }
+        }
+        return mejor
+    }
+
+    private fun impresorasUsb(): List<UsbDevice> = try {
+        usbManager().deviceList.values.filter { salidaUsb(it) != null }
+            .sortedByDescending { d -> (0 until d.interfaceCount).any { d.getInterface(it).interfaceClass == UsbConstants.USB_CLASS_PRINTER } }
+    } catch (e: Exception) { emptyList() }
+
+    private fun nombreUsb(d: UsbDevice): String = try { (d.productName ?: d.manufacturerName ?: "") } catch (e: Exception) { "" }
+        .ifBlank { "USB " + Integer.toHexString(d.vendorId) + ":" + Integer.toHexString(d.productId) }
+
+    private fun imprimirUsb(d: UsbDevice, datos: ByteArray) {
+        val um = usbManager()
+        if (!um.hasPermission(d)) {
+            val flags = if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
+            val pi = PendingIntent.getBroadcast(this, 0, Intent("com.ohanasurf.kiosko.USB").setPackage(packageName), flags)
+            runOnUiThread { um.requestPermission(d, pi) }
+            throw RuntimeException("acepta el permiso de la impresora USB que ha salido en pantalla y vuelve a imprimir")
+        }
+        val (itf, ep) = salidaUsb(d) ?: throw RuntimeException("la impresora USB no tiene salida de datos")
+        val con = um.openDevice(d) ?: throw RuntimeException("no se pudo abrir la impresora USB")
+        try {
+            con.claimInterface(itf, true)
+            var off = 0
+            while (off < datos.size) {
+                val n = minOf(4096, datos.size - off)
+                val trozo = datos.copyOfRange(off, off + n)
+                val r = con.bulkTransfer(ep, trozo, n, 5000)
+                if (r < 0) throw RuntimeException("la impresora USB no responde")
+                off += r
+            }
+            con.releaseInterface(itf)
+        } finally { con.close() }
+    }
+
     @SuppressLint("MissingPermission")
     private fun listaImpresoras(): String {
         val arr = JSONArray()
+        impresorasUsb().forEach { arr.put(JSONObject().put("tipo", "usb").put("id", "usb:" + it.deviceName).put("nombre", nombreUsb(it) + " (USB)")) }
         aparatosBt().forEach { arr.put(JSONObject().put("tipo", "bt").put("id", it.address).put("nombre", it.name ?: it.address)) }
         puertosSerie.forEach { p -> val f = File(p); if (f.exists() && f.canWrite()) arr.put(JSONObject().put("tipo", "serie").put("id", p).put("nombre", "Puerto $p")) }
         return arr.toString()
@@ -416,8 +473,14 @@ class MainActivity : Activity() {
     private fun imprimirDirecto(destino: String, datos: ByteArray) {
         colaImpresion.execute {
             var error = ""
+            var via = ""
             try {
-                if (destino.startsWith("/dev/")) {
+                if (destino.startsWith("usb:") || destino.isEmpty() && impresorasUsb().isNotEmpty()) {
+                    val lista = impresorasUsb()
+                    val d = lista.firstOrNull { "usb:" + it.deviceName == destino } ?: lista.firstOrNull()
+                        ?: throw RuntimeException("no encuentro la impresora USB")
+                    imprimirUsb(d, datos); via = "USB"
+                } else if (destino.startsWith("/dev/")) {
                     FileOutputStream(destino).use { it.write(datos); it.flush() }
                 } else {
                     val lista = aparatosBt()
@@ -441,7 +504,7 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 error = e.message ?: e.toString()
             }
-            val j = JSONObject().put("ok", error.isEmpty()).put("error", error)
+            val j = JSONObject().put("ok", error.isEmpty()).put("error", error).put("via", via)
             runOnUiThread { web.evaluateJavascript("window.ohkPRN&&window.ohkPRN(${JSONObject.quote(j.toString())})", null) }
         }
     }

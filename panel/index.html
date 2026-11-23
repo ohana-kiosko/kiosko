@@ -129,13 +129,13 @@ async function api(metodo,a,cuerpo){
 function toast(t){const o=document.createElement('div');o.className='toast';o.setAttribute('role','status');o.textContent=t;document.body.appendChild(o);setTimeout(()=>o.remove(),2600)}
 
 /* ---------- Datos ---------- */
-function config(){const c=CFG||{};c.camareros=Array.isArray(c.camareros)?c.camareros:[];c.extra=c.extra==null?10:+c.extra;c.fix=c.fix&&typeof c.fix==='object'?c.fix:{};c.nuevos=Array.isArray(c.nuevos)?c.nuevos:[];c.valida=c.valida&&typeof c.valida==='object'?c.valida:{};
+function config(){const c=CFG||{};c.camareros=Array.isArray(c.camareros)?c.camareros:[];c.extra=c.extra==null?10:+c.extra;c.fix=c.fix&&typeof c.fix==='object'?c.fix:{};c.nuevos=Array.isArray(c.nuevos)?c.nuevos:[];c.valida=c.valida&&typeof c.valida==='object'?c.valida:{};c.alias=c.alias&&typeof c.alias==='object'?c.alias:{};
   // La primera vez, los camareros salen de los que conoce la tablet.
   if(!c.camareros.length&&EST&&Array.isArray(EST.staff))c.camareros=EST.staff.map(s=>({id:s.id,nm:s.nm,activo:true,ord:[{desde:'2000-01-03',h:s.ord>0?+s.ord:20}]})),c.sinGuardar=true;
   CFG=c;return c}
 const cams=()=>config().camareros;
 const camDe=id=>cams().find(x=>x.id===id);
-const nombre=id=>{const c=camDe(id);if(c)return c.nm;const s=EST&&EST.staff&&EST.staff.find(x=>x.id===id);return s?s.nm:id};
+const nombre=id=>{const c=camDe(id);if(c)return c.nm;const s=EST&&EST.staff&&EST.staff.find(x=>x.id===id);return s?s.nm:may(String(id||''))};
 function ordDe(c,lunes){const v=((c&&c.ord)||[]).filter(o=>o.desde<=lunes).sort((a,b)=>a.desde<b.desde?-1:1).pop();return v?+v.h:20}
 const clave=f=>f.p+'|'+f.in;
 /* Horas cambiadas en la tablet por olvido (23 nov 2026). f.in/f.out son la hora real en que se pulsó; f.cam.in/out la que dice la
@@ -148,7 +148,7 @@ const camTxt=f=>!f.cams||!f.cams.length?'':f.cams.some(x=>x.st==='pend')?' · po
 /* Fichajes con las correcciones del dueño aplicadas. */
 function fichajes(){const c=config();const out=[];
   ((EST&&EST.fichajes)||[]).forEach(f=>{const x=c.fix[clave(f)];if(x&&x.x)return;const e=efP(f);
-    if(x)['in','out'].forEach(cp=>{if(!(cp in x))return;const ce=f.cam&&f.cam[cp];if((x.at||0)>=(ce?ce.at||0:0))e[cp]=x[cp]});out.push(Object.assign(e,{k:clave(f),corr:!!x}))});
+    if(x)['in','out'].forEach(cp=>{if(!(cp in x))return;const ce=f.cam&&f.cam[cp];if((x.at||0)>=(ce?ce.at||0:0))e[cp]=x[cp]});const al=c.alias[e.p];if(al==='-')return;if(al){e.orig=e.p;e.p=al}out.push(Object.assign(e,{k:clave(f),corr:!!x}))});
   c.nuevos.forEach(n=>out.push(Object.assign({},n,{k:'n|'+n.id,mano:true})));
   return out.filter(f=>f.in).sort((a,b)=>a.in-b.in)}
 const minDe=f=>f.out&&f.out>f.in?Math.round((f.out-f.in)/60000):0;
@@ -414,7 +414,9 @@ function vCamareros(){const c=config(),F=fichajes(),hoyL=lunesDe(ymd(Date.now())
      <div style="display:flex;gap:6px"><button class="btn sm pri" data-vk="${esc(k)}" data-st="ok">Validar</button><button class="btn sm" data-vk="${esc(k)}" data-st="no">Rechazar</button></div></div>`).join('')}</div>
    <p class="muted" style="font-size:12.5px;margin:8px 0 0">Validar: cuenta la hora que dice. Rechazar: cuenta la hora a la que pulsó. Para poner otra hora, toca su nombre abajo y corrige el fichaje.</p></section>`:''}
   ${c.sinGuardar?`<div class="note">He cogido los camareros de la tablet con 20 h ordinarias por semana. Revísalos y toca uno para cambiar sus horas: al guardar quedan fijos.</div>`:''}
-  ${olvidos.length?`<div class="note">${olvidos.map(f=>esc(nombre(f.p))+' no fichó la salida del '+diaCorto(ymd(f.in))).join('; ')}. Toca su nombre y corrige el fichaje.</div>`:''}
+  ${huerfanos().length?`<section class="card" style="border-color:#D9A441"><h2>Fichajes sin dueño</h2><p class="muted" style="font-size:13px;margin:0 0 8px">Son de la tablet con un nombre que no está en tu lista (de antes de dar de alta a los camareros aquí). Di de quién son y cuentan en sus horas.</p>
+   ${huerfanos().map(([id,n])=>`<div class="row" style="margin:6px 0"><div class="sp"><b>${esc(nombre(id))}</b> <span class="muted">· ${n} ${n===1?'fichaje':'fichajes'}</span></div><select class="inp" data-alias="${esc(id)}" style="max-width:52%"><option value="">¿De quién es?</option>${c.camareros.map(z=>`<option value="${esc(z.id)}">${esc(z.nm)}</option>`).join('')}<option value="-">No contar (administrador)</option></select></div>`).join('')}</section>`:''}
+  ${olvidos.length?`<section class="card" style="border-color:#D9A441"><h2>Sin fichar la salida</h2><div class="list">${olvidos.map(f=>`<button class="it" data-olv="${esc(f.k)}"><div class="sp"><div class="t">${esc(nombre(f.p))} · ${diaCorto(ymd(f.in))}</div><div class="s">Entró a las ${hhmm(f.in)} y no fichó la salida</div></div><span class="pill p-warn">Corregir</span></button>`).join('')}</div></section>`:''}
   <section class="card"><div class="nav"><button class="btn sm" id="sp" aria-label="Semana anterior">‹</button><b>Semana ${semTxt(SEM)}</b><button class="btn sm" id="sn" aria-label="Semana siguiente" ${SEM>=hoyL?'disabled':''}>›</button></div>
    <div class="list" style="margin-top:6px">${filas||'<p class="muted" style="margin:8px 0 0">No hay camareros. Añade uno abajo.</p>'}</div></section>
   <section class="card"><div class="nav"><button class="btn sm" id="mp" aria-label="Mes anterior">‹</button><b>${mesTxt(MES)}</b><button class="btn sm" id="mn" aria-label="Mes siguiente" ${MES>=mesF?'disabled':''}>›</button></div>
@@ -423,7 +425,9 @@ function vCamareros(){const c=config(),F=fichajes(),hoyL=lunesDe(ymd(Date.now())
    <p class="muted" style="font-size:13px;margin:8px 0 0">Extra a ${eur(c.extra)}/h (se cambia en Ajustes). Cada semana cuenta en el mes de su domingo.</p></section>
   <button class="btn" id="cnew">Añadir camarero</button>
   ${c.camareros.some(x=>x.activo===false)?`<section class="card"><h2>De baja</h2><div class="list">${c.camareros.filter(x=>x.activo===false).map(x=>`<button class="it" data-cam="${esc(x.id)}"><div class="sp t">${esc(x.nm)}</div><span class="pill p-mute">de baja</span></button>`).join('')}</div></section>`:''}`}
-function aCamareros(){$$('[data-vk]').forEach(b=>b.onclick=()=>{const c=config();c.valida[b.dataset.vk]={st:b.dataset.st,por:'Isidro (móvil)',at:Date.now()};guardaCfg(b.dataset.st==='ok'?'Validada. La tablet lo recoge en menos de media hora.':'Rechazada: cuenta la hora a la que pulsó.')});$('#sp').onclick=()=>{SEM=masDias(SEM,-7);pinta()};$('#sn').onclick=()=>{SEM=masDias(SEM,7);pinta()};
+function huerfanos(){const c=config(),n={};((EST&&EST.fichajes)||[]).forEach(f=>{if(!camDe(f.p)&&!c.alias[f.p])n[f.p]=(n[f.p]||0)+1});return Object.entries(n)}
+function aCamareros(){$$('[data-olv]').forEach(b=>b.onclick=()=>{const f=fichajes().find(z=>z.k===b.dataset.olv);if(f)editaFichaje(f.p,f,()=>pinta())});
+  $$('[data-alias]').forEach(sl=>sl.onchange=()=>{if(!sl.value)return;const c=config();c.alias[sl.dataset.alias]=sl.value;guardaCfg(sl.value==='-'?'Hecho: esos fichajes ya no cuentan.':'Hecho: ya cuentan en las horas de '+nombre(sl.value)+'.')});$$('[data-vk]').forEach(b=>b.onclick=()=>{const c=config();c.valida[b.dataset.vk]={st:b.dataset.st,por:'Isidro (móvil)',at:Date.now()};guardaCfg(b.dataset.st==='ok'?'Validada. La tablet lo recoge en menos de media hora.':'Rechazada: cuenta la hora a la que pulsó.')});$('#sp').onclick=()=>{SEM=masDias(SEM,-7);pinta()};$('#sn').onclick=()=>{SEM=masDias(SEM,7);pinta()};
   $('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
   $$('[data-cam]').forEach(b=>b.onclick=()=>verCam(b.dataset.cam));
   $$('[data-wh]').forEach(b=>b.onclick=()=>enviarHoras(b.dataset.wh,{t:'sem',l:SEM}));

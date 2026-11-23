@@ -129,7 +129,7 @@ async function api(metodo,a,cuerpo){
 function toast(t){const o=document.createElement('div');o.className='toast';o.setAttribute('role','status');o.textContent=t;document.body.appendChild(o);setTimeout(()=>o.remove(),2600)}
 
 /* ---------- Datos ---------- */
-function config(){const c=CFG||{};c.camareros=Array.isArray(c.camareros)?c.camareros:[];c.extra=c.extra==null?10:+c.extra;c.fix=c.fix&&typeof c.fix==='object'?c.fix:{};c.nuevos=Array.isArray(c.nuevos)?c.nuevos:[];
+function config(){const c=CFG||{};c.camareros=Array.isArray(c.camareros)?c.camareros:[];c.extra=c.extra==null?10:+c.extra;c.fix=c.fix&&typeof c.fix==='object'?c.fix:{};c.nuevos=Array.isArray(c.nuevos)?c.nuevos:[];c.valida=c.valida&&typeof c.valida==='object'?c.valida:{};
   // La primera vez, los camareros salen de los que conoce la tablet.
   if(!c.camareros.length&&EST&&Array.isArray(EST.staff))c.camareros=EST.staff.map(s=>({id:s.id,nm:s.nm,activo:true,ord:[{desde:'2000-01-03',h:s.ord>0?+s.ord:20}]})),c.sinGuardar=true;
   CFG=c;return c}
@@ -138,9 +138,16 @@ const camDe=id=>cams().find(x=>x.id===id);
 const nombre=id=>{const c=camDe(id);if(c)return c.nm;const s=EST&&EST.staff&&EST.staff.find(x=>x.id===id);return s?s.nm:id};
 function ordDe(c,lunes){const v=((c&&c.ord)||[]).filter(o=>o.desde<=lunes).sort((a,b)=>a.desde<b.desde?-1:1).pop();return v?+v.h:20}
 const clave=f=>f.p+'|'+f.in;
+/* Horas cambiadas en la tablet por olvido (23 nov 2026). f.in/f.out son la hora real en que se pulsó; f.cam.in/out la que dice la
+   persona ({t, por, nota, st:'pend'|'ok'|'no', val}). El dueño valida o rechaza aquí: config.valida[p|in|campo] = {st, por, at}. */
+const kCam=(f,cp)=>f.p+'|'+f.in+'|'+cp;
+function camP(f,cp){const x=f.cam&&f.cam[cp];if(!x)return null;const v=config().valida[kCam(f,cp)];if(v&&(!x.val||v.at>x.val.at))return Object.assign({},x,{st:v.st,val:{por:v.por,at:v.at}});return x}
+function efP(f){const r=Object.assign({},f);['in','out'].forEach(cp=>{const x=camP(f,cp);if(x&&x.st!=='no'&&(cp==='in'||f.out))r[cp]=x.t});r.cams=[camP(f,'in'),camP(f,'out')].filter(Boolean);return r}
+function pendientes(){const o=[];((EST&&EST.fichajes)||[]).forEach(f=>['in','out'].forEach(cp=>{const x=camP(f,cp);if(x&&x.st==='pend'&&!(config().fix[clave(f)]))o.push({f,cp,x,k:kCam(f,cp)})}));return o.sort((a,b)=>b.x.t-a.x.t)}
+const camTxt=f=>!f.cams||!f.cams.length?'':f.cams.some(x=>x.st==='pend')?' · por validar':f.cams.some(x=>x.st==='no')?' · cambio rechazado':' · hora cambiada';
 /* Fichajes con las correcciones del dueño aplicadas. */
 function fichajes(){const c=config();const out=[];
-  ((EST&&EST.fichajes)||[]).forEach(f=>{const x=c.fix[clave(f)];if(x&&x.x)return;out.push(Object.assign({},f,x||{},{k:clave(f),corr:!!x}))});
+  ((EST&&EST.fichajes)||[]).forEach(f=>{const x=c.fix[clave(f)];if(x&&x.x)return;out.push(Object.assign(efP(f),x||{},{k:clave(f),corr:!!x}))});
   c.nuevos.forEach(n=>out.push(Object.assign({},n,{k:'n|'+n.id,mano:true})));
   return out.filter(f=>f.in).sort((a,b)=>a.in-b.in)}
 const minDe=f=>f.out&&f.out>f.in?Math.round((f.out-f.in)/60000):0;
@@ -261,7 +268,7 @@ function vDirecto(){
    ${MODO!=='redis'?`<p class="muted" style="margin:6px 0 0;font-size:12.5px">Ahora llega cada 10-20 min (almacén gratis). Para verlo cada 30 s, mira «Ajustes».</p>`:''}</section>`;
   if(!ab){const u=cierres().sort((a,b)=>b.hasta-a.hasta)[0];
     h+=u?`<section class="card"><h2>Último cierre · ${diaCorto(ymd(u.hasta))} a las ${hhmm(u.hasta)}</h2><div class="kpis"><div class="kpi big"><div class="l">Ventas</div><div class="v">${eur(u.ventas)}</div></div><div class="kpi"><div class="l">Retirado</div><div class="v">${eur((+u.retirado||0)+(+u.retDurante||0))}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(u.desc||0)<.005?'Cuadra':eur(u.desc)}</div></div></div></section>`:'';
-    return h+vPedResumen()}
+    return h+vValResumen()+vPedResumen()}
   const n=C.length,med=n?r2(tot/n):0;
   // Mismo día de la semana, últimas 4 semanas
   const dS=new Date().getDay(),porDia={};cierres().forEach(c=>{const d=ymd(c.hasta);if(d<ymd(Date.now())&&Date.now()-c.hasta<29*864e5&&new Date(c.hasta).getDay()===dS)porDia[d]=(porDia[d]||0)+(+c.ventas||0)});
@@ -289,7 +296,8 @@ function vDirecto(){
   // Equipo y retiradas
   const D=v.dentro||[];h+=`<section class="card"><h2>Trabajando ahora</h2>${D.length?`<div class="list">${D.map(x=>`<div class="it" style="cursor:default"><div class="sp t">${esc(x.nm)}</div><span class="pill p-ok">desde las ${hhmm(x.in)}</span></div>`).join('')}</div>`:'<p class="muted" style="margin:0">Nadie ha fichado la entrada.</p>'}</section>`;
   if((v.retiradas||[]).length)h+=`<section class="card"><h2>Retiradas de efectivo hoy</h2><table><tbody>${v.retiradas.map(y=>`<tr><td>${hhmm(y.t)}</td><td>${esc(y.who)}${y.nota?`<div class="muted" style="font-size:12.5px">${esc(y.nota)}</div>`:''}</td><td class="r"><b>${eur(y.amt)}</b></td></tr>`).join('')}<tr><td></td><td><b>Total</b></td><td class="r"><b>${eur(ret)}</b></td></tr></tbody></table></section>`;
-  return h+vPedResumen()}
+  return h+vValResumen()+vPedResumen()}
+function vValResumen(){const n=EST?pendientes().length:0;return n?`<section class="card"><div class="row"><h2 style="margin:0">${n} ${n===1?'hora':'horas'} de fichaje por validar</h2><span class="sp"></span><button class="btn sm pri" data-tab="camareros">Ver</button></div></section>`:''}
 let MASV=false,TODOS=false;
 function vCajaAntigua(){const k=EST.caja;return k&&k.abierta?`<section class="card"><h2>Caja abierta (datos de ${hace(EST.t)})</h2><div class="kpis"><div class="kpi big"><div class="l">Cobrado</div><div class="v">${eur(k.total)}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(k.ef)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(k.tj)}</div></div></div></section>`:''}
 function vPedResumen(){const P=(VIVO&&VIVO.pedidos)||{};const n=Object.values(P).reduce((a,l)=>a+l.length,0);if(!n)return '';
@@ -345,7 +353,12 @@ function vCamareros(){const c=config(),F=fichajes(),hoyL=lunesDe(ymd(Date.now())
   const mesF=ymd(Date.now()).slice(0,7);
   const resM=act.map(x=>Object.assign({x},resumenMes(x.id,MES,F)));
   const olvidos=F.filter(f=>!f.out&&Date.now()-f.in>14*3600e3);
-  return `${c.sinGuardar?`<div class="note">He cogido los camareros de la tablet con 20 h ordinarias por semana. Revísalos y toca uno para cambiar sus horas: al guardar quedan fijos.</div>`:''}
+  const P=pendientes();
+  return `${P.length?`<section class="card" style="border-color:#D9A441"><h2>Horas por validar (${P.length})</h2><div class="list">${P.map(({f,cp,x,k})=>`<div class="it" style="cursor:default;flex-wrap:wrap"><div class="sp"><div class="t">${esc(nombre(f.p))} · ${cp==='in'?'entrada':'salida'} ${diaCorto(ymd(x.t))}</div>
+     <div class="s">Fichó a las ${hhmm(f[cp])} · dice <b style="color:var(--ink)">${hhmm(x.t)}</b>${x.nota?' · «'+esc(x.nota)+'»':''}</div></div>
+     <div style="display:flex;gap:6px"><button class="btn sm pri" data-vk="${esc(k)}" data-st="ok">Validar</button><button class="btn sm" data-vk="${esc(k)}" data-st="no">Rechazar</button></div></div>`).join('')}</div>
+   <p class="muted" style="font-size:12.5px;margin:8px 0 0">Validar: cuenta la hora que dice. Rechazar: cuenta la hora a la que pulsó. Para poner otra hora, toca su nombre abajo y corrige el fichaje.</p></section>`:''}
+  ${c.sinGuardar?`<div class="note">He cogido los camareros de la tablet con 20 h ordinarias por semana. Revísalos y toca uno para cambiar sus horas: al guardar quedan fijos.</div>`:''}
   ${olvidos.length?`<div class="note">${olvidos.map(f=>esc(nombre(f.p))+' no fichó la salida del '+diaCorto(ymd(f.in))).join('; ')}. Toca su nombre y corrige el fichaje.</div>`:''}
   <section class="card"><div class="nav"><button class="btn sm" id="sp" aria-label="Semana anterior">‹</button><b>Semana ${semTxt(SEM)}</b><button class="btn sm" id="sn" aria-label="Semana siguiente" ${SEM>=hoyL?'disabled':''}>›</button></div>
    <div class="list" style="margin-top:6px">${filas||'<p class="muted" style="margin:8px 0 0">No hay camareros. Añade uno abajo.</p>'}</div></section>
@@ -355,7 +368,7 @@ function vCamareros(){const c=config(),F=fichajes(),hoyL=lunesDe(ymd(Date.now())
    <p class="muted" style="font-size:13px;margin:8px 0 0">Extra a ${eur(c.extra)}/h (se cambia en Ajustes). Cada semana cuenta en el mes de su domingo.</p></section>
   <button class="btn" id="cnew">Añadir camarero</button>
   ${c.camareros.some(x=>x.activo===false)?`<section class="card"><h2>De baja</h2><div class="list">${c.camareros.filter(x=>x.activo===false).map(x=>`<button class="it" data-cam="${esc(x.id)}"><div class="sp t">${esc(x.nm)}</div><span class="pill p-mute">de baja</span></button>`).join('')}</div></section>`:''}`}
-function aCamareros(){$('#sp').onclick=()=>{SEM=masDias(SEM,-7);pinta()};$('#sn').onclick=()=>{SEM=masDias(SEM,7);pinta()};
+function aCamareros(){$$('[data-vk]').forEach(b=>b.onclick=()=>{const c=config();c.valida[b.dataset.vk]={st:b.dataset.st,por:'Isidro (móvil)',at:Date.now()};guardaCfg(b.dataset.st==='ok'?'Validada. La tablet lo recoge en menos de media hora.':'Rechazada: cuenta la hora a la que pulsó.')});$('#sp').onclick=()=>{SEM=masDias(SEM,-7);pinta()};$('#sn').onclick=()=>{SEM=masDias(SEM,7);pinta()};
   $('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
   $$('[data-cam]').forEach(b=>b.onclick=()=>verCam(b.dataset.cam));
   $('#cnew').onclick=()=>editaCam(null)}
@@ -368,7 +381,7 @@ function verCam(id){const x=camDe(id);if(!x)return;let mes=MES;
      <tr><td><b>Mes</b></td><td class="r"><b>${hTxt(r.tot)}</b></td><td></td><td class="r"><b>${hTxt(r.extra)}</b></td></tr></tbody></table>
      <div class="kpis" style="margin-top:10px"><div class="kpi big"><div class="l">Extra a pagar</div><div class="v">${eur(r.eur)}</div></div></div></section>
     <section class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">Fichajes</h2><span class="sp"></span><button class="btn sm" data-add>Añadir</button></div>
-     <div class="list">${lst.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaCorto(ymd(f.in))}</div><div class="s">${hhmm(f.in)} – ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano?' · puesto a mano':''}</div></div><div class="n">${f.out?hTxt(minDe(f)):(Date.now()-f.in>14*3600e3?'<span class="pill p-bad">sin salida</span>':'<span class="pill p-ok">dentro</span>')}</div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes este mes.</p>'}</div></section>`;
+     <div class="list">${lst.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaCorto(ymd(f.in))}</div><div class="s">${hhmm(f.in)} – ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano?' · puesto a mano':''}${f.corr?'':camTxt(f)}</div></div><div class="n">${f.out?hTxt(minDe(f)):(Date.now()-f.in>14*3600e3?'<span class="pill p-bad">sin salida</span>':'<span class="pill p-ok">dentro</span>')}</div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes este mes.</p>'}</div></section>`;
     o.querySelector('[data-x]').onclick=()=>o.remove();
     o.querySelector('[data-ed]').onclick=()=>{o.remove();editaCam(id)};
     o.querySelector('[data-mp]').onclick=()=>{mes=mesMas(mes,-1);draw(o)};o.querySelector('[data-mn]').onclick=()=>{mes=mesMas(mes,1);draw(o)};

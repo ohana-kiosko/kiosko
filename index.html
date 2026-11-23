@@ -633,9 +633,10 @@ function nav(){
   $('#nav').innerHTML=PAGES.map(p=>{const head=p.g!==g?`<div class="grp">${p.g}${p.adm?' · solo Isidro':''}</div>`:'';g=p.g;const lk=p.adm&&!isAdm();
    const badge=p.id==='pedidos'?pedCount():p.id==='comandas'?COMANDAS.filter(x=>!x.done).length:0;
    return head+`<a href="#${p.id}" class="${p.id===c.id?'on':''} ${lk?'locked':''}" ${p.id===c.id?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAVI[p.id]||''}</svg>${p.t}${lk?' 🔒':''}${badge?`<span class="badge">${badge}</span>`:''}</a>`}).join('');
-  $('#who').innerHTML=user?`<div>Dentro: <b>${user.nm}</b><br>${user.rol==='admin'?'Administrador':'Trabajador'} · ${fichado(user.id)?'fichado '+hhmm(fichado(user.id).in):'sin fichar'}</div><button id="whofi" style="margin-bottom:6px">${fichado(user.id)?'Fichar salida':'Fichar entrada'}</button><button id="salir">Cambiar de persona</button>`:'';
+  $('#who').innerHTML=user?`<div>Dentro: <b>${user.nm}</b><br>${user.rol==='admin'?'Administrador':'Trabajador'} · ${fichado(user.id)?'fichado '+hhmm(fichado(user.id).in):'sin fichar'}</div><button id="whofi" style="margin-bottom:6px">${fichado(user.id)?'Fichar salida':'Fichar entrada'}</button><button id="whoret" style="margin-bottom:6px">Retirada de efectivo</button><button id="salir">Cambiar de persona</button>`:'';
   if($('#salir'))$('#salir').onclick=()=>{user=null;showLock()};
   /* Dueño, 21 nov 2026: fichar es un botón aparte; abrir el perfil de alguien no le ficha. */
+  if($('#whoret'))$('#whoret').onclick=()=>retiradaEfectivo();
   if($('#whofi'))$('#whofi').onclick=()=>{const f=fichado(user.id),t=Date.now();if(f){f.out=t;encola(user.id,'out',t)}else{FICHAJES.push({p:user.id,in:t,out:null});encola(user.id,'in',t)}render()};
 }
 function render(){
@@ -934,6 +935,24 @@ let conteo={}, conteoA={}, CAJA=null, cierreRes=null, cierreConfirma=false;
 const sumaDen=o=>r2(DEN.reduce((a,[l,v],i)=>a+v*(+o[i]||0),0));
 const gridDen=(o,attr)=>`<div class="cnt">${DEN.map(([l,v],i)=>`<label><b>${l}</b><input type="number" min="0" inputmode="numeric" ${attr}="${i}" value="${o[i]??''}" placeholder="0"><span class="sub" data-sub-${attr}="${i}">${+o[i]?eur(v*o[i]):''}</span></label>`).join('')}</div>`;
 const pintaSubs=(o,attr)=>{DEN.forEach(([l,v],i)=>{const e=document.querySelector(`[data-sub-${attr}="${i}"]`);if(e)e.textContent=+o[i]?eur(v*o[i]):''})};
+/* Dueño, 23 nov 2026: «retirada de efectivo» durante el servicio. Cualquiera la marca (con su clave): se apunta en la caja
+   abierta, abre el cajón, imprime un papelito para el sobre y al cerrar se descuenta de lo que tendría que haber. */
+const retiradasCaja=()=>r2(((CAJA&&CAJA.retiradas)||[]).reduce((a,x)=>a+(+x.amt||0),0));
+function retiradaEfectivo(){
+  modal(`<h2>Retirada de efectivo</h2><div class="muted" style="font-size:14px">Apunta el dinero que sacas del cajón ahora (por ejemplo, billetes grandes para el sobre). Al cerrar la caja se descuenta solo.</div>
+   <label class="f">Importe que retiras<input class="inp" id="rtv" type="number" step="0.01" min="0" inputmode="decimal" style="font-size:24px;font-weight:700" placeholder="0,00"></label>
+   <div class="chips">${[50,100,150,200,300].map(v=>`<button class="chip" data-rtq="${v}">${eur(v)}</button>`).join('')}</div>
+   <label class="f">Nota (opcional)<input class="inp" id="rtn" maxlength="80" placeholder="Ej.: al sobre; pago a proveedor"></label>
+   <div id="rtm" role="alert"></div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn big pri" id="rtok">Retirar y abrir cajón</button><button class="btn" data-close>Cancelar</button></div>`);
+  $$('[data-rtq]').forEach(b=>b.onclick=()=>{$('#rtv').value=b.dataset.rtq});
+  $('#rtok').onclick=()=>{const v=r2(parseFloat($('#rtv').value));const nota=($('#rtn').value||'').trim();
+    if(!(v>0)){$('#rtm').innerHTML='<div class="note">Pon el importe que retiras.</div>';$('#rtv').focus();return}
+    closeModal();
+    askPin('Retirar '+eur(v)+' del cajón',who=>{cajaAbierta();CAJA.retiradas=CAJA.retiradas||[];const t=Date.now();CAJA.retiradas.push({amt:v,who:who.nm,t,nota});
+      abrirCajon();
+      if(PRN.modo==='rawbt'||PRN.modo==='tablet')enviar(ESC.ini+[centro(PRN.nombre),centro('RETIRADA DE EFECTIVO'),centro(dmy(t)+' '+hhmm(t)),'-'.repeat(PRN.col),lineaLR('Retira',who.nm),lineaLR('IMPORTE',eur(v))].concat(nota?[plano('Nota: '+nota)]:[]).concat(['','Firma:','',' '+'_'.repeat(Math.max(10,PRN.col-2))]).join('\n')+ESC.corte);
+      tpvMsg='Retirada apuntada: '+eur(v)+' ('+who.nm+'). Se descuenta al cerrar la caja.';marcaPanel(true);render()})}}
 function cajaAbierta(){if(!CAJA||!CAJA.abierta)CAJA={abierta:true,desde:Date.now(),fondo:+((CAJA&&CAJA.deja)||0),por:(user&&user.nm)||'—',auto:true};return CAJA}
 const r2=x=>Math.round(x*100)/100;
 const cobradoPor=re=>r2(COBROS.filter(c=>re.test(c.how)).reduce((a,c)=>a+c.amt,0));
@@ -946,8 +965,8 @@ function resumenCierreTxt(r){const x=r[7]||{},R='-'.repeat(PRN.col),cu=d=>Math.a
   lineaLR('Abrio',(x.abrio||'')+' '+(x.desde?hhmm(x.desde):'')),lineaLR('Cerro',r[1]+' '+(x.hasta?hhmm(x.hasta):'')),R,
   lineaLR('Ventas totales',eur(r[2])),lineaLR('Cobrado en efectivo',eur(x.ef||0)),lineaLR('Cobrado con tarjeta',eur(x.tj||0))].concat(x.ot?[lineaLR('Otros',eur(x.ot))]:[]).concat([R,
   lineaLR('DATAFONO (banco)',x.datafono==null?'-':eur(x.datafono)),R,
-  lineaLR('Fondo al abrir',eur(x.fondo||0)),lineaLR('Tendria que haber',eur((x.fondo||0)+(x.ef||0))),lineaLR('EFECTIVO CONTADO',x.contado==null?'-':eur(x.contado)),lineaLR('Descuadre',cu(r[4])),R,
-  lineaLR('CAMBIO QUE SE DEJA',eur(x.deja||0)),lineaLR('EFECTIVO AL SOBRE',x.retirado==null?'-':eur(x.retirado)),'='.repeat(PRN.col)])
+  lineaLR('Fondo al abrir',eur(x.fondo||0))]).concat(x.retDurante?[lineaLR('Retirado en servicio',eur(x.retDurante))]:[]).concat([lineaLR('Tendria que haber',eur((x.fondo||0)+(x.ef||0)-(x.retDurante||0))),lineaLR('EFECTIVO CONTADO',x.contado==null?'-':eur(x.contado)),lineaLR('Descuadre',cu(r[4])),R,
+  lineaLR('CAMBIO QUE SE DEJA',eur(x.deja||0)),lineaLR('EFECTIVO AL SOBRE',x.retirado==null?'-':eur(x.retirado))]).concat(x.retDurante?[lineaLR('TOTAL RETIRADO',eur((x.retirado||0)+x.retDurante))].concat((x.retiradas||[]).map(y=>plano(' '+hhmm(y.t)+' '+y.who+': '+eur(y.amt)+(y.nota?' ('+y.nota+')':'')))):[]).concat(['='.repeat(PRN.col)])
   .concat(x.nota?[plano('Notas: '+x.nota)]:[]).concat(['','Firma de quien cierra:','','',' '+'_'.repeat(Math.max(10,PRN.col-2)),''])}
 function imprimirResumen(r){if(!r)return;const L=resumenCierreTxt(r);if(PRN.modo==='navegador')imprimirHTML(L.join('\n'));else enviar(ESC.ini+L.join('\n')+ESC.corte)}
 V.cierre=()=>{
@@ -973,13 +992,14 @@ V.cierre=()=>{
   return `<div class="status">Caja abierta ${cuandoTxt(CAJA.desde)} por <b>${esc(CAJA.por)}</b> con ${eur(CAJA.fondo)} de fondo${CAJA.auto?' (se abrió sola al primer cobro)':''}. <button class="btn sm" id="cfondoedit">Cambiar fondo</button></div>
   <div class="kpis"><div class="kpi"><div class="l">Cobrado</div><div class="v">${eur(tot)}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(ef)}</div></div><div class="kpi"><div class="l">Tarjeta (datáfono y tablet)</div><div class="v">${eur(tj)}</div></div><div class="kpi"><div class="l">Otros</div><div class="v">${eur(ot)}</div></div><div class="kpi"><div class="l">Cobros</div><div class="v">${COBROS.length}</div></div></div>
   ${pend}
+  <section class="card"><h2>Retiradas de efectivo <span class="grow"></span><button class="btn sm pri" id="cretira">Retirada de efectivo</button></h2>${(CAJA.retiradas||[]).length?`<div class="tw"><table><thead><tr><th>Hora</th><th>Quién</th><th>Nota</th><th class="r">Importe</th></tr></thead><tbody>${CAJA.retiradas.map(x=>`<tr><td>${hhmm(x.t)}</td><td>${esc(x.who)}</td><td>${esc(x.nota||'')}</td><td class="r"><b>${eur(x.amt)}</b></td></tr>`).join('')}<tr><td colspan="3"><b>Total retirado durante el servicio</b></td><td class="r"><b>${eur(retiradasCaja())}</b></td></tr></tbody></table></div>`:'<div class="bd muted" style="font-size:14px">Si sacáis dinero del cajón durante el servicio, apuntadlo aquí (o con el botón de abajo a la izquierda). Al cerrar se descuenta solo.</div>'}</section>
   <div class="row">
   ${(()=>{const by={};COBROS.forEach(c=>{const k=c.who;by[k]=by[k]||{ef:0,tj:0,ot:0};if(/^Efectivo/.test(c.how))by[k].ef+=c.amt;else if(/^Tarjeta/.test(c.how))by[k].tj+=c.amt;else by[k].ot+=c.amt});const rows=Object.entries(by);return rows.length?`<section class="card" style="flex:1 1 100%"><h2>Cobrado por cada uno en esta caja</h2><div class="tw"><table><thead><tr><th>Quién</th><th class="r">Efectivo</th><th class="r">Tarjeta</th><th class="r">Otros</th><th class="r">Total</th></tr></thead><tbody>${rows.map(([w,v])=>`<tr><td><b>${esc(w)}</b></td><td class="r">${eur(v.ef)}</td><td class="r">${eur(v.tj)}</td><td class="r">${eur(v.ot)}</td><td class="r"><b>${eur(v.ef+v.tj+v.ot)}</b></td></tr>`).join('')}</tbody></table></div></section>`:''})()}
   <section class="card" style="flex:2 1 520px"><h2>1. Cuenta el efectivo del cajón</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
     ${gridDen(conteo,'data-den')}
     <div class="cnttot"><span>Total contado</span><b id="cnttot">${sumaDen(conteo)?eur(sumaDen(conteo)):'—'}</b></div>
     <label class="f">O escribe directamente el total contado<input class="inp" id="ctotal" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00"></label>
-    <dl class="kv"><dt>Fondo al abrir</dt><dd>${eur(CAJA.fondo)}</dd><dt>Efectivo cobrado</dt><dd>${eur(ef)}</dd><dt>Tendría que haber</dt><dd>${eur(CAJA.fondo+ef)}</dd><dt>Has contado</dt><dd id="contado">—</dd></dl>
+    <dl class="kv"><dt>Fondo al abrir</dt><dd>${eur(CAJA.fondo)}</dd><dt>Efectivo cobrado</dt><dd>${eur(ef)}</dd>${retiradasCaja()?`<dt>Retirado durante el servicio</dt><dd>− ${eur(retiradasCaja())}</dd>`:''}<dt>Tendría que haber</dt><dd>${eur(r2(CAJA.fondo+ef-retiradasCaja()))}</dd><dt>Has contado</dt><dd id="contado">—</dd></dl>
     <div id="desc"></div>
   </div></section>
   <section class="card" style="flex:1 1 320px"><h2>2. Datáfono y cierre</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
@@ -1009,7 +1029,7 @@ A.cierre=()=>{
     return;
   }
   const ef=cobradoPor(/^Efectivo/),tj=cobradoPor(/^Tarjeta/);
-  const upd=()=>{const c=contadoCaja();$('#contado').textContent=isNaN(c)?'—':eur(c);if(isNaN(c)){$('#desc').innerHTML='';return}const d=r2(c-(CAJA.fondo+ef));$('#desc').innerHTML=Math.abs(d)<.005?'<div class="status">Cuadra.</div>':`<div class="note">${d>0?'Sobran':'Faltan'} ${eur(Math.abs(d))}. Puedes cerrar igualmente y explicarlo en las notas.</div>`};
+  const upd=()=>{const c=contadoCaja();$('#contado').textContent=isNaN(c)?'—':eur(c);if(isNaN(c)){$('#desc').innerHTML='';return}const d=r2(c-(CAJA.fondo+ef-retiradasCaja()));$('#desc').innerHTML=Math.abs(d)<.005?'<div class="status">Cuadra.</div>':`<div class="note">${d>0?'Sobran':'Faltan'} ${eur(Math.abs(d))}. Puedes cerrar igualmente y explicarlo en las notas.</div>`};
   /* Dueño, 21 nov 2026: no se da por hecho que se deja el mismo cambio que al abrir. Se pone lo que se retira al sobre
      (normalmente los billetes grandes) y todo lo demás que hay en el cajón se queda de cambio para la caja siguiente. */
   let retB={};
@@ -1021,14 +1041,15 @@ A.cierre=()=>{
   $('#cret').oninput=()=>{retB={};$$('[data-rden]').forEach(x=>x.value='');pintaSubs(retB,'data-rden');sobre()};
   $$('[data-rden]').forEach(x=>x.oninput=()=>{retB[x.dataset.rden]=x.value;pintaSubs(retB,'data-rden');const t=sumaDen(retB);$('#cret').value=t?t.toFixed(2):'';sobre()});sobre();
   $('#tjb').oninput=e=>{const v=parseFloat(e.target.value);$('#tjd').innerHTML=isNaN(v)?`Debería coincidir con ${eur(tj)}.`:Math.abs(v-tj)<.005?'<span class="pill p-ok">Coincide</span>':`<span class="pill p-warn">Diferencia de ${eur(v-tj)}</span>`};
+  if($('#cretira'))$('#cretira').onclick=()=>retiradaEfectivo();
   $('#cfondoedit').onclick=()=>{const box=$('#cfondoedit').parentNode;box.innerHTML=`Fondo al abrir: <input class="inp" id="cfnew" type="number" step="0.01" min="0" style="width:120px;display:inline-block" value="${CAJA.fondo}"> <button class="btn sm pri" id="cfok">Guardar</button>`;$('#cfok').onclick=()=>{const f=parseFloat($('#cfnew').value);if(!isNaN(f))CAJA.fondo=r2(f);render()}};
   $('#cerrar').onclick=()=>{
     {const c0=contadoCaja(),r0=parseFloat($('#cret').value)||0;if(!isNaN(c0)&&r0>c0+.005){$('#cretd').innerHTML='<span class="pill p-bad">Retiras más de lo que hay en el cajón</span> Corrige el efectivo al sobre.';return}}
     if(!cierreConfirma){cierreConfirma=true;$('#cerrar').textContent='Pulsa otra vez para confirmar el cierre';setTimeout(()=>{cierreConfirma=false;const b=$('#cerrar');if(b)b.textContent='Cerrar caja'},6000);return}
     cierreConfirma=false;
     const c=contadoCaja(),tot=r2(COBROS.reduce((a,x)=>a+x.amt,0)),ot=r2(tot-ef-tj),dj=parseFloat($('#cdeja').value),dat=parseFloat($('#tjb').value),ret=parseFloat($('#cret').value);
-    const ahora=Date.now(),desc=isNaN(c)?0:r2(c-(CAJA.fondo+ef));
-    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?Math.max(0,r2(CAJA.fondo+ef-(isNaN(ret)?0:ret))):r2(dj),retirado:isNaN(ret)?0:r2(ret),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
+    const ahora=Date.now(),rd=retiradasCaja(),desc=isNaN(c)?0:r2(c-(CAJA.fondo+ef-rd));
+    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?Math.max(0,r2(CAJA.fondo+ef-rd-(isNaN(ret)?0:ret))):r2(dj),retirado:isNaN(ret)?0:r2(ret),retDurante:rd,retiradas:(CAJA.retiradas||[]).slice(),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
     /* Billetes y monedas que se quedan en el cajón: salen solos al abrir la caja siguiente (si se contó por billetes). */
     const bd={};if(sumaDen(conteo)>0&&(Object.keys(retB).length||!(ret>0)))DEN.forEach((x,i)=>{const n=(+conteo[i]||0)-(+retB[i]||0);if(n>0)bd[i]=String(n)});
     reg[7].billetesDeja=bd;
@@ -1430,7 +1451,7 @@ function datosPanel(){
   let pend=0;try{pend=ACCS.filter(n=>n!==QUICK&&ACC[n]&&!ACC[n].hidden&&['due','part'].includes(accState(n))).reduce((x,n)=>x+accTotal(n)-ACC[n].paid,0)}catch(e){}
   const desde=Date.now()-130*864e5;
   return {t:Date.now(),
-    caja:CAJA&&CAJA.abierta?{abierta:true,desde:CAJA.desde,por:CAJA.por,fondo:CAJA.fondo,ef:sum(/^Efectivo/),tj:sum(/^Tarjeta/),total:sum(null),cobros:COBROS.length,pendiente:Math.round(pend*100)/100}:{abierta:false,deja:CAJA&&CAJA.deja!=null?CAJA.deja:null},
+    caja:CAJA&&CAJA.abierta?{abierta:true,desde:CAJA.desde,por:CAJA.por,fondo:CAJA.fondo,ef:sum(/^Efectivo/),tj:sum(/^Tarjeta/),total:sum(null),retirado:retiradasCaja(),cobros:COBROS.length,pendiente:Math.round(pend*100)/100}:{abierta:false,deja:CAJA&&CAJA.deja!=null?CAJA.deja:null},
     cierres:HIST.filter(h=>h&&h[7]&&h[7].hasta).slice(0,500).map(h=>Object.assign({},h[7],{f:h[0],cerro:h[1],ventas:h[2],desc:h[4]})),
     fichajes:FICHAJES.filter(f=>f&&f.in>desde).map(f=>({p:f.p,in:f.in,out:f.out||null})),
     staff:STAFF.filter(x=>x.rol!=='admin').map(x=>({id:x.id,nm:x.nm,ord:x.ord||0}))}}

@@ -357,44 +357,37 @@ function rangoTxt(a,b){const A=new Date(a+'T12:00:00'),B=new Date(b+'T12:00:00')
   if(a===b)return 'del '+A.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
   return A.getMonth()===B.getMonth()?`del ${A.getDate()} al ${B.getDate()} de ${mes(B)}`:`del ${A.getDate()} de ${mes(A)} al ${B.getDate()} de ${mes(B)}`}
 /* Texto sencillo, sin asteriscos, para copiar y pegar (dueño, 23 nov 2026 16:25: «más fácil de leer, no tan revesado, un copia-pega»). */
-function textoHoras(id,per){const x=camDe(id),F=fichajes().filter(f=>f.p===id&&f.out),nm=(x?x.nm:nombre(id)).split(' ')[0];
-  const dias=(a,b)=>F.filter(f=>ymd(f.in)>=a&&ymd(f.in)<=b).sort((p,q)=>p.in-q.in);
-  const linea=f=>`${diaLargo(ymd(f.in))}: ${hhmm(f.in)} a ${hhmm(f.out)} = ${hm(minDe(f))}`;
-  const sem=l=>{const m=dias(l,masDias(l,6)).reduce((a,f)=>a+minDe(f),0),o=ordDe(x,l)*60;return {m,o,e:Math.max(0,m-o),abierta:masDias(l,6)>=ymd(Date.now())}};
-  if(per.t==='sem'){const b=sem(per.l),L=dias(per.l,masDias(per.l,6));
-    return `${nm} · horas ${rangoTxt(per.l,masDias(per.l,6))}\n\n${L.map(linea).join('\n')||'Sin fichajes'}\n\nTotal: ${hm(b.m)}\nContrato: ${hm(b.o)}\nExtra: ${hm(b.e)}${b.abierta?'\n(la semana aún no ha acabado)':''}`}
-  if(per.t==='mes'){const r=resumenMes(id,per.m,F);const S=r.sems.filter(z=>z.min>0);
-    return `${nm} · horas de ${mesTxt(per.m).toLowerCase()}\n\n${S.map(z=>`Semana ${rangoTxt(z.lunes,masDias(z.lunes,6))}: ${hm(z.min)} (contrato ${hm(z.ord)}, extra ${hm(z.extra)})${z.cerrada?'':' (sin acabar)'}`).join('\n')||'Sin fichajes'}\n\nTotal del mes: ${hm(r.tot)}\nExtra del mes: ${hm(r.extra)}`}
-  const L=dias(per.a,per.b),m=L.reduce((a,f)=>a+minDe(f),0);const ex=[];for(let l=lunesDe(per.a);l<=per.b;l=masDias(l,7)){const b=sem(l);ex.push(`Extra de la semana ${rangoTxt(l,masDias(l,6))}: ${hm(b.e)} (trabajadas ${hm(b.m)}, contrato ${hm(b.o)})`)}
-  return `${nm} · horas ${rangoTxt(per.a,per.b)}\n\n${L.map(linea).join('\n')||'Sin fichajes'}\n\nTotal: ${hm(m)}\n${ex.join('\n')}`}
-function enviarHoras(id,ini){const x=camDe(id);let per=ini||{t:'sem',l:masDias(lunesDe(ymd(Date.now())),-7)};
-  const hoy=ymd(Date.now()),sab=(()=>{let d=hoy;while(new Date(d+'T12:00:00').getDay()!==6)d=masDias(d,-1);return d})();
-  const rango=()=>per.t==='sem'?[per.l,masDias(per.l,6)]:per.t==='mes'?[per.m+'-01',ymd(new Date(+per.m.slice(0,4),+per.m.slice(5,7),0))]:[per.a,per.b];
-  const draw=o=>{const txt=textoHoras(id,per),tel=telWa(x&&x.tel);const url='https://wa.me/'+(tel||'')+'?text='+encodeURIComponent(txt);
-    const [ra,rb]=rango();const LF=fichajes().filter(f=>f.p===id&&ymd(f.in)>=ra&&ymd(f.in)<=rb).sort((p,q)=>p.in-q.in);
-    o.firstChild.innerHTML=`<div class="row"><h3>Horas de ${esc(x?x.nm:nombre(id))}</h3><button class="btn sm" data-x>Cerrar</button></div>
-    <section class="card"><div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn sm ${per.t==='sem'&&per.l===lunesDe(hoy)?'pri':''}" data-p="sem0">Esta semana</button><button class="btn sm ${per.t==='sem'&&per.l===masDias(lunesDe(hoy),-7)?'pri':''}" data-p="sem1">Semana pasada</button>
-      <button class="btn sm ${per.t==='dias'&&per.a===sab?'pri':''}" data-p="finde">Fin de semana</button><button class="btn sm ${per.t==='mes'?'pri':''}" data-p="mes">Mes</button><button class="btn sm ${per.t==='dias'&&per.a!==sab?'pri':''}" data-p="dias">Elegir días</button></div>
-     ${per.t==='sem'?`<div class="nav" style="margin-top:10px"><button class="btn sm" data-sp aria-label="Semana anterior">‹</button><b>Semana ${semTxt(per.l)}</b><button class="btn sm" data-sn aria-label="Semana siguiente" ${per.l>=lunesDe(hoy)?'disabled':''}>›</button></div>`:''}
-     ${per.t==='mes'?`<div class="nav" style="margin-top:10px"><button class="btn sm" data-mp aria-label="Mes anterior">‹</button><b>${mesTxt(per.m)}</b><button class="btn sm" data-mn aria-label="Mes siguiente" ${per.m>=hoy.slice(0,7)?'disabled':''}>›</button></div>`:''}
-     ${per.t==='dias'?`<div class="row" style="margin-top:10px"><label class="f">Desde<input class="inp" type="date" id="da" value="${per.a}" max="${hoy}"></label><label class="f">Hasta<input class="inp" type="date" id="db" value="${per.b}" max="${hoy}"></label></div>`:''}</section>
-    <section class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">Fichajes</h2><span class="sp"></span><button class="btn sm" data-add>Añadir</button></div>
-     <div class="list">${LF.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaLargo(ymd(f.in))}</div><div class="s">${hhmm(f.in)} a ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano||f.aMano?' · a mano':''}${f.corr?'':camTxt(f)}</div></div><div class="n">${f.out?hm(minDe(f)):''} <span class="pill p-mute">Cambiar</span></div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes en estos días.</p>'}</div>
-     <p class="muted" style="font-size:12.5px;margin:8px 0 0">Toca un fichaje para cambiar la hora de entrada o de salida. El resumen de abajo se actualiza solo.</p></section>
-    <section class="card"><h2>Resumen</h2><pre class="msg" style="margin:0;max-height:40vh;overflow:auto">${esc(txt)}</pre></section>
-    <div style="display:flex;gap:8px"><button class="btn pri big" data-cp style="flex:1;font-size:17px;padding:14px">Copiar</button><a class="btn big" style="flex:1;font-size:17px;padding:14px" href="${url}" target="_blank" rel="noopener">WhatsApp</a></div>
-    <p class="muted" style="font-size:12.5px;margin:8px 0 0">«Copiar» y lo pegas donde quieras. «WhatsApp» abre ${tel?'su chat ('+esc(x.tel)+')':'WhatsApp para elegir a quién (pon su móvil en «Cambiar» de su ficha para que vaya directo)'} con el resumen escrito.</p>`;
-    o.querySelector('[data-x]').onclick=()=>o.remove();
-    const set=v=>{per=v;draw(o)},q=(k,f)=>{const e=o.querySelector(k);if(e)e.onclick=f};
-    q('[data-p="sem0"]',()=>set({t:'sem',l:lunesDe(hoy)}));q('[data-p="sem1"]',()=>set({t:'sem',l:masDias(lunesDe(hoy),-7)}));
-    q('[data-p="finde"]',()=>set({t:'dias',a:sab,b:masDias(sab,1)>hoy?hoy:masDias(sab,1)}));q('[data-p="mes"]',()=>set({t:'mes',m:hoy.slice(0,7)}));
-    q('[data-p="dias"]',()=>set({t:'dias',a:masDias(hoy,-1),b:hoy}));
-    q('[data-sp]',()=>set({t:'sem',l:masDias(per.l,-7)}));q('[data-sn]',()=>set({t:'sem',l:masDias(per.l,7)}));
-    q('[data-mp]',()=>set({t:'mes',m:mesMas(per.m,-1)}));q('[data-mn]',()=>set({t:'mes',m:mesMas(per.m,1)}));
-    ['#da','#db'].forEach(k=>{const e=o.querySelector(k);if(e)e.onchange=()=>{let a=o.querySelector('#da').value||per.a,b=o.querySelector('#db').value||per.b;if(b<a)[a,b]=[b,a];set({t:'dias',a,b})}});
-    q('[data-add]',()=>editaFichaje(id,null,()=>draw(o)));
-    o.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>editaFichaje(id,fichajes().find(f=>f.k===b.dataset.f),()=>draw(o)));
+/* Horas de un camarero, simple (dueño, 23 nov 2026 16:55: «que los fichajes de la tablet aparezcan aquí cada día, un botón para
+   corregir cada día, y el resumen de los días que yo seleccione: ordinarias, extras y lo que le tengo que pagar, rápido para copiar
+   y mandar por WhatsApp»). Las extra se cuentan por semana (lunes a domingo): dentro de cada semana, las primeras horas hasta las de
+   contrato son ordinarias y lo que pasa de ahí es extra, en orden de día y hora. Así cada día sabe cuántas de sus horas son extra. */
+function reparto(id){const x=camDe(id),uso={},r={};fichajes().filter(f=>f.p===id&&f.out).sort((a,b)=>a.in-b.in).forEach(f=>{const l=lunesDe(ymd(f.in)),lim=ordDe(x,l)*60,u=uso[l]||0,m=minDe(f),o=Math.max(0,Math.min(m,lim-u));uso[l]=u+m;r[f.k]={m,o,e:m-o}});return r}
+function textoPago(id,keys){const x=camDe(id),c=config(),R=reparto(id),nm=(x?x.nm:nombre(id)).split(' ')[0];
+  const L=fichajes().filter(f=>f.p===id&&f.out&&keys.has(f.k)).sort((a,b)=>a.in-b.in);let m=0,o=0,e=0;
+  const lin=L.map(f=>{const r=R[f.k];m+=r.m;o+=r.o;e+=r.e;return `${diaLargo(ymd(f.in))}: ${hhmm(f.in)} a ${hhmm(f.out)} = ${hm(r.m)}${r.e?` (${hm(r.e)} extra)`:''}`});
+  const ords=[...new Set(L.map(f=>ordDe(x,lunesDe(ymd(f.in)))))];
+  return `${nm} · resumen de horas\n\n${lin.join('\n')}\n\nTotal trabajado: ${hm(m)}\nOrdinarias${ords.length===1?' (contrato de '+ords[0]+' h a la semana)':''}: ${hm(o)}\nExtra: ${hm(e)}\nA pagar: ${eur(r2(e/60*c.extra))} (extra a ${eur(c.extra)}/h)`}
+function hojaHoras(id){const x=camDe(id);let mes=ymd(Date.now()).slice(0,7);const sel=new Set();
+  const draw=o=>{const c=config(),R=reparto(id),hoyM=ymd(Date.now()).slice(0,7);
+    const L=fichajes().filter(f=>f.p===id&&ymd(f.in).slice(0,7)===mes).sort((a,b)=>b.in-a.in);
+    const n=fichajes().filter(f=>f.p===id&&f.out&&sel.has(f.k)).length;const txt=n?textoPago(id,sel):'';const tel=telWa(x&&x.tel);
+    o.firstChild.innerHTML=`<div class="row"><h3>${esc(x?x.nm:nombre(id))}</h3>${x?'<button class="btn sm" data-ed>Datos</button>':''}<button class="btn sm" data-x>Cerrar</button></div>
+    <section class="card"><div class="nav"><button class="btn sm" data-mp aria-label="Mes anterior">‹</button><b>${mesTxt(mes)}</b><button class="btn sm" data-mn aria-label="Mes siguiente" ${mes>=hoyM?'disabled':''}>›</button></div>
+     <p class="muted" style="font-size:13px;margin:8px 0">Marca los días que quieres pagar. «Corregir» cambia la hora de entrada o de salida.</p>
+     <div class="list">${L.map(f=>{const r=R[f.k];return `<div class="it" style="cursor:default;gap:10px">${f.out?`<input type="checkbox" data-sel="${esc(f.k)}" ${sel.has(f.k)?'checked':''} style="width:24px;height:24px;flex:none" aria-label="Marcar ${esc(diaLargo(ymd(f.in)))}">`:'<span style="width:24px;flex:none"></span>'}
+       <label class="sp" for="" data-tg="${esc(f.k)}" style="cursor:pointer"><div class="t">${diaLargo(ymd(f.in))}</div><div class="s">${hhmm(f.in)} a ${f.out?hhmm(f.out)+' · '+hm(r.m)+(r.e?' · <b style="color:var(--ink)">'+hm(r.e)+' extra</b>':''):'<b style="color:#A3231F">sin salida</b>'}${f.corr?' · corregido':''}</div></label>
+       <button class="btn sm" data-cor="${esc(f.k)}">Corregir</button></div>`}).join('')||'<p class="muted" style="margin:0">Sin fichajes este mes.</p>'}</div>
+     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${L.some(f=>f.out)?'<button class="btn sm" data-all>Marcar todo el mes</button>':''}${n?'<button class="btn sm" data-none>Quitar marcas</button>':''}<button class="btn sm" data-add>Añadir un día</button></div></section>
+    ${n?`<section class="card"><h2>Resumen (${n} ${n===1?'día':'días'})</h2><pre class="msg" style="margin:0">${esc(txt)}</pre></section>
+    <div style="display:flex;gap:8px"><button class="btn pri big" data-cp style="flex:1;font-size:17px;padding:14px">Copiar</button><a class="btn big" style="flex:1;font-size:17px;padding:14px" href="https://wa.me/${tel||''}?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">WhatsApp</a></div>`
+    :'<p class="muted" style="text-align:center;margin:6px 0 0">Marca uno o más días para ver el resumen.</p>'}`;
+    const q=(k,f)=>{const e=o.querySelector(k);if(e)e.onclick=f};
+    q('[data-x]',()=>o.remove());q('[data-ed]',()=>{o.remove();editaCam(id)});
+    q('[data-mp]',()=>{mes=mesMas(mes,-1);draw(o)});q('[data-mn]',()=>{mes=mesMas(mes,1);draw(o)});
+    o.querySelectorAll('[data-sel]').forEach(b=>b.onchange=()=>{b.checked?sel.add(b.dataset.sel):sel.delete(b.dataset.sel);draw(o)});
+    o.querySelectorAll('[data-tg]').forEach(b=>b.onclick=e=>{e.preventDefault();const k=b.dataset.tg;if(!L.find(f=>f.k===k&&f.out))return;sel.has(k)?sel.delete(k):sel.add(k);draw(o)});
+    o.querySelectorAll('[data-cor]').forEach(b=>b.onclick=()=>editaFichaje(id,fichajes().find(f=>f.k===b.dataset.cor),()=>draw(o)));
+    q('[data-all]',()=>{L.forEach(f=>f.out&&sel.add(f.k));draw(o)});q('[data-none]',()=>{sel.clear();draw(o)});q('[data-add]',()=>editaFichaje(id,null,()=>draw(o)));
     q('[data-cp]',()=>{const ok=()=>{toast('Copiado. Pégalo en WhatsApp.');const b=o.querySelector('[data-cp]');if(b)b.textContent='Copiado'};
       if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(txt).then(ok,()=>copiaVieja(txt)&&ok());else if(copiaVieja(txt))ok()})};
   const o=hoja('');draw(o)}
@@ -404,7 +397,7 @@ function copiaVieja(t){try{const a=document.createElement('textarea');a.value=t;
 function vCamareros(){const c=config(),F=fichajes(),hoyL=lunesDe(ymd(Date.now()));
   const act=c.camareros.filter(x=>x.activo!==false);
   const filas=act.map(x=>{const m=semana(x.id,SEM,F),o=ordDe(x,SEM)*60,ex=Math.max(0,m-o),d=dentro(x.id,F);
-    return `<button class="it" data-cam="${esc(x.id)}"><div class="sp"><div class="t">${esc(x.nm)} ${d?`<span class="pill p-ok">dentro desde ${hhmm(d.in)}</span>`:''}</div><div class="s">${hTxt(m)} de ${hTxt(o)} ordinarias</div></div><div class="n">${ex?`<span class="pill p-warn">+${hTxt(ex)} extra</span>`:'<span class="pill p-mute">sin extra</span>'}</div></button><button class="btn sm" data-wh="${esc(x.id)}" style="margin:-2px 0 8px auto;display:block">Resumen de horas</button>`}).join('');
+    return `<button class="it" data-cam="${esc(x.id)}"><div class="sp"><div class="t">${esc(x.nm)} ${d?`<span class="pill p-ok">dentro desde ${hhmm(d.in)}</span>`:''}</div><div class="s">${hTxt(m)} de ${hTxt(o)} ordinarias</div></div><div class="n">${ex?`<span class="pill p-warn">+${hTxt(ex)} extra</span>`:'<span class="pill p-mute">sin extra</span>'}</div></button><button class="btn sm" data-wh="${esc(x.id)}" style="margin:-2px 0 8px auto;display:block">Horas y resumen</button>`}).join('');
   const mesF=ymd(Date.now()).slice(0,7);
   const resM=act.map(x=>Object.assign({x},resumenMes(x.id,MES,F)));
   const olvidos=F.filter(f=>!f.out&&Date.now()-f.in>14*3600e3);
@@ -429,8 +422,8 @@ function huerfanos(){const c=config(),n={};((EST&&EST.fichajes)||[]).forEach(f=>
 function aCamareros(){$$('[data-olv]').forEach(b=>b.onclick=()=>{const f=fichajes().find(z=>z.k===b.dataset.olv);if(f)editaFichaje(f.p,f,()=>pinta())});
   $$('[data-alias]').forEach(sl=>sl.onchange=()=>{if(!sl.value)return;const c=config();c.alias[sl.dataset.alias]=sl.value;guardaCfg(sl.value==='-'?'Hecho: esos fichajes ya no cuentan.':'Hecho: ya cuentan en las horas de '+nombre(sl.value)+'.')});$$('[data-vk]').forEach(b=>b.onclick=()=>{const c=config();c.valida[b.dataset.vk]={st:b.dataset.st,por:'Isidro (móvil)',at:Date.now()};guardaCfg(b.dataset.st==='ok'?'Validada. La tablet lo recoge en menos de media hora.':'Rechazada: cuenta la hora a la que pulsó.')});$('#sp').onclick=()=>{SEM=masDias(SEM,-7);pinta()};$('#sn').onclick=()=>{SEM=masDias(SEM,7);pinta()};
   $('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
-  $$('[data-cam]').forEach(b=>b.onclick=()=>verCam(b.dataset.cam));
-  $$('[data-wh]').forEach(b=>b.onclick=()=>enviarHoras(b.dataset.wh,{t:'sem',l:SEM}));
+  $$('[data-cam]').forEach(b=>b.onclick=()=>hojaHoras(b.dataset.cam));
+  $$('[data-wh]').forEach(b=>b.onclick=()=>hojaHoras(b.dataset.wh));
   $('#cnew').onclick=()=>editaCam(null)}
 function verCam(id){const x=camDe(id);if(!x)return;let mes=MES;
   const draw=(o)=>{const F=fichajes(),r=resumenMes(id,mes,F);const lst=F.filter(f=>f.p===id&&ymd(f.in).slice(0,7)===mes).reverse();
@@ -445,7 +438,7 @@ function verCam(id){const x=camDe(id);if(!x)return;let mes=MES;
      <div class="list">${lst.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaCorto(ymd(f.in))}</div><div class="s">${hhmm(f.in)} – ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano||f.aMano?' · puesto a mano':''}${f.corr?'':camTxt(f)}</div></div><div class="n">${f.out?hTxt(minDe(f)):(Date.now()-f.in>14*3600e3?'<span class="pill p-bad">sin salida</span>':'<span class="pill p-ok">dentro</span>')}</div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes este mes.</p>'}</div></section>`;
     o.querySelector('[data-x]').onclick=()=>o.remove();
     o.querySelector('[data-ed]').onclick=()=>{o.remove();editaCam(id)};
-    o.querySelector('[data-wa]').onclick=()=>enviarHoras(id,{t:'sem',l:masDias(lunesDe(ymd(Date.now())),-7)});
+    o.querySelector('[data-wa]').onclick=()=>{o.remove();hojaHoras(id)};
     o.querySelector('[data-mp]').onclick=()=>{mes=mesMas(mes,-1);draw(o)};o.querySelector('[data-mn]').onclick=()=>{mes=mesMas(mes,1);draw(o)};
     o.querySelector('[data-add]').onclick=()=>editaFichaje(id,null,()=>draw(o));
     o.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>editaFichaje(id,fichajes().find(f=>f.k===b.dataset.f),()=>draw(o)))};

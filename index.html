@@ -277,7 +277,7 @@ const WEEK={};
 /* Dueño, 23 nov 2026: catálogo nuevo. Cada producto dice cómo se pide (ped.ud: caja, pack, barril…), cuántas trae
    (ped.cada; 0 = no se sabe todavía) y cuántas se piden cada vez (ped.n, lo pone él). mn = avisar cuando quede menos de eso. */
 let STOCK={
- barril:{nm:'Barril Cruzcampo 50 L',u:'barriles',c:55,a:1.4,mn:2,mx:6,pv:'Cruzcampo',ped:{ud:'barril',cada:1,n:5}},
+ barril:{nm:'Barril Cruzcampo 50 L',u:'barriles',c:200,a:1.4,mn:2,mx:6,pv:'Cruzcampo',ped:{ud:'barril',cada:1,n:5}},
  tercio:{nm:'Tercios Cruzcampo',u:'botellas',c:.6,a:96,mn:25,mx:240,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
  tostada0:{nm:'Cruzcampo sin alcohol tostada',u:'botellas',c:.6,a:72,mn:25,mx:72,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
  heineken0:{nm:'Heineken 0.0',u:'botellas',c:.6,a:72,mn:25,mx:72,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
@@ -416,7 +416,7 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
   refresco:.59,rf_zero:.59,rf_fnar:.58,rf_flim:.58,rf_aqlim:.80,rf_aqnar:.80,rf_nestea:.55,rf_sprite:.52,rf_tonica:.61,
   energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60};
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=10;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=11;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1767,6 +1767,8 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
     if(pr('aceitunas'))MENU.filter(m=>m.par==='aceitunas').forEach(m=>m.p=pr('aceitunas').p)}
   /* 23 nov 2026: raciones que dijo el dueño (altramuces y aceitunas 100 g; 1 papelón por paquete de jamón). Se respeta cuántos pide. */
   /* Mercado Rivera, factura 69507 (10/09/2026): bote de aceitunas 14,00 € sin IVA, 50 raciones de 100 g = 0,28 € */
+  /* Dueño, 23 nov 2026: el barril de 50 L le cuesta 200 € */
+  if(!(d.CATV>=11)&&STOCK.barril)STOCK.barril.c=200;
   /* Limas de Mercado Rivera: bulto de 4,5 kg a 12,00 € (factura 69507) = 2,67 €/kg */
   if(!(d.CATV>=10)&&STOCK.lima)STOCK.lima.c=2.67;
   if(!(d.CATV>=8)){['ac_gordal','ac_chupa'].forEach(k=>{if(STOCK[k])STOCK[k].c=.28})}

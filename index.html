@@ -293,7 +293,7 @@ let STOCK={
  licor:{nm:'Licores (vermut, Disaronno…)',u:'botellas',c:12,a:4,mn:3,mx:8,pv:'Cuevas',ped:{ud:'botella',cada:1,n:3}},
  hielo:{nm:'Hielo (bolsa 2 kg)',u:'bolsas',c:1,a:12,mn:15,mx:40,pv:'Villalba',ped:{ud:'bolsa',cada:1,n:25}},
  fruta:{nm:'Fruta para smoothies y cócteles',u:'kg',c:3,a:9,mn:3,mx:14,pv:'Makro',ped:{ud:'kg',cada:1,n:10}},
- lima:{nm:'Limas y hierbabuena',u:'kg',c:3.5,a:4,mn:2,mx:8,pv:'Makro',ped:{ud:'kg',cada:1,n:5}},
+ lima:{nm:'Limas y hierbabuena',u:'kg',c:12,a:4,mn:2,mx:8,pv:'Makro',ped:{ud:'kg',cada:1,n:5}},
  ron:{nm:'Ron blanco y cachaça',u:'botellas',c:11,a:5,mn:3,mx:10,pv:'Cuevas',ped:{ud:'botella',cada:1,n:4}},
  aperitivo:{nm:'Aperol y Sarti',u:'botellas',c:13,a:3,mn:2,mx:6,pv:'Cuevas',ped:{ud:'botella',cada:1,n:3}},
  cava:{nm:'Prosecco / cava',u:'botellas',c:5,a:6,mn:4,mx:12,pv:'Guadalete',ped:{ud:'botella',cada:1,n:6}},
@@ -346,8 +346,9 @@ let MENU=[
 const SAB=[['fresa','Fresa'],['mango','Mango'],['pina','Piña'],['sandia','Sandía']];
 const PCOC=8;
 MENU.push({id:'mojito',c:'Cócteles',nm:'Mojito',p:PCOC,r:[],k:1,opts:[['mojito','Clásico'],...SAB.map(([k,l])=>['mojito_'+k,l])]});
-MENU.push({id:'mojito_x',c:'Cócteles',nm:'Mojito clásico',p:PCOC,r:[['ron',.05/.7],['lima',.06],['hielo',.15]],k:1,hide:1});
-SAB.forEach(([k,l])=>MENU.push({id:'mojito_'+k,c:'Cócteles',nm:'Mojito de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['lima',.05],['fruta',.08],['hielo',.15]],k:1,hide:1,par:'mojito'}));
+/* Dueño, 23 nov 2026: cada mojito lleva media lima (una lima pesa de media unos 67 g → 0,034 kg) */
+MENU.push({id:'mojito_x',c:'Cócteles',nm:'Mojito clásico',p:PCOC,r:[['ron',.05/.7],['lima',.034],['hielo',.15]],k:1,hide:1});
+SAB.forEach(([k,l])=>MENU.push({id:'mojito_'+k,c:'Cócteles',nm:'Mojito de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['lima',.034],['fruta',.08],['hielo',.15]],k:1,hide:1,par:'mojito'}));
 MENU.push({id:'caipirinha',c:'Cócteles',nm:'Caipiriña',p:PCOC,r:[['ron',.05/.7],['lima',.06],['hielo',.15]],k:1});
 MENU.push({id:'daiquiri',c:'Cócteles',nm:'Daiquiri',p:PCOC,r:[],k:1,opts:SAB.map(([k,l])=>['daiquiri_'+k,l])});
 SAB.forEach(([k,l])=>MENU.push({id:'daiquiri_'+k,c:'Cócteles',nm:'Daiquiri de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['fruta',.12],['hielo',.15]],k:1,hide:1,par:'daiquiri'}));
@@ -414,7 +415,7 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
   refresco:.59,rf_zero:.59,rf_fnar:.58,rf_flim:.58,rf_aqlim:.80,rf_aqnar:.80,rf_nestea:.55,rf_sprite:.52,rf_tonica:.61,
   energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60};
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=8;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=9;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1765,6 +1766,8 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
     if(pr('aceitunas'))MENU.filter(m=>m.par==='aceitunas').forEach(m=>m.p=pr('aceitunas').p)}
   /* 23 nov 2026: raciones que dijo el dueño (altramuces y aceitunas 100 g; 1 papelón por paquete de jamón). Se respeta cuántos pide. */
   /* Mercado Rivera, factura 69507 (10/09/2026): bote de aceitunas 14,00 € sin IVA, 50 raciones de 100 g = 0,28 € */
+  /* Limas de Mercado Rivera: 12,00 €/kg (factura 69507) */
+  if(!(d.CATV>=9)&&STOCK.lima)STOCK.lima.c=12;
   if(!(d.CATV>=8)){['ac_gordal','ac_chupa'].forEach(k=>{if(STOCK[k])STOCK[k].c=.28})}
   if(!(d.CATV>=7)){[['altramuces',27],['ac_gordal',50],['ac_chupa',50],['p_jamon',1]].forEach(([k,c])=>{const x=STOCK[k];if(x&&x.ped)x.ped.cada=c});if(STOCK.altramuces)STOCK.altramuces.c=.19}
   if(!(d.CATV>=6)){Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});

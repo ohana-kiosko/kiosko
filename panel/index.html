@@ -143,11 +143,12 @@ const clave=f=>f.p+'|'+f.in;
 const kCam=(f,cp)=>f.p+'|'+f.in+'|'+cp;
 function camP(f,cp){const x=f.cam&&f.cam[cp];if(!x)return null;const v=config().valida[kCam(f,cp)];if(v&&(!x.val||v.at>x.val.at))return Object.assign({},x,{st:v.st,val:{por:v.por,at:v.at}});return x}
 function efP(f){const r=Object.assign({},f);['in','out'].forEach(cp=>{const x=camP(f,cp);if(x&&x.st!=='no'&&(cp==='in'||f.out))r[cp]=x.t});r.cams=[camP(f,'in'),camP(f,'out')].filter(Boolean);return r}
-function pendientes(){const o=[];((EST&&EST.fichajes)||[]).forEach(f=>['in','out'].forEach(cp=>{const x=camP(f,cp);if(x&&x.st==='pend'&&!(config().fix[clave(f)]))o.push({f,cp,x,k:kCam(f,cp)})}));return o.sort((a,b)=>b.x.t-a.x.t)}
+function pendientes(){const o=[];((EST&&EST.fichajes)||[]).forEach(f=>['in','out'].forEach(cp=>{const x=camP(f,cp);const fx=config().fix[clave(f)];if(x&&x.st==='pend'&&!(fx&&(fx.x||(fx.at||0)>=(x.at||0))))o.push({f,cp,x,k:kCam(f,cp)})}));return o.sort((a,b)=>b.x.t-a.x.t)}
 const camTxt=f=>!f.cams||!f.cams.length?'':f.cams.some(x=>x.st==='pend')?' · por validar':f.cams.some(x=>x.st==='no')?' · cambio rechazado':' · hora cambiada';
 /* Fichajes con las correcciones del dueño aplicadas. */
 function fichajes(){const c=config();const out=[];
-  ((EST&&EST.fichajes)||[]).forEach(f=>{const x=c.fix[clave(f)];if(x&&x.x)return;out.push(Object.assign(efP(f),x||{},{k:clave(f),corr:!!x}))});
+  ((EST&&EST.fichajes)||[]).forEach(f=>{const x=c.fix[clave(f)];if(x&&x.x)return;const e=efP(f);
+    if(x)['in','out'].forEach(cp=>{if(!(cp in x))return;const ce=f.cam&&f.cam[cp];if((x.at||0)>=(ce?ce.at||0:0))e[cp]=x[cp]});out.push(Object.assign(e,{k:clave(f),corr:!!x}))});
   c.nuevos.forEach(n=>out.push(Object.assign({},n,{k:'n|'+n.id,mano:true})));
   return out.filter(f=>f.in).sort((a,b)=>a.in-b.in)}
 const minDe=f=>f.out&&f.out>f.in?Math.round((f.out-f.in)/60000):0;
@@ -350,51 +351,60 @@ function grafMes(L){if(!L.length)return '';const ult=MES===ymd(Date.now()).slice
    esté de acuerdo: el desglose de las horas ordinarias de contrato y las extra, y que sea fácil»). Periodo: una semana (de lunes a
    domingo, que es como se cuentan las extra), un mes, o unos días sueltos (p. ej. el fin de semana). Si el camarero tiene móvil
    puesto, abre su chat; si no, WhatsApp pide a quién mandarlo. */
-function textoHoras(id,per){const x=camDe(id),F=fichajes().filter(f=>f.p===id&&f.out),c=config();const nm=(x?x.nm:nombre(id)).split(' ')[0];
+const hm=m=>{m=Math.round(m||0);const h=Math.floor(m/60),mm=m%60;return h&&mm?h+' h '+mm+' min':mm?mm+' min':h+' h'};
+const diaLargo=d=>may(new Date(d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric'}));
+function rangoTxt(a,b){const A=new Date(a+'T12:00:00'),B=new Date(b+'T12:00:00'),mes=x=>x.toLocaleDateString('es-ES',{month:'long'});
+  if(a===b)return 'del '+A.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  return A.getMonth()===B.getMonth()?`del ${A.getDate()} al ${B.getDate()} de ${mes(B)}`:`del ${A.getDate()} de ${mes(A)} al ${B.getDate()} de ${mes(B)}`}
+/* Texto sencillo, sin asteriscos, para copiar y pegar (dueño, 23 nov 2026 16:25: «más fácil de leer, no tan revesado, un copia-pega»). */
+function textoHoras(id,per){const x=camDe(id),F=fichajes().filter(f=>f.p===id&&f.out),nm=(x?x.nm:nombre(id)).split(' ')[0];
   const dias=(a,b)=>F.filter(f=>ymd(f.in)>=a&&ymd(f.in)<=b).sort((p,q)=>p.in-q.in);
-  const linea=f=>`${may(diaCorto(ymd(f.in)))}: ${hhmm(f.in)} a ${hhmm(f.out)} · ${hTxt(minDe(f))}`;
-  const semBloque=(l,solo)=>{const L=dias(l,masDias(l,6)),m=L.reduce((a,f)=>a+minDe(f),0),o=ordDe(x,l)*60,e=Math.max(0,m-o);
-    return {m,o,e,txt:(solo?'':`*Semana del ${semTxt(l)}*\n`)+(L.length?L.map(linea).join('\n'):'Sin fichajes')+`\nTrabajadas: ${hTxt(m)} · De contrato: ${hTxt(o)} · Extra: ${hTxt(e)}`+(masDias(l,6)>=ymd(Date.now())?' (semana sin acabar)':'')}};
-  let cab,cuerpo,pie='';
-  if(per.t==='sem'){const b=semBloque(per.l,true);cab=`semana del ${semTxt(per.l)}`;
-    cuerpo=(dias(per.l,masDias(per.l,6)).map(linea).join('\n')||'Sin fichajes')+`\n\n*Total trabajado: ${hTxt(b.m)}*\nHoras de contrato (ordinarias): ${hTxt(b.o)}\n*Horas extra: ${hTxt(b.e)}*`+(b.e?` (${eur(r2(b.e/60*c.extra))} a ${eur(c.extra)}/h)`:'')+(masDias(per.l,6)>=ymd(Date.now())?'\n_La semana aún no ha acabado: las extra pueden cambiar._':'')}
-  else if(per.t==='mes'){const r=resumenMes(id,per.m,F);cab=mesTxt(per.m).toLowerCase();
-    cuerpo=(r.sems.filter(sm=>sm.min>0).map(sm=>semBloque(sm.lunes).txt).join('\n\n')||'Sin fichajes este mes.')+`\n\n*Total del mes: ${hTxt(r.tot)}*\n*Horas extra del mes: ${hTxt(r.extra)}*`+(r.extra?` (${eur(r.eur)} a ${eur(c.extra)}/h)`:'');
-    pie='\n_Cada semana va de lunes a domingo y cuenta en el mes de su domingo._'}
-  else{const L=dias(per.a,per.b),m=L.reduce((a,f)=>a+minDe(f),0);cab=per.a===per.b?diaTxt(per.a).toLowerCase():`del ${diaCorto(per.a)} al ${diaCorto(per.b)}`;
-    const sems=[];for(let l=lunesDe(per.a);l<=per.b;l=masDias(l,7))sems.push(semBloque(l));
-    cuerpo=(L.map(linea).join('\n')||'Sin fichajes')+`\n\n*Total de estos días: ${hTxt(m)}*\n\nLas horas extra se cuentan por semana completa:\n`+sems.map(b=>b.txt.split('\n')[0]+'\n'+b.txt.split('\n').pop()).join('\n')}
-  return `Hola ${nm}, este es tu resumen de horas del kiosko (${cab}):\n\n${cuerpo}${pie}\n\nMíralo y dime si estás de acuerdo o si falta algo. ¡Gracias!`}
-function enviarHoras(id,ini){const x=camDe(id);let per=ini||{t:'sem',l:lunesDe(ymd(Date.now()))};
+  const linea=f=>`${diaLargo(ymd(f.in))}: ${hhmm(f.in)} a ${hhmm(f.out)} = ${hm(minDe(f))}`;
+  const sem=l=>{const m=dias(l,masDias(l,6)).reduce((a,f)=>a+minDe(f),0),o=ordDe(x,l)*60;return {m,o,e:Math.max(0,m-o),abierta:masDias(l,6)>=ymd(Date.now())}};
+  if(per.t==='sem'){const b=sem(per.l),L=dias(per.l,masDias(per.l,6));
+    return `${nm} · horas ${rangoTxt(per.l,masDias(per.l,6))}\n\n${L.map(linea).join('\n')||'Sin fichajes'}\n\nTotal: ${hm(b.m)}\nContrato: ${hm(b.o)}\nExtra: ${hm(b.e)}${b.abierta?'\n(la semana aún no ha acabado)':''}`}
+  if(per.t==='mes'){const r=resumenMes(id,per.m,F);const S=r.sems.filter(z=>z.min>0);
+    return `${nm} · horas de ${mesTxt(per.m).toLowerCase()}\n\n${S.map(z=>`Semana ${rangoTxt(z.lunes,masDias(z.lunes,6))}: ${hm(z.min)} (contrato ${hm(z.ord)}, extra ${hm(z.extra)})${z.cerrada?'':' (sin acabar)'}`).join('\n')||'Sin fichajes'}\n\nTotal del mes: ${hm(r.tot)}\nExtra del mes: ${hm(r.extra)}`}
+  const L=dias(per.a,per.b),m=L.reduce((a,f)=>a+minDe(f),0);const ex=[];for(let l=lunesDe(per.a);l<=per.b;l=masDias(l,7)){const b=sem(l);ex.push(`Extra de la semana ${rangoTxt(l,masDias(l,6))}: ${hm(b.e)} (trabajadas ${hm(b.m)}, contrato ${hm(b.o)})`)}
+  return `${nm} · horas ${rangoTxt(per.a,per.b)}\n\n${L.map(linea).join('\n')||'Sin fichajes'}\n\nTotal: ${hm(m)}\n${ex.join('\n')}`}
+function enviarHoras(id,ini){const x=camDe(id);let per=ini||{t:'sem',l:masDias(lunesDe(ymd(Date.now())),-7)};
   const hoy=ymd(Date.now()),sab=(()=>{let d=hoy;while(new Date(d+'T12:00:00').getDay()!==6)d=masDias(d,-1);return d})();
+  const rango=()=>per.t==='sem'?[per.l,masDias(per.l,6)]:per.t==='mes'?[per.m+'-01',ymd(new Date(+per.m.slice(0,4),+per.m.slice(5,7),0))]:[per.a,per.b];
   const draw=o=>{const txt=textoHoras(id,per),tel=telWa(x&&x.tel);const url='https://wa.me/'+(tel||'')+'?text='+encodeURIComponent(txt);
-    o.firstChild.innerHTML=`<div class="row"><h3>Resumen para ${esc(x?x.nm:nombre(id))}</h3><button class="btn sm" data-x>Cerrar</button></div>
-    <section class="card"><div class="chips" style="display:flex;gap:6px;flex-wrap:wrap">
+    const [ra,rb]=rango();const LF=fichajes().filter(f=>f.p===id&&ymd(f.in)>=ra&&ymd(f.in)<=rb).sort((p,q)=>p.in-q.in);
+    o.firstChild.innerHTML=`<div class="row"><h3>Horas de ${esc(x?x.nm:nombre(id))}</h3><button class="btn sm" data-x>Cerrar</button></div>
+    <section class="card"><div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn sm ${per.t==='sem'&&per.l===lunesDe(hoy)?'pri':''}" data-p="sem0">Esta semana</button><button class="btn sm ${per.t==='sem'&&per.l===masDias(lunesDe(hoy),-7)?'pri':''}" data-p="sem1">Semana pasada</button>
-      <button class="btn sm ${per.t==='dias'&&per.a===sab&&per.b===masDias(sab,1)?'pri':''}" data-p="finde">Último fin de semana</button><button class="btn sm ${per.t==='mes'?'pri':''}" data-p="mes">Mes</button><button class="btn sm ${per.t==='dias'&&!(per.a===sab&&per.b===masDias(sab,1))?'pri':''}" data-p="dias">Elegir días</button></div>
+      <button class="btn sm ${per.t==='dias'&&per.a===sab?'pri':''}" data-p="finde">Fin de semana</button><button class="btn sm ${per.t==='mes'?'pri':''}" data-p="mes">Mes</button><button class="btn sm ${per.t==='dias'&&per.a!==sab?'pri':''}" data-p="dias">Elegir días</button></div>
      ${per.t==='sem'?`<div class="nav" style="margin-top:10px"><button class="btn sm" data-sp aria-label="Semana anterior">‹</button><b>Semana ${semTxt(per.l)}</b><button class="btn sm" data-sn aria-label="Semana siguiente" ${per.l>=lunesDe(hoy)?'disabled':''}>›</button></div>`:''}
      ${per.t==='mes'?`<div class="nav" style="margin-top:10px"><button class="btn sm" data-mp aria-label="Mes anterior">‹</button><b>${mesTxt(per.m)}</b><button class="btn sm" data-mn aria-label="Mes siguiente" ${per.m>=hoy.slice(0,7)?'disabled':''}>›</button></div>`:''}
      ${per.t==='dias'?`<div class="row" style="margin-top:10px"><label class="f">Desde<input class="inp" type="date" id="da" value="${per.a}" max="${hoy}"></label><label class="f">Hasta<input class="inp" type="date" id="db" value="${per.b}" max="${hoy}"></label></div>`:''}</section>
-    <section class="card"><h2>Lo que le llega</h2><pre class="msg" style="margin:0;max-height:42vh;overflow:auto">${esc(txt)}</pre></section>
-    <a class="btn pri big" style="width:100%;font-size:17px;padding:14px" href="${url}" target="_blank" rel="noopener">Enviar por WhatsApp${tel?' a '+esc(x.tel):''}</a>
-    <p class="muted" style="font-size:12.5px;margin:8px 0 0">${tel?'Se abre su chat con el mensaje escrito: solo falta darle a enviar.':'No tiene móvil puesto: WhatsApp te preguntará a quién mandarlo. Para que vaya directo, ponlo en «Cambiar» de su ficha.'} <button class="btn sm" data-cp style="margin-left:4px">Copiar</button></p>`;
+    <section class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">Fichajes</h2><span class="sp"></span><button class="btn sm" data-add>Añadir</button></div>
+     <div class="list">${LF.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaLargo(ymd(f.in))}</div><div class="s">${hhmm(f.in)} a ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano?' · a mano':''}${f.corr?'':camTxt(f)}</div></div><div class="n">${f.out?hm(minDe(f)):''} <span class="pill p-mute">Cambiar</span></div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes en estos días.</p>'}</div>
+     <p class="muted" style="font-size:12.5px;margin:8px 0 0">Toca un fichaje para cambiar la hora de entrada o de salida. El resumen de abajo se actualiza solo.</p></section>
+    <section class="card"><h2>Resumen</h2><pre class="msg" style="margin:0;max-height:40vh;overflow:auto">${esc(txt)}</pre></section>
+    <div style="display:flex;gap:8px"><button class="btn pri big" data-cp style="flex:1;font-size:17px;padding:14px">Copiar</button><a class="btn big" style="flex:1;font-size:17px;padding:14px" href="${url}" target="_blank" rel="noopener">WhatsApp</a></div>
+    <p class="muted" style="font-size:12.5px;margin:8px 0 0">«Copiar» y lo pegas donde quieras. «WhatsApp» abre ${tel?'su chat ('+esc(x.tel)+')':'WhatsApp para elegir a quién (pon su móvil en «Cambiar» de su ficha para que vaya directo)'} con el resumen escrito.</p>`;
     o.querySelector('[data-x]').onclick=()=>o.remove();
-    const set=v=>{per=v;draw(o)};
-    o.querySelector('[data-p="sem0"]').onclick=()=>set({t:'sem',l:lunesDe(hoy)});o.querySelector('[data-p="sem1"]').onclick=()=>set({t:'sem',l:masDias(lunesDe(hoy),-7)});
-    o.querySelector('[data-p="finde"]').onclick=()=>set({t:'dias',a:sab,b:masDias(sab,1)>hoy?hoy:masDias(sab,1)});o.querySelector('[data-p="mes"]').onclick=()=>set({t:'mes',m:hoy.slice(0,7)});
-    o.querySelector('[data-p="dias"]').onclick=()=>set({t:'dias',a:masDias(hoy,-1),b:hoy});
-    const q=(k,f)=>{const e=o.querySelector(k);if(e)e.onclick=f};
+    const set=v=>{per=v;draw(o)},q=(k,f)=>{const e=o.querySelector(k);if(e)e.onclick=f};
+    q('[data-p="sem0"]',()=>set({t:'sem',l:lunesDe(hoy)}));q('[data-p="sem1"]',()=>set({t:'sem',l:masDias(lunesDe(hoy),-7)}));
+    q('[data-p="finde"]',()=>set({t:'dias',a:sab,b:masDias(sab,1)>hoy?hoy:masDias(sab,1)}));q('[data-p="mes"]',()=>set({t:'mes',m:hoy.slice(0,7)}));
+    q('[data-p="dias"]',()=>set({t:'dias',a:masDias(hoy,-1),b:hoy}));
     q('[data-sp]',()=>set({t:'sem',l:masDias(per.l,-7)}));q('[data-sn]',()=>set({t:'sem',l:masDias(per.l,7)}));
     q('[data-mp]',()=>set({t:'mes',m:mesMas(per.m,-1)}));q('[data-mn]',()=>set({t:'mes',m:mesMas(per.m,1)}));
     ['#da','#db'].forEach(k=>{const e=o.querySelector(k);if(e)e.onchange=()=>{let a=o.querySelector('#da').value||per.a,b=o.querySelector('#db').value||per.b;if(b<a)[a,b]=[b,a];set({t:'dias',a,b})}});
-    q('[data-cp]',()=>{(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Resumen copiado.'),()=>toast('No se pudo copiar.'))})};
+    q('[data-add]',()=>editaFichaje(id,null,()=>draw(o)));
+    o.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>editaFichaje(id,fichajes().find(f=>f.k===b.dataset.f),()=>draw(o)));
+    q('[data-cp]',()=>{const ok=()=>{toast('Copiado. Pégalo en WhatsApp.');const b=o.querySelector('[data-cp]');if(b)b.textContent='Copiado'};
+      if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(txt).then(ok,()=>copiaVieja(txt)&&ok());else if(copiaVieja(txt))ok()})};
   const o=hoja('');draw(o)}
+function copiaVieja(t){try{const a=document.createElement('textarea');a.value=t;a.setAttribute('readonly','');a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();const r=document.execCommand('copy');a.remove();if(!r)toast('No se pudo copiar: mantén pulsado el texto y copia.');return r}catch(e){toast('No se pudo copiar: mantén pulsado el texto y copia.');return false}}
 
 /* Camareros */
 function vCamareros(){const c=config(),F=fichajes(),hoyL=lunesDe(ymd(Date.now()));
   const act=c.camareros.filter(x=>x.activo!==false);
   const filas=act.map(x=>{const m=semana(x.id,SEM,F),o=ordDe(x,SEM)*60,ex=Math.max(0,m-o),d=dentro(x.id,F);
-    return `<button class="it" data-cam="${esc(x.id)}"><div class="sp"><div class="t">${esc(x.nm)} ${d?`<span class="pill p-ok">dentro desde ${hhmm(d.in)}</span>`:''}</div><div class="s">${hTxt(m)} de ${hTxt(o)} ordinarias</div></div><div class="n">${ex?`<span class="pill p-warn">+${hTxt(ex)} extra</span>`:'<span class="pill p-mute">sin extra</span>'}</div></button><button class="btn sm" data-wh="${esc(x.id)}" style="margin:-2px 0 8px auto;display:block">Mandar esta semana por WhatsApp</button>`}).join('');
+    return `<button class="it" data-cam="${esc(x.id)}"><div class="sp"><div class="t">${esc(x.nm)} ${d?`<span class="pill p-ok">dentro desde ${hhmm(d.in)}</span>`:''}</div><div class="s">${hTxt(m)} de ${hTxt(o)} ordinarias</div></div><div class="n">${ex?`<span class="pill p-warn">+${hTxt(ex)} extra</span>`:'<span class="pill p-mute">sin extra</span>'}</div></button><button class="btn sm" data-wh="${esc(x.id)}" style="margin:-2px 0 8px auto;display:block">Resumen de horas</button>`}).join('');
   const mesF=ymd(Date.now()).slice(0,7);
   const resM=act.map(x=>Object.assign({x},resumenMes(x.id,MES,F)));
   const olvidos=F.filter(f=>!f.out&&Date.now()-f.in>14*3600e3);
@@ -421,7 +431,7 @@ function aCamareros(){$$('[data-vk]').forEach(b=>b.onclick=()=>{const c=config()
 function verCam(id){const x=camDe(id);if(!x)return;let mes=MES;
   const draw=(o)=>{const F=fichajes(),r=resumenMes(id,mes,F);const lst=F.filter(f=>f.p===id&&ymd(f.in).slice(0,7)===mes).reverse();
     o.firstChild.innerHTML=`<div class="row"><h3>${esc(x.nm)}</h3><button class="btn sm" data-ed>Cambiar</button><button class="btn sm" data-x>Cerrar</button></div>
-    <button class="btn pri" data-wa style="width:100%;margin-bottom:10px">Enviarle su resumen de horas por WhatsApp</button>
+    <button class="btn pri" data-wa style="width:100%;margin-bottom:10px">Resumen de horas para enviarle (y corregir)</button>
     <section class="card"><dl class="kv"><dt>Horas ordinarias por semana</dt><dd>${ordDe(x,lunesDe(ymd(Date.now())))} h</dd><dt>Hora extra</dt><dd>${eur(config().extra)}</dd><dt>Móvil</dt><dd>${x.tel?esc(x.tel):'—'}</dd></dl></section>
     <section class="card"><div class="nav"><button class="btn sm" data-mp aria-label="Mes anterior">‹</button><b>${mesTxt(mes)}</b><button class="btn sm" data-mn aria-label="Mes siguiente" ${mes>=ymd(Date.now()).slice(0,7)?'disabled':''}>›</button></div>
      <table style="margin-top:10px"><thead><tr><th>Semana</th><th class="r">Trabajadas</th><th class="r">Ordinarias</th><th class="r">Extra</th></tr></thead><tbody>${r.sems.map(s=>`<tr><td>${semTxt(s.lunes)}${s.cerrada?'':' <span class="pill p-mute">en curso</span>'}</td><td class="r">${hTxt(s.min)}</td><td class="r">${hTxt(s.ord)}</td><td class="r">${s.extra?'<b>'+hTxt(s.extra)+'</b>':'—'}</td></tr>`).join('')}
@@ -457,17 +467,17 @@ function editaFichaje(id,f,despues){const c=config();const d0=f?ymd(f.in):ymd(Da
   hoja(`<div class="row"><h3>${f?'Corregir fichaje':'Añadir fichaje'} · ${esc(nombre(id))}</h3><button class="btn sm" data-x>Cancelar</button></div>
   <section class="card" style="display:flex;flex-direction:column;gap:12px"><label class="f">Día<input class="inp" id="fd" type="date" value="${d0}"></label>
    <div class="row"><label class="f">Entrada<input class="inp" id="fe" type="time" value="${f?hhmm(f.in):''}"></label><label class="f">Salida<input class="inp" id="fs" type="time" value="${f&&f.out?hhmm(f.out):''}"></label></div>
-   <p class="muted" style="font-size:13px;margin:0">Si la salida es antes que la entrada, cuenta como del día siguiente (turno de noche). Los cambios se guardan aquí; en la tablet queda el fichaje original.</p>
+   <p class="muted" style="font-size:13px;margin:0">Si la salida es antes que la entrada, cuenta como del día siguiente (turno de noche). La tablet lo recoge en menos de media hora (allí queda apuntada también la hora original).</p>
    <div id="fm" role="alert"></div><button class="btn pri" id="fg">Guardar</button>${f?'<button class="btn bad" id="fb">Borrar este fichaje</button>':''}</section>`,(o,cierra)=>{
     o.querySelector('#fg').onclick=()=>{const d=o.querySelector('#fd').value,e=aHora(d,o.querySelector('#fe').value);let s=aHora(d,o.querySelector('#fs').value);
       if(!e){o.querySelector('#fm').innerHTML='<div class="err">Pon la hora de entrada.</div>';return}
       if(s&&s<=e)s+=24*3600e3;
       if(f&&f.mano){const n=c.nuevos.find(z=>'n|'+z.id===f.k);if(n){n.in=e;n.out=s}}
-      else if(f){c.fix[f.k]={in:e,out:s}}
+      else if(f){c.fix[f.k]={in:e,out:s,at:Date.now()}}
       else c.nuevos.push({id:Date.now().toString(36),p:id,in:e,out:s});
-      cierra();guardaCfg('Fichaje guardado.').then(despues)};
+      cierra();guardaCfg('Fichaje guardado.').then(()=>despues&&despues())};
     const fb=o.querySelector('#fb');if(fb)fb.onclick=()=>{if(fb.dataset.ok!=='1'){fb.dataset.ok='1';fb.textContent='Pulsa otra vez para borrarlo';return}
-      if(f.mano)c.nuevos=c.nuevos.filter(z=>'n|'+z.id!==f.k);else c.fix[f.k]={x:1};cierra();guardaCfg('Fichaje borrado.').then(despues)}})}
+      if(f.mano)c.nuevos=c.nuevos.filter(z=>'n|'+z.id!==f.k);else c.fix[f.k]={x:1};cierra();guardaCfg('Fichaje borrado.').then(()=>despues&&despues())}})}
 
 /* Ajustes */
 function vAjustes(){const c=config();return `<section class="card" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">Horas extra</h2>

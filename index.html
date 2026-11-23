@@ -1113,7 +1113,7 @@ V.pedidos=()=>{
   ${pedMsg?`<div class="status" role="status">${pedMsg}</div>`:''}
   <div class="note">Dos formas de que algo entre en el pedido: el programa lo detecta solo cuando baja del mínimo, o un camarero toca «Apuntar falta» (también está en Vender). Mínimos, máximos y costes, de ejemplo.</div>
   <section class="card"><h2>Pedidos de la semana, por proveedor</h2><div class="bd" style="display:flex;flex-direction:column;gap:16px">
-  ${Object.entries(byPv).map(([pv,l])=>`<div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px">${pv}</b><span class="pill p-mute">${l.length} ${l.length===1?'cosa':'cosas'}</span><span class="grow"></span><button class="btn sm" data-wa="${esc(pv)}">${telWa(provDe(pv)?.tel)?'Enviar por WhatsApp':pv==='Makro'?'Lista de la compra':'Ver el pedido'}</button><button class="btn sm pri" data-rec="${esc(pv)}">${pv==='Makro'?'Comprado':'Ha llegado'}</button></div>
+  ${Object.entries(byPv).map(([pv,l])=>`<div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px">${pv}</b><span class="pill p-mute">${l.length} ${l.length===1?'cosa':'cosas'}</span>${envMovil(pv)}<span class="grow"></span><button class="btn sm" data-wa="${esc(pv)}">${telWa(provDe(pv)?.tel)?'Enviar por WhatsApp':pv==='Makro'?'Lista de la compra':'Ver el pedido'}</button><button class="btn sm pri" data-rec="${esc(pv)}">${pv==='Makro'?'Comprado':'Ha llegado'}</button></div>
    <div class="tw"><table><thead><tr><th>Producto</th><th>Por qué</th><th class="r">Hay</th><th class="r">Pedir</th><th></th></tr></thead><tbody>${l.map(r=>`<tr><td><b>${esc(r.nm)}</b></td><td>${r.by?`<span class="pill p-acc">Apuntó ${esc(r.by.who)} · ${hhmm(r.by.t)}</span>`:'<span class="pill p-mute">Bajo mínimo</span>'}</td><td class="r">${r.hay}</td><td class="r"><b>${r.q}</b></td><td>${r.by?`<button class="btn sm" data-unf="${FALTAS.indexOf(r.by)}" aria-label="Quitar">Quitar</button>`:''}</td></tr>`).join('')}</tbody></table></div><div class="wa" id="wa-${esc(pv).replace(/\W/g,'')}"></div></div>`).join('')||'<div class="muted">No falta nada.</div>'}
   </div></section>
   <section class="card"><h2>Proveedores <span class="grow"></span>${esAdmin()?'<button class="btn sm pri" id="pvnew">Añadir proveedor</button>':''}</h2><div class="tw"><table><thead><tr><th>Proveedor</th><th>WhatsApp</th><th class="r">Productos</th><th></th></tr></thead><tbody>
@@ -1294,7 +1294,7 @@ V.equipo=()=>`<section class="card"><h2>Panel del móvil</h2><div class="bd" sty
  </tbody></table></div></section></div>`;
 
 A.equipo=()=>{
-  if($('#pcon'))$('#pcon').onclick=async()=>{const m=$('#pmsg');m.textContent='Conectando…';try{const r=await panelApi('POST','entrar',{clave:$('#pclave').value,quien:'tpv'});PANEL={tok:r.tok};lsS(PNK,PANEL);await subePanel();await leeConfig();render()}catch(e){m.textContent=e.message}};
+  if($('#pcon'))$('#pcon').onclick=async()=>{const m=$('#pmsg');m.textContent='Conectando…';try{const r=await panelApi('POST','entrar',{clave:$('#pclave').value,quien:'tpv'});PANEL={tok:r.tok};lsS(PNK,PANEL);await subePanel();await leeConfig();subeVivo(true);render()}catch(e){m.textContent=e.message}};
   if($('#pnow'))$('#pnow').onclick=async()=>{$('#pmsg').textContent='Enviando…';await subePanel();render();if($('#pmsg'))$('#pmsg').textContent=panelMsg?'No se pudo: '+panelMsg:'Enviado.'};
   if($('#poff'))$('#poff').onclick=()=>{const b=$('#poff');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez para desconectar';return}PANEL=null;lsS(PNK,null);render()}};
 
@@ -1455,7 +1455,31 @@ function datosPanel(){
     cierres:HIST.filter(h=>h&&h[7]&&h[7].hasta).slice(0,500).map(h=>Object.assign({},h[7],{f:h[0],cerro:h[1],ventas:h[2],desc:h[4]})),
     fichajes:FICHAJES.filter(f=>f&&f.in>desde).map(f=>({p:f.p,in:f.in,out:f.out||null})),
     staff:STAFF.filter(x=>x.rol!=='admin').map(x=>({id:x.id,nm:x.nm,ord:x.ord||0}))}}
-function marcaPanel(prisa){panelSucio=true;clearTimeout(tPanel);tPanel=setTimeout(subePanel,prisa?3000:20000)}
+function marcaPanel(prisa){panelSucio=true;clearTimeout(tPanel);tPanel=setTimeout(subePanel,prisa?3000:20000);if(prisa)setTimeout(()=>subeVivo(true),4000)}
+/* «En directo» en el móvil del dueño (23 nov 2026). Lo que pasa ahora: cobros de hoy, lo más vendido, mesas abiertas, quién está
+   trabajando, retiradas y lo que hay que pedir. Solo se manda si ha cambiado. Con base Redis conectada en Vercel (modo 'redis') cada
+   30 s; sin ella (modo 'blob') se reparte un cupo de 1.200 envíos al mes, que sale a uno cada 10-20 min. */
+let VIVO_MODO=lsJ('ohk-vivo-modo','blob'), vivoUlt=0, vivoHash='', vivoSub=false;
+function vivoCupo(){const m=new Date().toLocaleDateString('sv-SE').slice(0,7);let c=lsJ('ohk-vivo-n',null);if(!c||c.m!==m)c={m,n:0};return c}
+function vivoCada(){if(VIVO_MODO==='redis')return 30e3;const c=vivoCupo(),d=new Date(),fin=new Date(d.getFullYear(),d.getMonth()+1,1).getTime();
+  return Math.min(60*60e3,Math.max(8*60e3,(fin-Date.now())*0.5/Math.max(40,1200-c.n)))}
+function datosVivo(){
+  const pv={};SALES.forEach(x=>{const m=prod(x[1]),n=m?m.nm:String(x[1]);const y=pv[n]||(pv[n]={u:0,i:0});y.u+=+x[2]||0;y.i+=+x[3]||0});
+  const top=Object.entries(pv).map(([n,y])=>[n,y.u,r2(y.i)]).sort((a,b)=>b[2]-a[2]).slice(0,25);
+  let cuentas=[];try{cuentas=ACCS.filter(n=>n!==QUICK&&ACC[n]&&!ACC[n].hidden&&['due','part'].includes(accState(n))).map(n=>{const t=accTotal(n);return {n:String(n),t,p:r2(t-ACC[n].paid),u:Object.values(ACC[n].items||{}).reduce((a,b)=>a+(+b||0),0)}})}catch(e){}
+  const dentro=FICHAJES.filter(f=>f&&f.in&&!f.out&&Date.now()-f.in<16*3600e3).map(f=>({nm:(STAFF.find(x=>x.id===f.p)||{}).nm||f.p,in:f.in}));
+  const ped={};try{const L=pedidoLines();Object.keys(L).forEach(k=>ped[k]=L[k].map(r=>({nm:r.nm,q:r.q,hay:r.hay,who:r.by?r.by.who:null,t:r.by?r.by.t:null})))}catch(e){}
+  return {t:Date.now(),caja:datosPanel().caja,cobros:COBROS.slice(-600).map(c=>({t:c.t,amt:r2(+c.amt||0),how:c.how,who:c.who,acc:c.acc==null?'':String(c.acc)})),top,cuentas,dentro,
+    retiradas:(CAJA&&CAJA.abierta&&CAJA.retiradas)||[],pedidos:ped,provs:provs().map(p=>({nm:p.nm,tel:p.tel||''}))}}
+async function subeVivo(forzar){if(!PANEL||vivoSub||navigator.onLine===false)return;
+  let d;try{d=datosVivo()}catch(e){return}const h=JSON.stringify(Object.assign({},d,{t:0}));
+  if(h===vivoHash&&!forzar)return;if(!forzar&&Date.now()-vivoUlt<vivoCada())return;
+  vivoSub=true;try{const r=await panelApi('POST','vivo',{datos:d});vivoHash=h;vivoUlt=Date.now();
+    if(r.modo&&r.modo!==VIVO_MODO){VIVO_MODO=r.modo;lsS('ohk-vivo-modo',r.modo)}
+    if(VIVO_MODO!=='redis'){const c=vivoCupo();c.n++;lsS('ohk-vivo-n',c)}}catch(e){}finally{vivoSub=false}}
+/* Teléfonos de proveedores puestos desde el móvil (config.provTel) y pedidos enviados desde el móvil (config.enviados). */
+function aplicaProvs(){const t=CFG&&CFG.provTel;if(!t||typeof t!=='object')return;Object.entries(t).forEach(([n,tel])=>{const p=provDe(n);if(p)p.tel=String(tel||'');else if(n)PROVS.push({nm:n,tel:String(tel||'')})})}
+function envMovil(pv){const e=CFG&&CFG.enviados&&CFG.enviados[pv];return e&&Date.now()-e.t<4*864e5?`<span class="pill p-ok">Enviado desde el móvil ${esc(cuandoTxt(e.t))}</span>`:''}
 async function subePanel(){if(!PANEL||subiendo||navigator.onLine===false)return;subiendo=true;
   try{await panelApi('POST','subir',{datos:datosPanel()});panelSucio=false;panelUlt=Date.now();lsS('ohk-panel-ult',panelUlt);panelMsg=''}
   catch(e){panelMsg=e.message}finally{subiendo=false}}
@@ -1468,7 +1492,7 @@ function aplicaConfig(){if(!CFG||!Array.isArray(CFG.camareros)||!CFG.camareros.l
 function aplicaEquipo(lst){if(!Array.isArray(lst)||!lst.length)return;const adm=STAFF.filter(x=>x.rol==='admin');
   STAFF.splice(0,STAFF.length,...adm,...lst.map(x=>({id:x.id,nm:x.n,rol:'trabajador',puesto:'Camarero',eh:0,ord:x.ord||0})))}
 async function leeConfig(){if(!PANEL||navigator.onLine===false)return;
-  try{const r=await panelApi('GET','config');const nueva=JSON.stringify(r.config||{});if(nueva===JSON.stringify(CFG||{}))return;CFG=r.config||{};lsS(CFGK,CFG);aplicaConfig();
+  try{const r=await panelApi('GET','config');const nueva=JSON.stringify(r.config||{});if(nueva===JSON.stringify(CFG||{}))return;CFG=r.config||{};lsS(CFGK,CFG);aplicaConfig();try{aplicaProvs();if(current().id==='pedidos'&&$('#modal').hidden)render()}catch(e){}
     if(!$('#lock').hidden&&!pinBuf&&!pinNuevo)showLock();else if(user&&['equipo','fichar'].includes(current().id)&&$('#modal').hidden)render()}catch(e){}}
 function fichajesEf(){const fix=(CFG&&CFG.fix)||{},o=[];FICHAJES.forEach(f=>{const x=fix[f.p+'|'+f.in];if(x&&x.x)return;o.push(Object.assign({},f,x||{}))});((CFG&&CFG.nuevos)||[]).forEach(n=>o.push(n));return o}
 function horasSemana(id){const l=lunesK(hoyK());const min=fichajesEf().filter(f=>f.p===id&&f.out&&new Date(f.in).toLocaleDateString('sv-SE')>=l).reduce((x,f)=>x+Math.max(0,Math.round((f.out-f.in)/6e4)),0);
@@ -1518,7 +1542,8 @@ cargar();try{sanea()}catch(e){}try{achicaFotos()}catch(e){}
 if(!aplicaConfig())aplicaEquipo(lsJ(EQK,null));
 addEventListener('online',()=>{if(panelSucio)subePanel();leeConfig()});
 setInterval(leeConfig,30*60e3);
-setInterval(()=>{if(panelSucio&&Date.now()-panelUlt>55*60e3)subePanel()},5*60e3);
+setInterval(()=>{if(panelSucio&&Date.now()-panelUlt>(VIVO_MODO==='redis'?55:170)*60e3)subePanel()},5*60e3);
+setInterval(()=>subeVivo(false),15e3);
 setTimeout(()=>{leeConfig();if(Date.now()-panelUlt>10*60e3)subePanel()},2500);
 /* Dueño, 20 nov 2026: si algo falla al pintar, no se bloquea todo: se arreglan los datos raros y sale un aviso rojo abajo. */
 /* Dueño, 20 nov 2026: las fotos de producto se guardan pequeñas (máx. 360 px, JPEG). Tres fotos sin reducir ocupaban

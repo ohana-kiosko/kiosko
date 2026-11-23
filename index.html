@@ -350,7 +350,7 @@ MENU.push({id:'mojito',c:'Cócteles',nm:'Mojito',p:PCOC,r:[],k:1,opts:[['mojito'
 /* Dueño, 23 nov 2026: cada mojito lleva media lima y un jigger de 5 cl de azúcar moreno (≈45 g; Oli Castaño 1,90 €/kg) (una lima pesa de media unos 67 g → 0,034 kg) */
 MENU.push({id:'mojito_x',c:'Cócteles',nm:'Mojito clásico',p:PCOC,r:[['ron',.05/.7],['lima',.034],['azucar',.045],['hielo',.15]],k:1,hide:1});
 SAB.forEach(([k,l])=>MENU.push({id:'mojito_'+k,c:'Cócteles',nm:'Mojito de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['lima',.034],['azucar',.045],['fruta',.08],['hielo',.15]],k:1,hide:1,par:'mojito'}));
-MENU.push({id:'caipirinha',c:'Cócteles',nm:'Caipiriña',p:PCOC,r:[['ron',.05/.7],['lima',.06],['hielo',.15]],k:1});
+MENU.push({id:'caipirinha',c:'Cócteles',nm:'Caipiriña',p:PCOC,r:[['ron',.05/.7],['lima',.06],['azucar',.045],['hielo',.15]],k:1});
 MENU.push({id:'daiquiri',c:'Cócteles',nm:'Daiquiri',p:PCOC,r:[],k:1,opts:SAB.map(([k,l])=>['daiquiri_'+k,l])});
 SAB.forEach(([k,l])=>MENU.push({id:'daiquiri_'+k,c:'Cócteles',nm:'Daiquiri de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['fruta',.12],['hielo',.15]],k:1,hide:1,par:'daiquiri'}));
 MENU.push({id:'pinacolada',c:'Cócteles',nm:'Piña colada',p:PCOC,r:[['ron',.05/.7],['zumo',.12],['coco',.15],['hielo',.15]],k:1});

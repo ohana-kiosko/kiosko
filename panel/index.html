@@ -129,7 +129,7 @@ async function api(metodo,a,cuerpo){
 function toast(t){const o=document.createElement('div');o.className='toast';o.setAttribute('role','status');o.textContent=t;document.body.appendChild(o);setTimeout(()=>o.remove(),2600)}
 
 /* ---------- Datos ---------- */
-function config(){const c=CFG||{};c.camareros=Array.isArray(c.camareros)?c.camareros:[];c.extra=c.extra==null?10:+c.extra;c.fix=c.fix&&typeof c.fix==='object'?c.fix:{};c.nuevos=Array.isArray(c.nuevos)?c.nuevos:[];c.valida=c.valida&&typeof c.valida==='object'?c.valida:{};c.alias=c.alias&&typeof c.alias==='object'?c.alias:{};
+function config(){const c=CFG||{};c.camareros=Array.isArray(c.camareros)?c.camareros:[];c.extra=c.extra==null?10:+c.extra;c.fix=c.fix&&typeof c.fix==='object'?c.fix:{};c.nuevos=Array.isArray(c.nuevos)?c.nuevos:[];c.valida=c.valida&&typeof c.valida==='object'?c.valida:{};c.alias=c.alias&&typeof c.alias==='object'?c.alias:{};c.pagado=c.pagado&&typeof c.pagado==='object'?c.pagado:{};
   // La primera vez, los camareros salen de los que conoce la tablet.
   if(!c.camareros.length&&EST&&Array.isArray(EST.staff))c.camareros=EST.staff.map(s=>({id:s.id,nm:s.nm,activo:true,ord:[{desde:'2000-01-03',h:s.ord>0?+s.ord:20}]})),c.sinGuardar=true;
   CFG=c;return c}
@@ -189,6 +189,33 @@ function pinta(){
 
 /* Cajas */
 const cierres=()=>((EST&&EST.cierres)||[]).filter(c=>c&&c.hasta);
+/* Personal frente a ventas (dueño, 23 nov 2026: «cuánto dinero estoy gastando en personal con respecto a las cajas diarias, por días,
+   semanas, meses y años»). Ventas = cierres de caja (más lo cobrado hoy si la caja está abierta). Personal = horas fichadas: las
+   coste empresa de la nómina repartido por días (o las ordinarias a lo que vale la hora extra si no se ha puesto) y las extra
+   a lo que se paga la hora extra, sin seguridad social. */
+let PPER=lsG('ohp-pper')||'dia';
+function personalVsVentas(){const c=config(),V={},P={};
+  cierres().forEach(x=>{const d=ymd(x.hasta);V[d]=(V[d]||0)+(+x.ventas||0)});
+  if(VIVO&&VIVO.caja&&VIVO.caja.abierta){const d=ymd(Date.now());V[d]=(V[d]||0)+(VIVO.cobros||[]).reduce((a,x)=>a+x.amt,0)}
+  const hoy=ymd(Date.now()),dm=d=>new Date(+d.slice(0,4),+d.slice(5,7),0).getDate();
+  const ids=[...new Set(fichajes().map(f=>f.p))];ids.forEach(id=>{const x=camDe(id),R=reparto(id),F=fichajes().filter(f=>f.p===id&&f.out);if(!F.length)return;
+    // Sueldo fijo (coste empresa de la nómina) repartido entre los días del mes, desde su primer fichaje; si no hay nómina puesta, las ordinarias a lo que vale la hora extra.
+    if(x&&x.cmes){for(let d=ymd(Math.min(...F.map(f=>f.in)));d<=hoy;d=masDias(d,1))P[d]=(P[d]||0)+x.cmes/dm(d)}
+    F.forEach(f=>{const r=R[f.k];if(!r)return;const d=ymd(f.in);P[d]=(P[d]||0)+r.e/60*c.extra+(x&&x.cmes?0:r.o/60*c.extra)})});
+  return {V,P}}
+function vPersonal(){const {V,P}=personalVsVentas();const dias=[...new Set([...Object.keys(V),...Object.keys(P)])].sort();if(!dias.length)return '';
+  const clave={dia:d=>d,sem:d=>lunesDe(d),mes:d=>d.slice(0,7),ano:d=>d.slice(0,4)}[PPER];const G={};
+  dias.forEach(d=>{const k=clave(d);const g=G[k]||(G[k]={v:0,p:0});g.v+=V[d]||0;g.p+=P[d]||0});
+  const ks=Object.keys(G).sort().reverse().slice(0,PPER==='dia'?31:PPER==='sem'?16:PPER==='mes'?12:10);
+  const et=k=>PPER==='dia'?diaCorto(k):PPER==='sem'?'Sem. '+semTxt(k):PPER==='mes'?mesTxt(k):k;
+  const tv=ks.reduce((a,k)=>a+G[k].v,0),tp=ks.reduce((a,k)=>a+G[k].p,0),pc=v=>v>0?Math.round(tp/tv*100):0;
+  const col=q=>q>40?'#A3231F':q>30?'#C9601A':'#1F9D5A';
+  return `<section class="card"><h2>Personal frente a ventas</h2>
+   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${[['dia','Días'],['sem','Semanas'],['mes','Meses'],['ano','Años']].map(([k,t])=>`<button class="btn sm ${PPER===k?'pri':''}" data-pper="${k}">${t}</button>`).join('')}</div>
+   <div class="kpis"><div class="kpi"><div class="l">Ventas</div><div class="v">${eur(r2(tv))}</div></div><div class="kpi"><div class="l">Personal</div><div class="v">${eur(r2(tp))}</div></div><div class="kpi"><div class="l">Personal / ventas</div><div class="v" style="color:${col(pc(tv))}">${tv>0?pc(tv)+' %':'—'}</div></div></div>
+   <table style="margin-top:10px"><thead><tr><th>${{dia:'Día',sem:'Semana',mes:'Mes',ano:'Año'}[PPER]}</th><th class="r">Ventas</th><th class="r">Personal</th><th class="r">%</th></tr></thead><tbody>
+   ${ks.map(k=>{const g=G[k],q=g.v>0?Math.round(g.p/g.v*100):null;return `<tr><td>${esc(et(k))}<div class="split" style="height:6px;margin-top:4px;max-width:140px"><i style="flex:${Math.min(100,q==null?100:q)};background:${q==null?'#A3231F':col(q)}"></i><i style="flex:${Math.max(0,100-(q==null?100:q))};background:transparent"></i></div></td><td class="r">${eur(r2(g.v))}</td><td class="r">${eur(r2(g.p))}</td><td class="r"><b style="color:${q==null?'#A3231F':col(q)}">${q==null?'sin caja':q+' %'}</b></td></tr>`}).join('')}</tbody></table>
+   <p class="muted" style="font-size:12.5px;margin:8px 0 0">Ventas: cierres de caja (y lo de hoy si la caja está abierta). Personal: el coste empresa de la nómina de cada camarero repartido entre los días del mes (se pone en «Datos» de su ficha) más las horas extra a ${eur(config().extra)}/h. Verde hasta 30 %, naranja hasta 40 %, rojo por encima.</p></section>`}
 function vCajas(){
   const k=EST&&EST.caja;let ahora='';
   if(VIVO&&VIVO.caja){const vk=VIVO.caja,tot=r2((VIVO.cobros||[]).reduce((x,c)=>x+c.amt,0));
@@ -209,8 +236,8 @@ function vCajas(){
       <div><div class="n">${eur(c.ventas)}</div><div style="text-align:right">${Math.abs(c.desc||0)<.005?'<span class="pill p-ok">Cuadra</span>':`<span class="pill ${c.desc>0?'p-warn':'p-bad'}">${c.desc>0?'+':''}${eur(c.desc)}</span>`}</div></div></button>`});
   return ahora+`<section class="card"><div class="nav"><button class="btn sm" id="mp" aria-label="Mes anterior">‹</button><b>${mesTxt(MES)}</b><button class="btn sm" id="mn" aria-label="Mes siguiente" ${MES>=ymd(Date.now()).slice(0,7)?'disabled':''}>›</button></div>
     <div class="kpis" style="margin-top:12px"><div class="kpi big"><div class="l">Ventas</div><div class="v">${eur(tot.v)}</div></div><div class="kpi"><div class="l">En sobres</div><div class="v">${eur(tot.sob)}</div></div><div class="kpi"><div class="l">Datáfono</div><div class="v">${eur(tot.dat)}</div></div><div class="kpi"><div class="l">Efectivo cobrado</div><div class="v">${eur(tot.ef)}</div></div><div class="kpi"><div class="l">Tarjeta cobrada</div><div class="v">${eur(tot.tj)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(tot.des)<.005?'0,00 €':eur(tot.des)}</div></div></div></section>
-  ${grafMes(L)}<section class="card"><h2>Cierres de caja (${L.length})</h2><div class="list">${lista||'<p class="muted" style="margin:0">No hay cierres este mes.</p>'}</div></section>`}
-function aCajas(){activaGraf();$('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
+  ${grafMes(L)}${vPersonal()}<section class="card"><h2>Cierres de caja (${L.length})</h2><div class="list">${lista||'<p class="muted" style="margin:0">No hay cierres este mes.</p>'}</div></section>`}
+function aCajas(){activaGraf();$$('[data-pper]').forEach(b=>b.onclick=()=>{PPER=b.dataset.pper;lsP('ohp-pper',PPER);pinta()});$('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
   $$('[data-ci]').forEach(b=>b.onclick=()=>verCierre(cierres()[+b.dataset.ci]))}
 const DEN=[['50 €',50],['20 €',20],['10 €',10],['5 €',5],['2 €',2],['1 €',1],['0,50 €',.5],['0,20 €',.2],['0,10 €',.1],['0,05 €',.05],['0,02 €',.02],['0,01 €',.01]];
 function hoja(html,a){const o=document.createElement('div');o.className='sheet';o.innerHTML='<div role="dialog" aria-modal="true">'+html+'</div>';document.body.appendChild(o);
@@ -362,23 +389,30 @@ function rangoTxt(a,b){const A=new Date(a+'T12:00:00'),B=new Date(b+'T12:00:00')
    y mandar por WhatsApp»). Las extra se cuentan por semana (lunes a domingo): dentro de cada semana, las primeras horas hasta las de
    contrato son ordinarias y lo que pasa de ahí es extra, en orden de día y hora. Así cada día sabe cuántas de sus horas son extra. */
 function reparto(id){const x=camDe(id),uso={},r={};fichajes().filter(f=>f.p===id&&f.out).sort((a,b)=>a.in-b.in).forEach(f=>{const l=lunesDe(ymd(f.in)),lim=ordDe(x,l)*60,u=uso[l]||0,m=minDe(f),o=Math.max(0,Math.min(m,lim-u));uso[l]=u+m;r[f.k]={m,o,e:m-o}});return r}
-function textoPago(id,keys){const x=camDe(id),c=config(),R=reparto(id),nm=(x?x.nm:nombre(id)).split(' ')[0];
-  const L=fichajes().filter(f=>f.p===id&&f.out&&keys.has(f.k)).sort((a,b)=>a.in-b.in);let m=0,o=0,e=0;
-  const lin=L.map(f=>{const r=R[f.k];m+=r.m;o+=r.o;e+=r.e;return `${diaLargo(ymd(f.in))}: ${hhmm(f.in)} a ${hhmm(f.out)} = ${hm(r.m)}${r.e?` (${hm(r.e)} extra)`:''}`});
-  const ords=[...new Set(L.map(f=>ordDe(x,lunesDe(ymd(f.in)))))];
-  return `${nm} · resumen de horas\n\n${lin.join('\n')}\n\nTotal trabajado: ${hm(m)}\nOrdinarias${ords.length===1?' (contrato de '+ords[0]+' h a la semana)':''}: ${hm(o)}\nExtra: ${hm(e)}\nA pagar: ${eur(r2(e/60*c.extra))} (extra a ${eur(c.extra)}/h)`}
+/* Texto para el camarero: corto y con los totales en negrita de WhatsApp (dueño, 23 nov 2026 17:03). */
+const diaCort=d=>may(new Date(d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric'}).replace('.',''));
+function sumaPago(id,keys){const R=reparto(id);let m=0,o=0,e=0;fichajes().filter(f=>f.p===id&&f.out&&keys.has(f.k)).forEach(f=>{const r=R[f.k];if(r){m+=r.m;o+=r.o;e+=r.e}});return {m,o,e,eur:r2(e/60*config().extra)}}
+function textoPago(id,keys){const x=camDe(id),R=reparto(id),nm=(x?x.nm:nombre(id)).split(' ')[0],t=sumaPago(id,keys);
+  const L=fichajes().filter(f=>f.p===id&&f.out&&keys.has(f.k)).sort((a,b)=>a.in-b.in);
+  return `*${nm} · horas*\n\n${L.map(f=>`${diaCort(ymd(f.in))}: ${hhmm(f.in)} a ${hhmm(f.out)} → ${hm(R[f.k].m)}`).join('\n')}\n\n*Total trabajado: ${hm(t.m)}*\n*Ordinarias: ${hm(t.o)}*\n*Extra: ${hm(t.e)}*\n*A pagar: ${eur(t.eur)}*`}
 function hojaHoras(id){const x=camDe(id);let mes=ymd(Date.now()).slice(0,7);const sel=new Set();
   const draw=o=>{const c=config(),R=reparto(id),hoyM=ymd(Date.now()).slice(0,7);
     const L=fichajes().filter(f=>f.p===id&&ymd(f.in).slice(0,7)===mes).sort((a,b)=>b.in-a.in);
-    const n=fichajes().filter(f=>f.p===id&&f.out&&sel.has(f.k)).length;const txt=n?textoPago(id,sel):'';const tel=telWa(x&&x.tel);
+    [...sel].forEach(k=>{if(c.pagado[k])sel.delete(k)});const n=fichajes().filter(f=>f.p===id&&f.out&&sel.has(f.k)).length;const txt=n?textoPago(id,sel):'';const tel=telWa(x&&x.tel);
     o.firstChild.innerHTML=`<div class="row"><h3>${esc(x?x.nm:nombre(id))}</h3>${x?'<button class="btn sm" data-ed>Datos</button>':''}<button class="btn sm" data-x>Cerrar</button></div>
     <section class="card"><div class="nav"><button class="btn sm" data-mp aria-label="Mes anterior">‹</button><b>${mesTxt(mes)}</b><button class="btn sm" data-mn aria-label="Mes siguiente" ${mes>=hoyM?'disabled':''}>›</button></div>
-     <p class="muted" style="font-size:13px;margin:8px 0">Marca los días que quieres pagar. «Corregir» cambia la hora de entrada o de salida.</p>
-     <div class="list">${L.map(f=>{const r=R[f.k];return `<div class="it" style="cursor:default;gap:10px">${f.out?`<input type="checkbox" data-sel="${esc(f.k)}" ${sel.has(f.k)?'checked':''} style="width:24px;height:24px;flex:none" aria-label="Marcar ${esc(diaLargo(ymd(f.in)))}">`:'<span style="width:24px;flex:none"></span>'}
+     ${(()=>{const P=L.filter(f=>c.pagado[f.k]),N=L.filter(f=>f.out&&!c.pagado[f.k]);const sp=P.reduce((a,f)=>a+(+c.pagado[f.k].eur||0),0),np=sumaPago(id,new Set(N.map(f=>f.k)));
+       return `<div class="kpis" style="margin-top:8px"><div class="kpi"><div class="l">Pagado este mes</div><div class="v">${eur(r2(sp))}</div></div><div class="kpi"><div class="l">Extra sin pagar</div><div class="v">${eur(np.eur)}</div></div></div>`})()}
+     <p class="muted" style="font-size:13px;margin:8px 0">Marca los días que vas a pagar. «Corregir» cambia la hora. Los días pagados quedan bloqueados.</p>
+     <div class="list">${L.map(f=>{const r=R[f.k],pg=c.pagado[f.k];if(pg)return `<div class="it" style="cursor:default;gap:10px;background:#EAF6EE;border-radius:10px;padding-left:8px"><span style="width:24px;flex:none;color:#1F7A47;font-weight:700;text-align:center">✓</span>
+       <div class="sp"><div class="t">${diaLargo(ymd(f.in))}</div><div class="s">${hhmm(f.in)} a ${hhmm(f.out)} · ${hm(r?r.m:minDe(f))}${r&&r.e?' · '+hm(r.e)+' extra':''} · pagado el ${diaCorto(ymd(pg.at))}${pg.eur?' ('+eur(pg.eur)+')':''}</div></div>
+       <button class="btn sm" data-unpay="${esc(f.k)}" style="background:#1F9D5A;color:#fff;border-color:#1F9D5A">Pagado</button></div>`;
+       return `<div class="it" style="cursor:default;gap:10px">${f.out?`<input type="checkbox" data-sel="${esc(f.k)}" ${sel.has(f.k)?'checked':''} style="width:24px;height:24px;flex:none" aria-label="Marcar ${esc(diaLargo(ymd(f.in)))}">`:'<span style="width:24px;flex:none"></span>'}
        <label class="sp" for="" data-tg="${esc(f.k)}" style="cursor:pointer"><div class="t">${diaLargo(ymd(f.in))}</div><div class="s">${hhmm(f.in)} a ${f.out?hhmm(f.out)+' · '+hm(r.m)+(r.e?' · <b style="color:var(--ink)">'+hm(r.e)+' extra</b>':''):'<b style="color:#A3231F">sin salida</b>'}${f.corr?' · corregido':''}</div></label>
        <button class="btn sm" data-cor="${esc(f.k)}">Corregir</button></div>`}).join('')||'<p class="muted" style="margin:0">Sin fichajes este mes.</p>'}</div>
-     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${L.some(f=>f.out)?'<button class="btn sm" data-all>Marcar todo el mes</button>':''}${n?'<button class="btn sm" data-none>Quitar marcas</button>':''}<button class="btn sm" data-add>Añadir un día</button></div></section>
+     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${L.some(f=>f.out&&!c.pagado[f.k])?'<button class="btn sm" data-all>Marcar lo que falta por pagar</button>':''}${n?'<button class="btn sm" data-none>Quitar marcas</button>':''}<button class="btn sm" data-add>Añadir un día</button></div></section>
     ${n?`<section class="card"><h2>Resumen (${n} ${n===1?'día':'días'})</h2><pre class="msg" style="margin:0">${esc(txt)}</pre></section>
+    <button class="btn big" data-pay style="width:100%;font-size:17px;padding:14px;margin-bottom:8px;background:#1F9D5A;color:#fff;border-color:#1F9D5A">Pagado (${eur(sumaPago(id,sel).eur)})</button>
     <div style="display:flex;gap:8px"><button class="btn pri big" data-cp style="flex:1;font-size:17px;padding:14px">Copiar</button><a class="btn big" style="flex:1;font-size:17px;padding:14px" href="https://wa.me/${tel||''}?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">WhatsApp</a></div>`
     :'<p class="muted" style="text-align:center;margin:6px 0 0">Marca uno o más días para ver el resumen.</p>'}`;
     const q=(k,f)=>{const e=o.querySelector(k);if(e)e.onclick=f};
@@ -387,7 +421,11 @@ function hojaHoras(id){const x=camDe(id);let mes=ymd(Date.now()).slice(0,7);cons
     o.querySelectorAll('[data-sel]').forEach(b=>b.onchange=()=>{b.checked?sel.add(b.dataset.sel):sel.delete(b.dataset.sel);draw(o)});
     o.querySelectorAll('[data-tg]').forEach(b=>b.onclick=e=>{e.preventDefault();const k=b.dataset.tg;if(!L.find(f=>f.k===k&&f.out))return;sel.has(k)?sel.delete(k):sel.add(k);draw(o)});
     o.querySelectorAll('[data-cor]').forEach(b=>b.onclick=()=>editaFichaje(id,fichajes().find(f=>f.k===b.dataset.cor),()=>draw(o)));
-    q('[data-all]',()=>{L.forEach(f=>f.out&&sel.add(f.k));draw(o)});q('[data-none]',()=>{sel.clear();draw(o)});q('[data-add]',()=>editaFichaje(id,null,()=>draw(o)));
+    q('[data-all]',()=>{L.forEach(f=>f.out&&!c.pagado[f.k]&&sel.add(f.k));draw(o)});
+    q('[data-pay]',()=>{const R2=reparto(id),ahora=Date.now();fichajes().filter(f=>f.p===id&&f.out&&sel.has(f.k)).forEach(f=>{const r=R2[f.k];c.pagado[f.k]={at:ahora,in:f.in,out:f.out,m:r.m,o:r.o,e:r.e,eur:r2(r.e/60*c.extra)}});
+      sel.clear();guardaCfg('Marcado como pagado. Esos días quedan bloqueados.').then(()=>draw(o))});
+    o.querySelectorAll('[data-unpay]').forEach(b=>b.onclick=()=>{if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='¿Quitar pagado?';b.style.background='#A3231F';b.style.borderColor='#A3231F';return}
+      delete c.pagado[b.dataset.unpay];guardaCfg('Quitado. Ya se puede corregir.').then(()=>draw(o))});q('[data-none]',()=>{sel.clear();draw(o)});q('[data-add]',()=>editaFichaje(id,null,()=>draw(o)));
     q('[data-cp]',()=>{const ok=()=>{toast('Copiado. Pégalo en WhatsApp.');const b=o.querySelector('[data-cp]');if(b)b.textContent='Copiado'};
       if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(txt).then(ok,()=>copiaVieja(txt)&&ok());else if(copiaVieja(txt))ok()})};
   const o=hoja('');draw(o)}
@@ -446,6 +484,8 @@ function verCam(id){const x=camDe(id);if(!x)return;let mes=MES;
 function editaCam(id){const c=config();const x=id?camDe(id):null;const hoyL=lunesDe(ymd(Date.now()));
   hoja(`<div class="row"><h3>${x?'Cambiar '+esc(x.nm):'Nuevo camarero'}</h3><button class="btn sm" data-x>Cancelar</button></div>
   <section class="card" style="display:flex;flex-direction:column;gap:12px"><label class="f">Nombre<input class="inp" id="en" maxlength="40" value="${x?esc(x.nm):''}" required></label>
+   <label class="f">Coste empresa al mes (€, el de la nómina)<input class="inp" id="ec" type="text" inputmode="decimal" placeholder="1109.32" value="${x&&x.cmes?x.cmes:''}"></label>
+   <p class="muted" style="font-size:12.5px;margin:-6px 0 0">Es el «COSTE EMPRESA» de abajo de la nómina: sueldo más la seguridad social de la empresa. ${x&&x.cmes?'Su hora ordinaria sale a <b>'+eur(r2(x.cmes/(ordDe(x,lunesDe(ymd(Date.now())))*52/12)))+'</b>. ':''}Las horas extra van aparte, a ${eur(config().extra)}/h sin seguridad social.</p>
    <label class="f">Móvil (WhatsApp, para mandarle su resumen de horas)<input class="inp" id="et" type="tel" inputmode="tel" placeholder="600 000 000" value="${x&&x.tel?esc(x.tel):''}"></label>
    <div class="row"><label class="f">Horas ordinarias por semana<input class="inp" id="eo" type="number" min="0" max="60" step="0.5" inputmode="decimal" value="${x?ordDe(x,hoyL):20}"></label>
    <label class="f">Desde la semana del<input class="inp" id="ed" type="date" value="${hoyL}"></label></div>
@@ -456,11 +496,11 @@ function editaCam(id){const c=config();const x=id?camDe(id):null;const hoyL=lune
       if(!nm){o.querySelector('#en').focus();return}if(isNaN(h)||h<0){o.querySelector('#eo').focus();return}
       const tl=o.querySelector('#et').value.trim();if(tl&&!telWa(tl)){o.querySelector('#et').focus();toast('Ese móvil no parece bien: pon los 9 números.');return}
       let y=x;if(!y){y={id:'c'+Date.now().toString(36),nm,activo:true,ord:[]};c.camareros.push(y)}
-      y.tel=tl;y.nm=nm;y.ord=(y.ord||[]).filter(v=>v.desde!==d);if(ordDe(y,d)!==h||!y.ord.length)y.ord.push({desde:d,h});y.ord.sort((a,b)=>a.desde<b.desde?-1:1);
+      y.tel=tl;{const cv=parseFloat(String(o.querySelector('#ec').value).replace(',','.'));if(cv>0)y.cmes=r2(cv);else delete y.cmes;delete y.coste}y.nm=nm;y.ord=(y.ord||[]).filter(v=>v.desde!==d);if(ordDe(y,d)!==h||!y.ord.length)y.ord.push({desde:d,h});y.ord.sort((a,b)=>a.desde<b.desde?-1:1);
       cierra();guardaCfg()};
     const eb=o.querySelector('#eb');if(eb)eb.onclick=()=>{x.activo=x.activo===false;cierra();guardaCfg(x.activo?'Dado de alta.':'Dado de baja. Ya no sale en la tablet.')}})}
 const aHora=(d,t)=>{if(!d||!t)return null;const v=new Date(d+'T'+t+':00').getTime();return isNaN(v)?null:v};
-function editaFichaje(id,f,despues){const c=config();const d0=f?ymd(f.in):ymd(Date.now());
+function editaFichaje(id,f,despues){const c=config();if(f&&c.pagado[f.k]){toast('Ese día ya está pagado. Quita «Pagado» para cambiarlo.');return}const d0=f?ymd(f.in):ymd(Date.now());
   hoja(`<div class="row"><h3>${f?'Corregir fichaje':'Añadir fichaje'} · ${esc(nombre(id))}</h3><button class="btn sm" data-x>Cancelar</button></div>
   <section class="card" style="display:flex;flex-direction:column;gap:12px"><label class="f">Día<input class="inp" id="fd" type="date" value="${d0}"></label>
    <div class="row"><label class="f">Entrada<input class="inp" id="fe" type="time" value="${f?hhmm(f.in):''}"></label><label class="f">Salida<input class="inp" id="fs" type="time" value="${f&&f.out?hhmm(f.out):''}"></label></div>

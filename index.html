@@ -316,11 +316,11 @@ let MENU=[
  {id:'refresco',c:'Sin alcohol',nm:'Refresco',p:2.5,r:[],opts:[]},
  {id:'agua',c:'Sin alcohol',nm:'Agua',p:1.5,r:[['agua',1]]},
  {id:'energetica',c:'Sin alcohol',nm:'Energética',p:3,r:[['energetica',1]]},
- {id:'vino',c:'Vinos y licores',nm:'Copa de vino',p:3.5,r:[['vino',1/6]]},
+ {id:'vino',c:'Vinos y licores',nm:'Copa de vino',p:3.5,r:[['vino',1/5]]},
  {id:'manzanilla',c:'Vinos y licores',nm:'Manzanilla',p:2.5,r:[['manzanilla',1/10]]},
- {id:'licor',c:'Vinos y licores',nm:'Licor',p:5,r:[['licor',.05/.7],['hielo',.1]]},
- {id:'combinado',c:'Copas',nm:'Combinado',p:8,r:[['destilado',.05/.7],['schweppes',1],['hielo',.15]]},
- {id:'premium',c:'Copas',nm:'Combinado premium',p:10,r:[['premium',.05/.7],['schweppes',1],['hielo',.15]]},
+ {id:'licor',c:'Vinos y licores',nm:'Licor',p:5,r:[['licor',.08/.7],['hielo',.1]]},
+ {id:'combinado',c:'Copas',nm:'Combinado',p:8,r:[['destilado',.07/.7],['schweppes',1],['hielo',.15]]},
+ {id:'premium',c:'Copas',nm:'Combinado premium',p:10,r:[['premium',.07/.7],['schweppes',1],['hielo',.15]]},
  {id:'conenerg',c:'Copas',nm:'+ con energética',p:1,r:[['energetica',1],['schweppes',-1]],extra:1},
  {id:'smoothie',c:'Smoothies',nm:'Smoothie fresa y mango',p:6,r:[['fruta',.25],['hielo',.1]],k:1},
  {id:'sm_trop',c:'Smoothies',nm:'Smoothie tropical',p:6,r:[['fruta',.25],['zumo',.1],['hielo',.1]],k:1},
@@ -365,8 +365,8 @@ RFS.forEach(([id,nm,sid,n])=>{sid=sid||id;n=n||1;if(!STOCK[sid])STOCK[sid]={nm,u
 const OLI='Oli Castaño',RIV='Rivera',MAT='Matutano',CHAP='Chapela (Nestlé)';
 /* Dueño, 23 nov 2026: picoteo. Lo que va entre llaves es cómo se pide (nombre en el pedido, unidad y cantidad normal). */
 const PZ=(nm,ud,n)=>({snm:nm,ped:{ud,cada:0,n}});
-[['altramuces','Picoteo','Altramuces',1.5,'raciones',.35,OLI,{ped:{ud:'bote',cada:0,n:6}}],
- ['p_queso','Picoteo','Papelón de queso',4,'papelones',1.6,OLI,PZ('Queso (para papelones)','pieza',1)],['p_jamon','Picoteo','Papelón de jamón',5,'papelones',2.2,OLI,PZ('Jamón (para papelones)','paquete',5)],['p_lomo','Picoteo','Papelón de caña de lomo ibérica',3.5,'papelones',1.5,OLI,PZ('Caña de lomo ibérica (para papelones)','pieza',1)],
+[['altramuces','Picoteo','Altramuces',1.5,'raciones',.19,OLI,{ped:{ud:'bote',cada:27,n:6}}],
+ ['p_queso','Picoteo','Papelón de queso',4,'papelones',1.6,OLI,PZ('Queso (para papelones)','pieza',1)],['p_jamon','Picoteo','Papelón de jamón',5,'papelones',2.2,OLI,{snm:'Jamón (para papelones)',ped:{ud:'paquete',cada:1,n:5}}],['p_lomo','Picoteo','Papelón de caña de lomo ibérica',3.5,'papelones',1.5,OLI,PZ('Caña de lomo ibérica (para papelones)','pieza',1)],
  ['p_chorizo','Picoteo','Papelón de chorizo ibérico',3.5,'papelones',1.3,OLI,PZ('Chorizo ibérico (para papelones)','pieza',1)],['p_canajamon','Picoteo','Papelón de caña de jamón',5,'papelones',2.1,OLI,PZ('Caña de jamón (para papelones)','pieza',1)],
  ['p_chicharron','Picoteo','Papelón de chicharrón',4,'papelones',1.5,OLI,PZ('Chicharrón (para papelones)','pieza',1)],
  ['palomitas','Picoteo','Palomitas',3,'bolsas',.6],
@@ -381,7 +381,7 @@ const PZ=(nm,ud,n)=>({snm:nm,ped:{ud,cada:0,n}});
   const ped=X.ped?X.ped:pv===RIV?{ud:'saco',cada:0,n:1}:pv===MAT?{ud:'caja',cada:0,n:1}:{ud:{raciones:'ración',papelones:'papelón',bolsas:'bolsa'}[u]||'unidad',cada:1,n:28};
   STOCK[id]={nm:X.snm||nm,u,c:co,a:[3,8,30,12,6,25,4][i%7]+6,mn:X.mn!=null?X.mn:pv===RIV?0:pv===MAT?1:12,mx:40,pv,ped};MENU.push({id,c,nm,p,r:[[id,1]]})});
 /* Aceitunas (Rivera): dos clases, 5 botes de cada una. Nachos con guacamole (Makro): 2 bolsas de nachos y 1 bote de guacamole. */
-[['ac_gordal','Aceitunas gordales','Gordales'],['ac_chupa','Aceitunas chupadedos','Chupadedos']].forEach(([id,nm])=>STOCK[id]={nm,u:'raciones',c:.4,a:30,mn:10,mx:30,pv:RIV,ped:{ud:'bote',cada:0,n:5}});
+[['ac_gordal','Aceitunas gordales','Gordales'],['ac_chupa','Aceitunas chupadedos','Chupadedos']].forEach(([id,nm])=>STOCK[id]={nm,u:'raciones',c:.4,a:30,mn:10,mx:30,pv:RIV,ped:{ud:'bote',cada:50,n:5}});
 MENU.push({id:'aceitunas',c:'Picoteo',nm:'Aceitunas',p:1.5,r:[],opts:[['ac_gordal_v','Gordales'],['ac_chupa_v','Chupadedos']]});
 MENU.push({id:'ac_gordal_v',c:'Picoteo',nm:'Aceitunas gordales',p:1.5,r:[['ac_gordal',1]],hide:1,par:'aceitunas'},{id:'ac_chupa_v',c:'Picoteo',nm:'Aceitunas chupadedos',p:1.5,r:[['ac_chupa',1]],hide:1,par:'aceitunas'});
 STOCK.totopos={nm:'Nachos',u:'bolsas',c:2.5,a:2,mn:1,mx:2,pv:'Makro',ped:{ud:'bolsa',cada:1,n:2}};
@@ -414,7 +414,7 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
   refresco:.59,rf_zero:.59,rf_fnar:.58,rf_flim:.58,rf_aqlim:.80,rf_aqnar:.80,rf_nestea:.55,rf_sprite:.52,rf_tonica:.61,
   energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60};
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=6;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=7;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1763,6 +1763,8 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
     const pr=id=>(d.MENU||[]).find(x=>x.id===id);
     if(pr('refresco'))MENU.filter(m=>m.par==='refresco').forEach(m=>m.p=pr('refresco').p);
     if(pr('aceitunas'))MENU.filter(m=>m.par==='aceitunas').forEach(m=>m.p=pr('aceitunas').p)}
+  /* 23 nov 2026: raciones que dijo el dueño (altramuces y aceitunas 100 g; 1 papelón por paquete de jamón). Se respeta cuántos pide. */
+  if(!(d.CATV>=7)){[['altramuces',27],['ac_gordal',50],['ac_chupa',50],['p_jamon',1]].forEach(([k,c])=>{const x=STOCK[k];if(x&&x.ped)x.ped.cada=c});if(STOCK.altramuces)STOCK.altramuces.c=.19}
   if(!(d.CATV>=6)){Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
     /* si gildas/mejillones son productos que él ya tenía creados, su almacén lleva el coste de la factura */
     [['gildas',/gilda/],['mejillones',/mejill/]].forEach(([k,re])=>{const x=MENU.find(m=>/^x/.test(m.id)&&re.test(norm(m.nm)));const sid=x&&x.r&&x.r[0]&&x.r[0][0];if(sid&&STOCK[sid])STOCK[sid].c=COSTES_FACT[k]})}

@@ -17,6 +17,7 @@ Cuenta propia del kiosko (kiosko@), separada de la escuela.
 - Panel del dueño en el móvil: `/panel/` (web) y app Android «Panel Kiosko» (carpeta `android-panel/`, se compila en Actions › «App Panel Kiosko»). Descarga: https://github.com/ohana-kiosko/kiosko/releases/download/panel/panel-kiosko.apk
 - Cajas cerradas (con datáfono, cambio que se deja y efectivo al sobre) y horas de los camareros (horas ordinarias por semana y extra calculadas solas).
 - Servidor: `api/panel.js`, con un almacén privado de Vercel Blob («kiosko-blob»). Variables: `BLOB_READ_WRITE_TOKEN` (la pone Vercel) y `TPV_CLAVE`. Con `TPV_CLAVE` se entra en el panel y se conecta la tablet una vez («Equipo y sueldos» › «Conectar con el panel del móvil»). Si se cambia en Vercel, hay que publicar otra vez y volver a entrar en los dos sitios.
+- En directo (23 nov 2026): la tablet manda «vivo» (cobros de hoy, mesas, pedidos…). Con la base Redis «ohana-club» conectada al proyecto (prefijo KV, claves `kiosko:*` aparte de la escuela) va cada 30 s; sin ella, al almacén Blob cada 10-20 min. Pestañas del panel: En directo, Cajas, Pedidos (WhatsApp a cada proveedor), Camareros y Ajustes.
 
 ## Cobro con tarjeta en la tablet (19 nov 2026)
 - App Android «Kiosko Ohana» (carpeta `android/`): abre este programa a pantalla completa y cobra con el NFC de la tablet con Stripe Tap to Pay (cuenta Stripe «KIOSKO», separada de la escuela).

@@ -148,7 +148,7 @@ const camTxt=f=>!f.cams||!f.cams.length?'':f.cams.some(x=>x.st==='pend')?' · po
 /* Fichajes con las correcciones del dueño aplicadas. */
 function fichajes(){const c=config();const out=[];
   ((EST&&EST.fichajes)||[]).forEach(f=>{const x=c.fix[clave(f)];if(x&&x.x)return;const e=efP(f);
-    if(x)['in','out'].forEach(cp=>{if(!(cp in x))return;const ce=f.cam&&f.cam[cp];if((x.at||0)>=(ce?ce.at||0:0))e[cp]=x[cp]});const al=c.alias[e.p];if(al==='-')return;if(al){e.orig=e.p;e.p=al}out.push(Object.assign(e,{k:clave(f),corr:!!x}))});
+    if(x)['in','out'].forEach(cp=>{if(!(cp in x))return;const ce=f.cam&&f.cam[cp];if((x.at||0)>=(ce?ce.at||0:0))e[cp]=x[cp]});if(e.mano){e.aMano=1;delete e.mano}const al=c.alias[e.p];if(al==='-')return;if(al){e.orig=e.p;e.p=al}out.push(Object.assign(e,{k:clave(f),corr:!!x}))});
   c.nuevos.forEach(n=>out.push(Object.assign({},n,{k:'n|'+n.id,mano:true})));
   return out.filter(f=>f.in).sort((a,b)=>a.in-b.in)}
 const minDe=f=>f.out&&f.out>f.in?Math.round((f.out-f.in)/60000):0;
@@ -380,7 +380,7 @@ function enviarHoras(id,ini){const x=camDe(id);let per=ini||{t:'sem',l:masDias(l
      ${per.t==='mes'?`<div class="nav" style="margin-top:10px"><button class="btn sm" data-mp aria-label="Mes anterior">‹</button><b>${mesTxt(per.m)}</b><button class="btn sm" data-mn aria-label="Mes siguiente" ${per.m>=hoy.slice(0,7)?'disabled':''}>›</button></div>`:''}
      ${per.t==='dias'?`<div class="row" style="margin-top:10px"><label class="f">Desde<input class="inp" type="date" id="da" value="${per.a}" max="${hoy}"></label><label class="f">Hasta<input class="inp" type="date" id="db" value="${per.b}" max="${hoy}"></label></div>`:''}</section>
     <section class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">Fichajes</h2><span class="sp"></span><button class="btn sm" data-add>Añadir</button></div>
-     <div class="list">${LF.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaLargo(ymd(f.in))}</div><div class="s">${hhmm(f.in)} a ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano?' · a mano':''}${f.corr?'':camTxt(f)}</div></div><div class="n">${f.out?hm(minDe(f)):''} <span class="pill p-mute">Cambiar</span></div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes en estos días.</p>'}</div>
+     <div class="list">${LF.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaLargo(ymd(f.in))}</div><div class="s">${hhmm(f.in)} a ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano||f.aMano?' · a mano':''}${f.corr?'':camTxt(f)}</div></div><div class="n">${f.out?hm(minDe(f)):''} <span class="pill p-mute">Cambiar</span></div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes en estos días.</p>'}</div>
      <p class="muted" style="font-size:12.5px;margin:8px 0 0">Toca un fichaje para cambiar la hora de entrada o de salida. El resumen de abajo se actualiza solo.</p></section>
     <section class="card"><h2>Resumen</h2><pre class="msg" style="margin:0;max-height:40vh;overflow:auto">${esc(txt)}</pre></section>
     <div style="display:flex;gap:8px"><button class="btn pri big" data-cp style="flex:1;font-size:17px;padding:14px">Copiar</button><a class="btn big" style="flex:1;font-size:17px;padding:14px" href="${url}" target="_blank" rel="noopener">WhatsApp</a></div>
@@ -442,7 +442,7 @@ function verCam(id){const x=camDe(id);if(!x)return;let mes=MES;
      <tr><td><b>Mes</b></td><td class="r"><b>${hTxt(r.tot)}</b></td><td></td><td class="r"><b>${hTxt(r.extra)}</b></td></tr></tbody></table>
      <div class="kpis" style="margin-top:10px"><div class="kpi big"><div class="l">Extra a pagar</div><div class="v">${eur(r.eur)}</div></div></div></section>
     <section class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">Fichajes</h2><span class="sp"></span><button class="btn sm" data-add>Añadir</button></div>
-     <div class="list">${lst.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaCorto(ymd(f.in))}</div><div class="s">${hhmm(f.in)} – ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano?' · puesto a mano':''}${f.corr?'':camTxt(f)}</div></div><div class="n">${f.out?hTxt(minDe(f)):(Date.now()-f.in>14*3600e3?'<span class="pill p-bad">sin salida</span>':'<span class="pill p-ok">dentro</span>')}</div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes este mes.</p>'}</div></section>`;
+     <div class="list">${lst.map(f=>`<button class="it" data-f="${esc(f.k)}"><div class="sp"><div class="t">${diaCorto(ymd(f.in))}</div><div class="s">${hhmm(f.in)} – ${f.out?hhmm(f.out):'sin salida'}${f.corr?' · corregido':''}${f.mano||f.aMano?' · puesto a mano':''}${f.corr?'':camTxt(f)}</div></div><div class="n">${f.out?hTxt(minDe(f)):(Date.now()-f.in>14*3600e3?'<span class="pill p-bad">sin salida</span>':'<span class="pill p-ok">dentro</span>')}</div></button>`).join('')||'<p class="muted" style="margin:0">Sin fichajes este mes.</p>'}</div></section>`;
     o.querySelector('[data-x]').onclick=()=>o.remove();
     o.querySelector('[data-ed]').onclick=()=>{o.remove();editaCam(id)};
     o.querySelector('[data-wa]').onclick=()=>enviarHoras(id,{t:'sem',l:masDias(lunesDe(ymd(Date.now())),-7)});

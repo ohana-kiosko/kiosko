@@ -277,7 +277,7 @@ const WEEK={};
 /* Dueño, 23 nov 2026: catálogo nuevo. Cada producto dice cómo se pide (ped.ud: caja, pack, barril…), cuántas trae
    (ped.cada; 0 = no se sabe todavía) y cuántas se piden cada vez (ped.n, lo pone él). mn = avisar cuando quede menos de eso. */
 let STOCK={
- barril:{nm:'Barril Cruzcampo 50 L',u:'barriles',c:200,a:1.4,mn:2,mx:6,pv:'Cruzcampo',ped:{ud:'barril',cada:1,n:5}},
+ barril:{nm:'Barril Cruzcampo 50 L',u:'barriles',c:168.40,a:1.4,mn:2,mx:6,pv:'Cruzcampo',ped:{ud:'barril',cada:1,n:5}},
  tercio:{nm:'Tercios Cruzcampo',u:'botellas',c:.6,a:96,mn:25,mx:240,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
  tostada0:{nm:'Cruzcampo sin alcohol tostada',u:'botellas',c:.6,a:72,mn:25,mx:72,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
  heineken0:{nm:'Heineken 0.0',u:'botellas',c:.6,a:72,mn:25,mx:72,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
@@ -417,9 +417,11 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
      y Oli Castaño (sept 2026: Coca-Cola lata 0,67, Fanta 0,58, Nestea 0,55, tónica 0,61, agua Fontecelta 0,5 L 0,22,
      manzanilla Gabriela 6,70, leche 1,28, condensada 3,90, Colacao 0,32 el sobre, zumo piña 200 ml 0,49). */
   refresco:.59,rf_zero:.59,rf_fnar:.58,rf_flim:.58,rf_aqlim:.80,rf_aqnar:.80,rf_nestea:.55,rf_sprite:.52,rf_tonica:.61,
-  energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60};
+  energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60,
+  barril:168.40,heineken0:42.20/24,carbonico:39.25,p_jamon:3.50,santaana:1.00,m_ruffles:.62};
+[['santaana',24],['m_ruffles',30]].forEach(([k,n])=>{if(STOCK[k]&&STOCK[k].ped)STOCK[k].ped.cada=n});
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=13;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=14;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1468,7 +1470,7 @@ A.historico=()=>{$$('[data-himp]').forEach(b=>b.onclick=()=>imprimirResumen(HIST
 /* ---------- 8. Escandallo ---------- */
 let escSel='combinado';
 /* Dueño, 23 nov 2026: en rojo los productos que aún no están escandallados (algún ingrediente sin coste real de factura). */
-const COSTE_REAL=new Set([...Object.keys(COSTES_FACT),'barril','lima','azucar','cafe','descaf','altramuces','ac_gordal','ac_chupa',
+const COSTE_REAL=new Set([...Object.keys(COSTES_FACT),'barril','heineken0','carbonico','p_jamon','santaana','m_ruffles','lima','azucar','cafe','descaf','altramuces','ac_gordal','ac_chupa',
   'h_nuii','h_maxibon','h_extreme','h_pirulo','h_bombon','h_cono','h_sandnata','h_sandoreo','h_infantil']);
 const costeReal=k=>COSTE_REAL.has(k)||!!(STOCK[k]&&STOCK[k].cr);
 const faltaEsc=m=>[...new Set((m.r||[]).filter(([k])=>STOCK[k]&&!costeReal(k)).map(([k])=>STOCK[k].nm))];
@@ -1778,8 +1780,13 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
   if(!(d.CATV>=13))[/gilda/,/mejill/].forEach(re=>{const x=MENU.find(m=>/^x/.test(m.id)&&re.test(norm(m.nm)));const sid=x&&x.r&&x.r[0]&&x.r[0][0];if(sid&&STOCK[sid])STOCK[sid].cr=1});
   /* El café pasa de kg de grano a cápsulas Mocaibo (lo contado en kg ya no vale: se pone lo de un pedido normal) */
   if(!(d.CATV>=12)&&STOCK.cafe)Object.assign(STOCK.cafe,JSON.parse(JSON.stringify(STOCK0.cafe)));
-  /* Dueño, 23 nov 2026: el barril de 50 L le cuesta 200 € */
-  if(!(d.CATV>=11)&&STOCK.barril)STOCK.barril.c=200;
+  /* 23 nov 2026, facturas en papel: Bebidas Chipiona (barril 50 L 168,40; Heineken 0,0 caja 24 a 42,20; CO2 10 kg 39,25),
+     Oli Castaño (taquitos de jamón 3,50 el paquete = 1 papelón) y Corbacho/Matutano (Santa Ana caja 24 a 1,00; Ruffles jamón caja 30 a 0,62). Sin IVA. */
+  if(!(d.CATV>=14)){const C={barril:168.40,heineken0:42.20/24,carbonico:39.25,p_jamon:3.50,santaana:1.00,m_ruffles:.62};
+    Object.keys(C).forEach(k=>{if(STOCK[k])STOCK[k].c=C[k]});
+    [['santaana',24],['m_ruffles',30]].forEach(([k,n])=>{if(STOCK[k]&&STOCK[k].ped)STOCK[k].ped.cada=n})}
+  /* Dueño, 23 nov 2026: el barril de 50 L le cuesta 200 € (luego corregido con la factura: 168,40 sin IVA) */
+  if(!(d.CATV>=11)&&STOCK.barril)STOCK.barril.c=168.40;
   /* Limas de Mercado Rivera: bulto de 4,5 kg a 12,00 € (factura 69507) = 2,67 €/kg */
   if(!(d.CATV>=10)&&STOCK.lima)STOCK.lima.c=2.67;
   if(!(d.CATV>=8)){['ac_gordal','ac_chupa'].forEach(k=>{if(STOCK[k])STOCK[k].c=.28})}

@@ -299,7 +299,9 @@ let STOCK={
  cava:{nm:'Prosecco / cava',u:'botellas',c:5,a:6,mn:4,mx:12,pv:'Guadalete',ped:{ud:'botella',cada:1,n:6}},
  zumo:{nm:'Zumos (piña, naranja, melocotón)',u:'litros',c:1.2,a:8,mn:6,mx:20,pv:'Makro',ped:{ud:'litro',cada:1,n:12}},
  coco:{nm:'Crema de coco',u:'botes',c:3,a:3,mn:2,mx:6,pv:'Makro',ped:{ud:'bote',cada:1,n:4}},
- cafe:{nm:'Café en grano',u:'kg',c:14,a:2,mn:1,mx:4,pv:'Mocaibo',ped:{ud:'kg',cada:1,n:3}},
+ /* Mocaibo: cápsulas a 0,40 € sin IVA (factura 001-26/2.813), cajas de 100; pide 400 de café y 200 de descafeinado */
+ cafe:{nm:'Cápsulas de café Mocaibo',u:'cápsulas',c:.40,a:400,mn:100,mx:400,pv:'Mocaibo',ped:{ud:'caja',cada:100,n:4}},
+ descaf:{nm:'Cápsulas de descafeinado Mocaibo',u:'cápsulas',c:.40,a:200,mn:50,mx:200,pv:'Mocaibo',ped:{ud:'caja',cada:100,n:2}},
  leche:{nm:'Leche',u:'litros',c:.9,a:10,mn:6,mx:24,pv:'Makro',ped:{ud:'litro',cada:1,n:18}},
  condensada:{nm:'Leche condensada',u:'botes',c:1.8,a:3,mn:2,mx:6,pv:'Makro',ped:{ud:'bote',cada:1,n:4}},
  colacao:{nm:'Colacao',u:'sobres',c:.2,a:40,mn:20,mx:80,pv:'Makro',ped:{ud:'sobre',cada:1,n:60}},
@@ -328,18 +330,19 @@ let MENU=[
  {id:'sm_pc',c:'Smoothies',nm:'Smoothie piña y coco',p:6,r:[['fruta',.2],['coco',.1],['hielo',.1]],k:1},
  {id:'sm_fb',c:'Smoothies',nm:'Smoothie frutas del bosque',p:6,r:[['fruta',.25],['hielo',.1]],k:1},
  {id:'sm_sl',c:'Smoothies',nm:'Smoothie sandía y lima',p:6,r:[['fruta',.25],['lima',.03],['hielo',.1]],k:1},
- {id:'cafe_sel',c:'Cafés',nm:'Café',p:2,r:[],k:1,opts:[['cafe','Expreso'],['cafe_solo','Café solo'],['cafe_largo','Solo largo'],['cafe_amer','Americano'],['cafe_manch','Manchado'],['cafe_avell','Avellanado'],['cafe_leche','Con leche'],['cafe_hielo','Solo con hielo'],['cafe_capu','Capuchino'],['cafe_cond','Con leche condensada'],['cafe_2l','Leche y leche (dos leches)']]},
- {id:'cafe',c:'Cafés',nm:'Café expreso',p:2,r:[['cafe',.008]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_solo',c:'Cafés',nm:'Café solo',p:2,r:[['cafe',.008]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_largo',c:'Cafés',nm:'Café solo largo',p:2,r:[['cafe',.01]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_amer',c:'Cafés',nm:'Café americano',p:2,r:[['cafe',.008]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_manch',c:'Cafés',nm:'Café manchado',p:2,r:[['cafe',.004],['leche',.12]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_avell',c:'Cafés',nm:'Café avellanado',p:2,r:[['cafe',.008],['leche',.03]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_leche',c:'Cafés',nm:'Café con leche',p:2,r:[['cafe',.008],['leche',.1]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_hielo',c:'Cafés',nm:'Café solo con hielo',p:2,r:[['cafe',.008],['hielo',.05]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_capu',c:'Cafés',nm:'Capuchino',p:2,r:[['cafe',.008],['leche',.12]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_cond',c:'Cafés',nm:'Café con leche condensada',p:2,r:[['cafe',.008],['condensada',.03]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_2l',c:'Cafés',nm:'Café leche y leche',p:2,r:[['cafe',.008],['condensada',.03],['leche',.05]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_sel',c:'Cafés',nm:'Café',p:2,r:[],k:1,opts:[['cafe','Expreso'],['cafe_solo','Café solo'],['cafe_largo','Solo largo'],['cafe_amer','Americano'],['cafe_manch','Manchado'],['cafe_avell','Avellanado'],['cafe_leche','Con leche'],['cafe_hielo','Solo con hielo'],['cafe_capu','Capuchino'],['cafe_cond','Con leche condensada'],['cafe_2l','Leche y leche (dos leches)'],['cafe_descaf','Descafeinado']]},
+ {id:'cafe_descaf',c:'Cafés',nm:'Café descafeinado',p:2,r:[['descaf',1]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe',c:'Cafés',nm:'Café expreso',p:2,r:[['cafe',1]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_solo',c:'Cafés',nm:'Café solo',p:2,r:[['cafe',1]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_largo',c:'Cafés',nm:'Café solo largo',p:2,r:[['cafe',1]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_amer',c:'Cafés',nm:'Café americano',p:2,r:[['cafe',1]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_manch',c:'Cafés',nm:'Café manchado',p:2,r:[['cafe',1],['leche',.12]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_avell',c:'Cafés',nm:'Café avellanado',p:2,r:[['cafe',1],['leche',.03]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_leche',c:'Cafés',nm:'Café con leche',p:2,r:[['cafe',1],['leche',.1]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_hielo',c:'Cafés',nm:'Café solo con hielo',p:2,r:[['cafe',1],['hielo',.05]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_capu',c:'Cafés',nm:'Capuchino',p:2,r:[['cafe',1],['leche',.12]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_cond',c:'Cafés',nm:'Café con leche condensada',p:2,r:[['cafe',1],['condensada',.03]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_2l',c:'Cafés',nm:'Café leche y leche',p:2,r:[['cafe',1],['condensada',.03],['leche',.05]],k:1,hide:1,par:'cafe_sel'},
  {id:'colacao',c:'Cafés',nm:'Colacao',p:2,r:[['colacao',1],['leche',.2]],k:1},
  {id:'te',c:'Cafés',nm:'Té',p:2,r:[['te',1]],k:1}
 ];
@@ -416,7 +419,7 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
   refresco:.59,rf_zero:.59,rf_fnar:.58,rf_flim:.58,rf_aqlim:.80,rf_aqnar:.80,rf_nestea:.55,rf_sprite:.52,rf_tonica:.61,
   energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60};
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=11;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=12;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1767,6 +1770,8 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
     if(pr('aceitunas'))MENU.filter(m=>m.par==='aceitunas').forEach(m=>m.p=pr('aceitunas').p)}
   /* 23 nov 2026: raciones que dijo el dueño (altramuces y aceitunas 100 g; 1 papelón por paquete de jamón). Se respeta cuántos pide. */
   /* Mercado Rivera, factura 69507 (10/09/2026): bote de aceitunas 14,00 € sin IVA, 50 raciones de 100 g = 0,28 € */
+  /* El café pasa de kg de grano a cápsulas Mocaibo (lo contado en kg ya no vale: se pone lo de un pedido normal) */
+  if(!(d.CATV>=12)&&STOCK.cafe)Object.assign(STOCK.cafe,JSON.parse(JSON.stringify(STOCK0.cafe)));
   /* Dueño, 23 nov 2026: el barril de 50 L le cuesta 200 € */
   if(!(d.CATV>=11)&&STOCK.barril)STOCK.barril.c=200;
   /* Limas de Mercado Rivera: bulto de 4,5 kg a 12,00 € (factura 69507) = 2,67 €/kg */

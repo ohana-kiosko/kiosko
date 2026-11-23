@@ -358,19 +358,30 @@ RFS.forEach(([id,nm,sid,n])=>{sid=sid||id;n=n||1;if(!STOCK[sid])STOCK[sid]={nm,u
   MENU.push({id,c:'Sin alcohol',nm,p:2.5,r:[[sid,1],['hielo',.05]],hide:1,par:'refresco'});MENU.find(m=>m.id==='refresco').opts.push([id,nm])});
 /* Productos envasados: cada uno descuenta su propia unidad del almacén */
 const OLI='Oli Castaño',RIV='Rivera',MAT='Matutano',CHAP='Chapela (Nestlé)';
-[['aceitunas','Picoteo','Aceitunas',1.5,'raciones',.4],['altramuces','Picoteo','Altramuces',1.5,'raciones',.35],
- ['p_queso','Picoteo','Papelón de queso',4,'papelones',1.6],['p_jamon','Picoteo','Papelón de jamón',5,'papelones',2.2],['p_lomo','Picoteo','Papelón de caña de lomo ibérica',3.5,'papelones',1.5],
- ['p_chorizo','Picoteo','Papelón de chorizo ibérico',3.5,'papelones',1.3],['p_canajamon','Picoteo','Papelón de caña de jamón',5,'papelones',2.1],
- ['totopos','Picoteo','Totopos con guacamole',3,'raciones',1.1],['palomitas','Picoteo','Palomitas',3,'bolsas',.6],
+/* Dueño, 23 nov 2026: picoteo. Lo que va entre llaves es cómo se pide (nombre en el pedido, unidad y cantidad normal). */
+const PZ=(nm,ud,n)=>({snm:nm,ped:{ud,cada:0,n}});
+[['altramuces','Picoteo','Altramuces',1.5,'raciones',.35,OLI,{ped:{ud:'bote',cada:0,n:6}}],
+ ['p_queso','Picoteo','Papelón de queso',4,'papelones',1.6,OLI,PZ('Queso (para papelones)','pieza',1)],['p_jamon','Picoteo','Papelón de jamón',5,'papelones',2.2,OLI,PZ('Jamón (para papelones)','paquete',5)],['p_lomo','Picoteo','Papelón de caña de lomo ibérica',3.5,'papelones',1.5,OLI,PZ('Caña de lomo ibérica (para papelones)','pieza',1)],
+ ['p_chorizo','Picoteo','Papelón de chorizo ibérico',3.5,'papelones',1.3,OLI,PZ('Chorizo ibérico (para papelones)','pieza',1)],['p_canajamon','Picoteo','Papelón de caña de jamón',5,'papelones',2.1,OLI,PZ('Caña de jamón (para papelones)','pieza',1)],
+ ['p_chicharron','Picoteo','Papelón de chicharrón',4,'papelones',1.5,OLI,PZ('Chicharrón (para papelones)','pieza',1)],
+ ['palomitas','Picoteo','Palomitas',3,'bolsas',.6],
+ ['gildas','Picoteo','Gilda',2,'unidades',.7,'Makro',{snm:'Gildas (1 bote de cada tipo)',ped:{ud:'bote',cada:0,n:3}}],['mejillones','Picoteo','Mejillones',3.5,'latas',1.4,'Makro',{ped:{ud:'lata',cada:1,n:10},mn:3}],
  ['pistachos','Frutos secos y patatas','Pistachos',2,'bolsas',.8,RIV],['almendras','Frutos secos y patatas','Almendras',1.5,'bolsas',.55,RIV],['almendruco','Frutos secos y patatas','Almendruco',1.5,'bolsas',.5,RIV],
  ['cacahuete','Frutos secos y patatas','Cacahuete pelado',1.5,'bolsas',.35,RIV],['pipacalabaza','Frutos secos y patatas','Pipas de calabaza',1.5,'bolsas',.45,RIV],['mix','Frutos secos y patatas','Cóctel de frutos secos',1,'bolsas',.35,RIV],
  ['anacardos','Frutos secos y patatas','Anacardos',1.5,'bolsas',.6,RIV],['avellana','Frutos secos y patatas','Avellana pelada',1.5,'bolsas',.55,RIV],['cacacascara','Frutos secos y patatas','Cacahuete con cáscara',1.5,'bolsas',.35,RIV],
  ['santaana','Frutos secos y patatas','Patatas Santa Ana',1.5,'bolsas',.6,MAT],['m_ruffles','Frutos secos y patatas','Ruffles jamón',1.5,'bolsas',.6,MAT],['m_pelotazos','Frutos secos y patatas','Pelotazos',1.5,'bolsas',.6,MAT],
  ['m_pandilla','Frutos secos y patatas','Pandilla',1.5,'bolsas',.6,MAT],['m_doritos','Frutos secos y patatas','Doritos',1.5,'bolsas',.6,MAT],['m_3d','Frutos secos y patatas','3D',1.5,'bolsas',.6,MAT],
  ['m_lays','Frutos secos y patatas',"Lay's",1.5,'bolsas',.6,MAT],['m_layscamp','Frutos secos y patatas',"Lay's campesinas",1.5,'bolsas',.6,MAT]
-].forEach(([id,c,nm,p,u,co,pv],i)=>{pv=pv||OLI;
-  const ped=pv===RIV?{ud:'saco',cada:0,n:1}:pv===MAT?{ud:'caja',cada:0,n:1}:{ud:{raciones:'ración',papelones:'papelón',bolsas:'bolsa'}[u]||'unidad',cada:1,n:28};
-  STOCK[id]={nm,u,c:co,a:[3,8,30,12,6,25,4][i%7]+6,mn:pv===RIV?0:pv===MAT?1:12,mx:40,pv,ped};MENU.push({id,c,nm,p,r:[[id,1]]})});
+].forEach(([id,c,nm,p,u,co,pv,X],i)=>{pv=pv||OLI;X=X||{};
+  const ped=X.ped?X.ped:pv===RIV?{ud:'saco',cada:0,n:1}:pv===MAT?{ud:'caja',cada:0,n:1}:{ud:{raciones:'ración',papelones:'papelón',bolsas:'bolsa'}[u]||'unidad',cada:1,n:28};
+  STOCK[id]={nm:X.snm||nm,u,c:co,a:[3,8,30,12,6,25,4][i%7]+6,mn:X.mn!=null?X.mn:pv===RIV?0:pv===MAT?1:12,mx:40,pv,ped};MENU.push({id,c,nm,p,r:[[id,1]]})});
+/* Aceitunas (Rivera): dos clases, 5 botes de cada una. Nachos con guacamole (Makro): 2 bolsas de nachos y 1 bote de guacamole. */
+[['ac_gordal','Aceitunas gordales','Gordales'],['ac_chupa','Aceitunas chupadedos','Chupadedos']].forEach(([id,nm])=>STOCK[id]={nm,u:'raciones',c:.4,a:30,mn:10,mx:30,pv:RIV,ped:{ud:'bote',cada:0,n:5}});
+MENU.push({id:'aceitunas',c:'Picoteo',nm:'Aceitunas',p:1.5,r:[],opts:[['ac_gordal_v','Gordales'],['ac_chupa_v','Chupadedos']]});
+MENU.push({id:'ac_gordal_v',c:'Picoteo',nm:'Aceitunas gordales',p:1.5,r:[['ac_gordal',1]],hide:1,par:'aceitunas'},{id:'ac_chupa_v',c:'Picoteo',nm:'Aceitunas chupadedos',p:1.5,r:[['ac_chupa',1]],hide:1,par:'aceitunas'});
+STOCK.totopos={nm:'Nachos',u:'bolsas',c:2.5,a:2,mn:1,mx:2,pv:'Makro',ped:{ud:'bolsa',cada:1,n:2}};
+STOCK.guacamole={nm:'Guacamole',u:'botes',c:4,a:1,mn:1,mx:1,pv:'Makro',ped:{ud:'bote',cada:1,n:1}};
+MENU.push({id:'totopos',c:'Picoteo',nm:'Nachos con guacamole',p:3,r:[['totopos',1/6],['guacamole',1/6]]});
 /* Helados Chapela (Nestlé): se controlan por familia (una caja) y se vende cada sabor. Coste: factura 2600003233 sin IVA */
 [['nuii','Nuii',4,20,2.27,['Almond & Java vainilla','Pistacho','Dark chocolate y almendra','Macadamia','Nueces pecanas']],
  ['maxibon','Maxibon',4,24,2.07,['Stranger Things','Classic','Cookies','Waffle','Cheesecake','Pops Crunch']],
@@ -381,7 +392,7 @@ const OLI='Oli Castaño',RIV='Rivera',MAT='Matutano',CHAP='Chapela (Nestlé)';
  ['sandnata','Sándwich de nata',2.5,24,1.42],['sandoreo','Sándwich Oreo',3.5,24,2.15],
  ['infantil','Helado infantil',2.5,20,1.38,['Mikolápiz','Smarties Push-up','Fantasmikos','Chococlack']],
  ['minibites','Oreo Minibites',4,0,2]
-].forEach(([k,nm,p,cada,c,sab])=>{const sid='h_'+k;STOCK[sid]={nm:'Helados '+nm,u:'helados',c,a:cada||12,mn:1,mx:cada||12,pv:CHAP,ped:{ud:'caja',cada,n:1}};
+].forEach(([k,nm,p,cada,c,sab])=>{const sid='h_'+k;STOCK[sid]={nm:'Helados '+nm,u:'helados',c,a:cada||12,mn:3,mx:cada||12,pv:CHAP,ped:{ud:'caja',cada,n:1}};
   if(!sab){MENU.push({id:sid,c:'Helados',nm,p,r:[[sid,1]]});return}
   MENU.push({id:'hp_'+k,c:'Helados',nm,p,r:[],opts:sab.map((x,i)=>['h'+k+'_'+i,x])});
   sab.forEach((x,i)=>MENU.push({id:'h'+k+'_'+i,c:'Helados',nm:nm+' '+x,p,r:[[sid,1]],hide:1,par:'hp_'+k}))});
@@ -389,7 +400,7 @@ const prod=id=>MENU.find(m=>m.id===id);
 const colorOf=c=>CATS.find(x=>x[0]===c)[1];
 const cost=m=>m.r.reduce((a,[s,q])=>a+STOCK[s].c*q,0);
 Object.values(STOCK).forEach(x=>x.a=x.mx);
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=1;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=2;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -471,7 +482,7 @@ function artFor(m){
    mojito:()=>highballImg([[0,'#F2FBEA'],[1,'#BFE3A6']]),mojito_x:()=>highballImg([[0,'#F2FBEA'],[1,'#BFE3A6']]),mojito_fresa:()=>highballImg([[0,'#FBD3DA'],[1,'#E0566E']]),mojito_mango:()=>highballImg([[0,'#FFEFC0'],[1,'#F2A322']]),mojito_pina:()=>highballImg([[0,'#FFF6CC'],[1,'#E8C83A']]),mojito_sandia:()=>highballImg([[0,'#FFD6D6'],[1,'#EB5A5A']]),
    caipirinha:()=>tumblerImg(),daiquiri:()=>stemImg([[0,'#FBD3DA'],[1,'#C2304E']],false),daiquiri_fresa:()=>stemImg([[0,'#FBD3DA'],[1,'#C2304E']],false),daiquiri_mango:()=>stemImg([[0,'#FFEFC0'],[1,'#E8901A']],false),daiquiri_pina:()=>stemImg([[0,'#FFF6CC'],[1,'#D8B22A']],false),daiquiri_sandia:()=>stemImg([[0,'#FFD6D6'],[1,'#E04848']],false),
    pinacolada:()=>smoothieImg([[0,'#FFFDF0'],[.5,'#F8F0D2'],[1,'#EAD9A0']],'#FFFFFF'),sanfrancisco:()=>highballImg([[0,'#FFE3B0'],[1,'#F08A3A']]),aperol:()=>balloonOrange('#F26A1B'),sarti:()=>balloonOrange('#D8232A'),cafe:()=>cupImg('cafe'),colacao:()=>cupImg('colacao'),te:()=>cupImg('te'),
-   aceitunas:()=>bowlImg('olives'),altramuces:()=>bowlImg('lupins'),
+   aceitunas:()=>bowlImg('olives'),ac_gordal_v:()=>bowlImg('olives'),ac_chupa_v:()=>bowlImg('olives'),p_chicharron:()=>coneImg([[0,'#F0C27A'],[1,'#A8621E']],true),altramuces:()=>bowlImg('lupins'),
    p_queso:()=>coneImg([[0,'#FFF0B0'],[1,'#E2B53A']],false),p_jamon:()=>coneImg([[0,'#E57A7E'],[1,'#9C2230']],true),p_lomo:()=>coneImg([[0,'#C2505C'],[1,'#6E1420']],true),
    p_chorizo:()=>coneImg([[0,'#F08A5E'],[1,'#A8301C']],true),p_canajamon:()=>coneImg([[0,'#D45A66'],[1,'#7E1A28']],true),
    totopos:()=>nachosImg(),palomitas:()=>popcornImg(),santaana:()=>chipsImg('#D8473A','#8E1E16'),patatag:()=>chipsImg('#3C82C4','#1D4F80'),patatap:()=>chipsImg('#3C82C4','#1D4F80',true),
@@ -1207,11 +1218,11 @@ function editaProv(nm){const p=nm?provDe(nm):null;const usa=p?Object.values(STOC
     const b=$('#pvb');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez para quitarlo';return}
     PROVS=PROVS.filter(x=>x!==p);pedMsg='Proveedor quitado.';closeModal();render()}}
 /* Dueño, 23 nov 2026: cada producto se pide siempre en la cantidad que él pone («Se pide»: 2 cajas, 1 barril…). */
-const UDS=['caja','pack','barril','botella','saco','bolsa','garrafa','bote','kg','litro','sobre','ración','papelón','unidad'];
+const UDS=['caja','pack','barril','botella','saco','bolsa','garrafa','bote','lata','pieza','paquete','kg','litro','sobre','ración','papelón','unidad'];
 const udPl=(u,n)=>n===1||u==='kg'?u:/ón$/.test(u)?u.replace(/ón$/,'ones'):/[lrdn]$/.test(u)?u+'es':u+'s';
 /* «Se pide» es lo de siempre (ped.n); en cada pedido se puede subir o bajar (pedHoy) y vuelve a lo de siempre al llegar. */
 const pedN=s=>s.pedHoy>0?s.pedHoy:(s.ped.n||1);
-const pedTxt=(s,siempre)=>{const p=s.ped;if(!p)return Math.ceil(s.mx-s.a)+' '+s.u;const n=siempre||!s.pedHoy?(p.n||1):pedN(s);return n+' '+udPl(p.ud,n)+(p.cada>1&&!/^(kg|litro|sobre|bote|botella|bolsa|unidad|ración|papelón)$/.test(p.ud)?' de '+p.cada:'')};
+const pedTxt=(s,siempre)=>{const p=s.ped;if(!p)return Math.ceil(s.mx-s.a)+' '+s.u;const n=siempre||!s.pedHoy?(p.n||1):pedN(s);return n+' '+udPl(p.ud,n)+(p.cada>1&&!/^(kg|litro|sobre|bote|botella|bolsa|unidad|ración|papelón|lata|pieza|paquete)$/.test(p.ud)?' de '+p.cada:'')};
 const pedUds=s=>s.ped?(s.ped.cada>0?pedN(s)*s.ped.cada:0):Math.max(0,s.mx-s.a);
 const pedCoste=s=>s.ped?(s.ped.cada>0?pedN(s)*s.ped.cada*s.c:pedN(s)*s.c):Math.ceil(s.mx-s.a)*s.c;
 function llegaPedido(s){if(s.ped){const u=pedUds(s);delete s.pedHoy;if(u>0){s.a=Math.max(0,s.a)+u;return true}return false}s.a=s.mx;return true}
@@ -1713,7 +1724,11 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
   if(d.STOCK)Object.keys(d.STOCK).forEach(k=>{if(STOCK[k])Object.assign(STOCK[k],d.STOCK[k]);else if(/^x/.test(k))STOCK[k]=d.STOCK[k]});
   /* Catálogo nuevo (23 nov 2026): se cambian nombres, proveedores y forma de pedir; lo que hay contado se queda. */
   const nuevoCat=!(d.CATV>=1);
-  if(nuevoCat){Object.keys(STOCK0).forEach(k=>{const z=STOCK0[k],x=STOCK[k];if(!x)return;x.nm=z.nm;x.u=z.u;x.pv=z.pv;x.ped=JSON.parse(JSON.stringify(z.ped));x.mn=z.mn});
+  const aplicaCat=(ks,a)=>ks.forEach(k=>{const z=STOCK0[k],x=STOCK[k];if(!x||!z)return;x.nm=z.nm;x.u=z.u;x.pv=z.pv;x.ped=JSON.parse(JSON.stringify(z.ped));x.mn=z.mn;if(a)x.a=z.a});
+  /* 23 nov 2026 (2.ª tanda): helados avisan con 2; picoteo con sus proveedores y cantidades; totopos pasa a ser bolsas de nachos. */
+  if(!nuevoCat&&!(d.CATV>=2)){Object.keys(STOCK0).filter(k=>/^h_/.test(k)).forEach(k=>STOCK[k].mn=3);aplicaCat(['altramuces','p_queso','p_jamon','p_lomo','p_chorizo','p_canajamon']);aplicaCat(['totopos'],1)}
+  if(!(d.CATV>=2)&&STOCK.totopos)Object.assign(STOCK.totopos,{a:STOCK0.totopos.a});
+  if(nuevoCat){aplicaCat(Object.keys(STOCK0));
     PROVS=PROVS.filter(p=>!(p.nm==='Helados (por confirmar)'&&!p.tel));FALTAS.forEach(f=>{if(f.pv==='Helados (por confirmar)')f.pv=CHAP;if(f.k&&STOCK[f.k])f.pv=STOCK[f.k].pv})}
   (d.EXTRA||[]).forEach(x=>{if(!prod(x.id))MENU.push(x)});(d.BORRADOS||[]).forEach(quitarProducto);
   (d.MENU||[]).forEach(x=>{const m=prod(x.id);if(m){m.p=x.p;if(x.foto)m.foto=x.foto;if(x.bc)m.bc=x.bc}});

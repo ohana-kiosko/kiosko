@@ -291,7 +291,7 @@ let STOCK={
  destilado:{nm:'Ginebra, ron, whisky (normal)',u:'botellas',c:10,a:6,mn:5,mx:15,pv:'Cuevas',ped:{ud:'botella',cada:1,n:6}},
  premium:{nm:'Destilados premium',u:'botellas',c:24,a:2,mn:3,mx:8,pv:'Guadalete',ped:{ud:'botella',cada:1,n:3}},
  licor:{nm:'Licores (vermut, Disaronno…)',u:'botellas',c:12,a:4,mn:3,mx:8,pv:'Cuevas',ped:{ud:'botella',cada:1,n:3}},
- hielo:{nm:'Hielo (bolsa 2 kg)',u:'bolsas',c:1,a:12,mn:15,mx:40,pv:'Villalba',ped:{ud:'bolsa',cada:1,n:25}},
+ hielo:{nm:'Hielo (sacas de 10 kg)',u:'kg',c:.438,a:50,mn:30,mx:80,pv:'Villalba',ped:{ud:'saca',cada:10,n:5}},
  fruta:{nm:'Fruta para smoothies y cócteles',u:'kg',c:3,a:9,mn:3,mx:14,pv:'Makro',ped:{ud:'kg',cada:1,n:10}},
  lima:{nm:'Limas y hierbabuena',u:'kg',c:2.67,a:4,mn:2,mx:8,pv:'Makro',ped:{ud:'kg',cada:1,n:5}},
  ron:{nm:'Ron blanco y cachaça',u:'botellas',c:11,a:5,mn:3,mx:10,pv:'Cuevas',ped:{ud:'botella',cada:1,n:4}},
@@ -321,15 +321,15 @@ let MENU=[
  {id:'energetica',c:'Sin alcohol',nm:'Energética',p:3,r:[['energetica',1]]},
  {id:'vino',c:'Vinos y licores',nm:'Copa de vino',p:3.5,r:[['vino',1/5]]},
  {id:'manzanilla',c:'Vinos y licores',nm:'Manzanilla',p:2.5,r:[['manzanilla',1/10]]},
- {id:'licor',c:'Vinos y licores',nm:'Licor',p:5,r:[['licor',.08/.7],['hielo',.1]]},
- {id:'combinado',c:'Copas',nm:'Combinado',p:8,r:[['destilado',.07/.7],['schweppes',1],['hielo',.15]]},
- {id:'premium',c:'Copas',nm:'Combinado premium',p:10,r:[['premium',.07/.7],['schweppes',1],['hielo',.15]]},
+ {id:'licor',c:'Vinos y licores',nm:'Licor',p:5,r:[['licor',.08/.7],['hielo',.2]]},
+ {id:'combinado',c:'Copas',nm:'Combinado',p:8,r:[['destilado',.07/.7],['schweppes',1],['hielo',.3]]},
+ {id:'premium',c:'Copas',nm:'Combinado premium',p:10,r:[['premium',.07/.7],['schweppes',1],['hielo',.3]]},
  {id:'conenerg',c:'Copas',nm:'+ con energética',p:1,r:[['energetica',1],['schweppes',-1]],extra:1},
- {id:'smoothie',c:'Smoothies',nm:'Smoothie fresa y mango',p:6,r:[['fruta',.25],['hielo',.1]],k:1},
- {id:'sm_trop',c:'Smoothies',nm:'Smoothie tropical',p:6,r:[['fruta',.25],['zumo',.1],['hielo',.1]],k:1},
- {id:'sm_pc',c:'Smoothies',nm:'Smoothie piña y coco',p:6,r:[['fruta',.2],['coco',.1],['hielo',.1]],k:1},
- {id:'sm_fb',c:'Smoothies',nm:'Smoothie frutas del bosque',p:6,r:[['fruta',.25],['hielo',.1]],k:1},
- {id:'sm_sl',c:'Smoothies',nm:'Smoothie sandía y lima',p:6,r:[['fruta',.25],['lima',.03],['hielo',.1]],k:1},
+ {id:'smoothie',c:'Smoothies',nm:'Smoothie fresa y mango',p:6,r:[['fruta',.25],['hielo',.2]],k:1},
+ {id:'sm_trop',c:'Smoothies',nm:'Smoothie tropical',p:6,r:[['fruta',.25],['zumo',.1],['hielo',.2]],k:1},
+ {id:'sm_pc',c:'Smoothies',nm:'Smoothie piña y coco',p:6,r:[['fruta',.2],['coco',.1],['hielo',.2]],k:1},
+ {id:'sm_fb',c:'Smoothies',nm:'Smoothie frutas del bosque',p:6,r:[['fruta',.25],['hielo',.2]],k:1},
+ {id:'sm_sl',c:'Smoothies',nm:'Smoothie sandía y lima',p:6,r:[['fruta',.25],['lima',.03],['hielo',.2]],k:1},
  {id:'cafe_sel',c:'Cafés',nm:'Café',p:2,r:[],k:1,opts:[['cafe','Expreso'],['cafe_solo','Café solo'],['cafe_largo','Solo largo'],['cafe_amer','Americano'],['cafe_manch','Manchado'],['cafe_avell','Avellanado'],['cafe_leche','Con leche'],['cafe_hielo','Solo con hielo'],['cafe_capu','Capuchino'],['cafe_cond','Con leche condensada'],['cafe_2l','Leche y leche (dos leches)'],['cafe_descaf','Descafeinado']]},
  {id:'cafe_descaf',c:'Cafés',nm:'Café descafeinado',p:2,r:[['descaf',1]],k:1,hide:1,par:'cafe_sel'},
  {id:'cafe',c:'Cafés',nm:'Café expreso',p:2,r:[['cafe',1]],k:1,hide:1,par:'cafe_sel'},
@@ -339,7 +339,7 @@ let MENU=[
  {id:'cafe_manch',c:'Cafés',nm:'Café manchado',p:2,r:[['cafe',1],['leche',.12]],k:1,hide:1,par:'cafe_sel'},
  {id:'cafe_avell',c:'Cafés',nm:'Café avellanado',p:2,r:[['cafe',1],['leche',.03]],k:1,hide:1,par:'cafe_sel'},
  {id:'cafe_leche',c:'Cafés',nm:'Café con leche',p:2,r:[['cafe',1],['leche',.1]],k:1,hide:1,par:'cafe_sel'},
- {id:'cafe_hielo',c:'Cafés',nm:'Café solo con hielo',p:2,r:[['cafe',1],['hielo',.05]],k:1,hide:1,par:'cafe_sel'},
+ {id:'cafe_hielo',c:'Cafés',nm:'Café solo con hielo',p:2,r:[['cafe',1],['hielo',.1]],k:1,hide:1,par:'cafe_sel'},
  {id:'cafe_capu',c:'Cafés',nm:'Capuchino',p:2,r:[['cafe',1],['leche',.12]],k:1,hide:1,par:'cafe_sel'},
  {id:'cafe_cond',c:'Cafés',nm:'Café con leche condensada',p:2,r:[['cafe',1],['condensada',.03]],k:1,hide:1,par:'cafe_sel'},
  {id:'cafe_2l',c:'Cafés',nm:'Café leche y leche',p:2,r:[['cafe',1],['condensada',.03],['leche',.05]],k:1,hide:1,par:'cafe_sel'},
@@ -351,21 +351,21 @@ const SAB=[['fresa','Fresa'],['mango','Mango'],['pina','Piña'],['sandia','Sand�
 const PCOC=8;
 MENU.push({id:'mojito',c:'Cócteles',nm:'Mojito',p:PCOC,r:[],k:1,opts:[['mojito','Clásico'],...SAB.map(([k,l])=>['mojito_'+k,l])]});
 /* Dueño, 23 nov 2026: cada mojito lleva media lima y un jigger de 5 cl de azúcar moreno (≈45 g; Oli Castaño 1,90 €/kg) (una lima pesa de media unos 67 g → 0,034 kg) */
-MENU.push({id:'mojito_x',c:'Cócteles',nm:'Mojito clásico',p:PCOC,r:[['ron',.05/.7],['lima',.034],['azucar',.045],['hielo',.15]],k:1,hide:1});
-SAB.forEach(([k,l])=>MENU.push({id:'mojito_'+k,c:'Cócteles',nm:'Mojito de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['lima',.034],['azucar',.045],['fruta',.08],['hielo',.15]],k:1,hide:1,par:'mojito'}));
-MENU.push({id:'caipirinha',c:'Cócteles',nm:'Caipiriña',p:PCOC,r:[['ron',.05/.7],['lima',.06],['azucar',.045],['hielo',.15]],k:1});
+MENU.push({id:'mojito_x',c:'Cócteles',nm:'Mojito clásico',p:PCOC,r:[['ron',.05/.7],['lima',.034],['azucar',.045],['hielo',.3]],k:1,hide:1});
+SAB.forEach(([k,l])=>MENU.push({id:'mojito_'+k,c:'Cócteles',nm:'Mojito de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['lima',.034],['azucar',.045],['fruta',.08],['hielo',.3]],k:1,hide:1,par:'mojito'}));
+MENU.push({id:'caipirinha',c:'Cócteles',nm:'Caipiriña',p:PCOC,r:[['ron',.05/.7],['lima',.06],['azucar',.045],['hielo',.3]],k:1});
 MENU.push({id:'daiquiri',c:'Cócteles',nm:'Daiquiri',p:PCOC,r:[],k:1,opts:SAB.map(([k,l])=>['daiquiri_'+k,l])});
-SAB.forEach(([k,l])=>MENU.push({id:'daiquiri_'+k,c:'Cócteles',nm:'Daiquiri de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['fruta',.12],['hielo',.15]],k:1,hide:1,par:'daiquiri'}));
-MENU.push({id:'pinacolada',c:'Cócteles',nm:'Piña colada',p:PCOC,r:[['ron',.05/.7],['zumo',.12],['coco',.15],['hielo',.15]],k:1});
-MENU.push({id:'sanfrancisco',c:'Cócteles',nm:'San Francisco (sin alcohol)',p:PCOC,r:[['zumo',.25],['hielo',.15]],k:1});
-MENU.push({id:'aperol',c:'Cócteles',nm:'Aperol Spritz',p:PCOC,r:[['aperitivo',.06/.7],['cava',.09/.75],['schweppes',.3],['hielo',.15]],k:1});
-MENU.push({id:'sarti',c:'Cócteles',nm:'Sarti Spritz',p:PCOC,r:[['aperitivo',.06/.7],['cava',.09/.75],['schweppes',.3],['hielo',.15]],k:1});
+SAB.forEach(([k,l])=>MENU.push({id:'daiquiri_'+k,c:'Cócteles',nm:'Daiquiri de '+l.toLowerCase(),p:PCOC,r:[['ron',.05/.7],['fruta',.12],['hielo',.3]],k:1,hide:1,par:'daiquiri'}));
+MENU.push({id:'pinacolada',c:'Cócteles',nm:'Piña colada',p:PCOC,r:[['ron',.05/.7],['zumo',.12],['coco',.15],['hielo',.3]],k:1});
+MENU.push({id:'sanfrancisco',c:'Cócteles',nm:'San Francisco (sin alcohol)',p:PCOC,r:[['zumo',.25],['hielo',.3]],k:1});
+MENU.push({id:'aperol',c:'Cócteles',nm:'Aperol Spritz',p:PCOC,r:[['aperitivo',.06/.7],['cava',.09/.75],['schweppes',.3],['hielo',.3]],k:1});
+MENU.push({id:'sarti',c:'Cócteles',nm:'Sarti Spritz',p:PCOC,r:[['aperitivo',.06/.7],['cava',.09/.75],['schweppes',.3],['hielo',.3]],k:1});
 MENU.find(m=>m.id==='mojito').opts[0][0]='mojito_x';MENU.find(m=>m.id==='mojito_x').par='mojito';
 /* Refrescos Coca-Cola: cada sabor es su producto del almacén (se piden por packs de 24). PVP 2,50 */
 /* Lo que se pide normalmente (dueño): 6 packs de Coca-Cola y de Zero, 2 de Aquarius limón y 2 de naranja */
 const RFS=[['rf_coca','Coca-Cola','refresco'],['rf_zero','Coca-Cola Zero',0,6],['rf_fnar','Fanta naranja'],['rf_flim','Fanta limón'],['rf_aqlim','Aquarius limón',0,2],['rf_aqnar','Aquarius naranja',0,2],['rf_nestea','Nestea'],['rf_sprite','Sprite'],['rf_tonica','Tónica']];
 RFS.forEach(([id,nm,sid,n])=>{sid=sid||id;n=n||1;if(!STOCK[sid])STOCK[sid]={nm,u:'latas',c:.45,a:24*(n+1),mn:25,mx:24*(n+1),pv:'Coca-Cola',ped:{ud:'pack',cada:24,n}};
-  MENU.push({id,c:'Sin alcohol',nm,p:2.5,r:[[sid,1],['hielo',.05]],hide:1,par:'refresco'});MENU.find(m=>m.id==='refresco').opts.push([id,nm])});
+  MENU.push({id,c:'Sin alcohol',nm,p:2.5,r:[[sid,1],['hielo',.1]],hide:1,par:'refresco'});MENU.find(m=>m.id==='refresco').opts.push([id,nm])});
 /* Productos envasados: cada uno descuenta su propia unidad del almacén */
 const OLI='Oli Castaño',RIV='Rivera',MAT='Matutano',CHAP='Chapela (Nestlé)';
 /* Dueño, 23 nov 2026: picoteo. Lo que va entre llaves es cómo se pide (nombre en el pedido, unidad y cantidad normal). */
@@ -418,10 +418,10 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
      manzanilla Gabriela 6,70, leche 1,28, condensada 3,90, Colacao 0,32 el sobre, zumo piña 200 ml 0,49). */
   refresco:.59,rf_zero:.59,rf_fnar:.58,rf_flim:.58,rf_aqlim:.80,rf_aqnar:.80,rf_nestea:.55,rf_sprite:.52,rf_tonica:.61,
   energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60,
-  barril:168.40,heineken0:42.20/24,carbonico:39.25,p_jamon:3.50,santaana:1.00,m_ruffles:.62};
+  hielo:.438,barril:168.40,heineken0:42.20/24,carbonico:39.25,p_jamon:3.50,santaana:1.00,m_ruffles:.62};
 [['santaana',24],['m_ruffles',30]].forEach(([k,n])=>{if(STOCK[k]&&STOCK[k].ped)STOCK[k].ped.cada=n});
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=15;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=16;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1239,7 +1239,7 @@ function editaProv(nm){const p=nm?provDe(nm):null;const usa=p?Object.values(STOC
     const b=$('#pvb');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez para quitarlo';return}
     PROVS=PROVS.filter(x=>x!==p);pedMsg='Proveedor quitado.';closeModal();render()}}
 /* Dueño, 23 nov 2026: cada producto se pide siempre en la cantidad que él pone («Se pide»: 2 cajas, 1 barril…). */
-const UDS=['caja','pack','barril','botella','saco','bolsa','garrafa','bote','lata','pieza','paquete','kg','litro','sobre','ración','papelón','unidad'];
+const UDS=['caja','pack','barril','botella','saco','saca','bolsa','garrafa','bote','lata','pieza','paquete','kg','litro','sobre','ración','papelón','unidad'];
 const udPl=(u,n)=>n===1||u==='kg'?u:/ón$/.test(u)?u.replace(/ón$/,'ones'):/[lrdn]$/.test(u)?u+'es':u+'s';
 /* «Se pide» es lo de siempre (ped.n); en cada pedido se puede subir o bajar (pedHoy) y vuelve a lo de siempre al llegar. */
 const pedN=s=>s.pedHoy>0?s.pedHoy:(s.ped.n||1);
@@ -1790,6 +1790,8 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
   if(!(d.CATV>=12)&&STOCK.cafe)Object.assign(STOCK.cafe,JSON.parse(JSON.stringify(STOCK0.cafe)));
   /* 23 nov 2026, facturas en papel: Bebidas Chipiona (barril 50 L 168,40; Heineken 0,0 caja 24 a 42,20; CO2 10 kg 39,25),
      Oli Castaño (taquitos de jamón 3,50 el paquete = 1 papelón) y Corbacho/Matutano (Santa Ana caja 24 a 1,00; Ruffles jamón caja 30 a 0,62). Sin IVA. */
+  /* Hielos Villalba, factura 260682: saca de cubitos de 10 kg a 4,38 € sin IVA. El hielo pasa a contarse en kg (antes bolsas de 2 kg). */
+  if(!(d.CATV>=16)&&STOCK.hielo){const h=STOCK.hielo;if(h.u==='bolsas'){h.a=(+h.a||0)*2}Object.assign(h,{c:.438,nm:STOCK0.hielo.nm,u:'kg',mn:STOCK0.hielo.mn,ped:JSON.parse(JSON.stringify(STOCK0.hielo.ped))})}
   /* Dueño, 23 nov 2026: las Santa Ana se venden a 2 € */
   if(!(d.CATV>=15)&&prod('santaana'))prod('santaana').p=2;
   if(!(d.CATV>=14)){const C={barril:168.40,heineken0:42.20/24,carbonico:39.25,p_jamon:3.50,santaana:1.00,m_ruffles:.62};

@@ -1200,7 +1200,7 @@ A.cierre=()=>{
     cierreConfirma=false;
     const c=contadoCaja(),tot=r2(COBROS.reduce((a,x)=>a+x.amt,0)),ot=r2(tot-ef-tj),dj=parseFloat($('#cdeja').value),dat=parseFloat($('#tjb').value),ret=parseFloat($('#cret').value);
     const ahora=Date.now(),rd=retiradasCaja(),desc=isNaN(c)?0:r2(c-(CAJA.fondo+ef-rd));
-    const reg=[dmy(CAJA.desde||ahora)+(ymd(new Date(CAJA.desde||ahora))!==ymd(new Date(ahora))?' (cerrada el '+dmy(ahora)+' '+hhmm(ahora)+')':' '+hhmm(ahora)),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?Math.max(0,r2(CAJA.fondo+ef-rd-(isNaN(ret)?0:ret))):r2(dj),retirado:isNaN(ret)?0:r2(ret),retDurante:rd,retiradas:(CAJA.retiradas||[]).slice(),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
+    const reg=[dmy(CAJA.desde||ahora)+(ymd(new Date(CAJA.desde||ahora))!==ymd(new Date(ahora))?' (cerrada el '+dmy(ahora)+' '+hhmm(ahora)+')':' '+hhmm(ahora)),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?Math.max(0,r2(CAJA.fondo+ef-rd-(isNaN(ret)?0:ret))):r2(dj),retirado:isNaN(ret)?0:r2(ret),retDurante:rd,retiradas:(CAJA.retiradas||[]).slice(),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo),mg:(()=>{try{return margenDe(SALES)}catch(e){return null}})()}];
     /* Billetes y monedas que se quedan en el cajón: salen solos al abrir la caja siguiente (si se contó por billetes). */
     const bd={};if(sumaDen(conteo)>0&&(Object.keys(retB).length||!(ret>0)))DEN.forEach((x,i)=>{const n=(+conteo[i]||0)-(+retB[i]||0);if(n>0)bd[i]=String(n)});
     reg[7].billetesDeja=bd;
@@ -1680,6 +1680,14 @@ let VIVO_MODO=lsJ('ohk-vivo-modo','blob'), vivoUlt=0, vivoHash='', vivoSub=false
 function vivoCupo(){const m=new Date().toLocaleDateString('sv-SE').slice(0,7);let c=lsJ('ohk-vivo-n',null);if(!c||c.m!==m)c={m,n:0};return c}
 function vivoCada(){if(VIVO_MODO==='redis')return 30e3;const c=vivoCupo(),d=new Date(),fin=new Date(d.getFullYear(),d.getMonth()+1,1).getTime();
   return Math.min(60*60e3,Math.max(8*60e3,(fin-Date.now())*0.5/Math.max(40,1200-c.n)))}
+/* Dueño, 23 nov 2026: beneficio real en el móvil. Por cada caja se guarda lo que costó la mercancía vendida (escandallo, sin IVA),
+   el IVA que se pagó en esa mercancía (21 % bebidas; 10 % comida, agua, café y helados; 4 % leche) y el margen de cada producto. */
+const IVA10=new Set(['agua','zumo','fruta','lima','coco','condensada','colacao','te','cafe','descaf','azucar','hielo','altramuces','ac_gordal','ac_chupa','totopos','guacamole','gildas','mejillones','palomitas','pistachos','almendras','almendruco','cacahuete','pipacalabaza','mix','anacardos','avellana','cacacascara']);
+const ivaSt=k=>k==='leche'?.04:IVA10.has(k)||/^(h_|m_|p_|santaana)/.test(k)?.10:.21;
+function margenDe(sales){const P={};let c=0,iv=0;(sales||[]).forEach(x=>{const m=prod(x[1]);if(!m)return;const n=+x[2]||0,i=+x[3]||0;
+  const co=cost(m)*n,ivs=(m.r||[]).reduce((a,[k,q])=>a+(STOCK[k]?STOCK[k].c*q*ivaSt(k):0),0)*n;c+=co;iv+=ivs;
+  const y=P[m.nm]||(P[m.nm]={u:0,i:0,c:0,r:1});y.u+=n;y.i+=i;y.c+=co;try{if(faltaEsc(m).length)y.r=0}catch(e){}});
+  return {c:r2(c),iv:r2(iv),p:Object.entries(P).map(([n,y])=>[n,y.u,r2(y.i),r2(y.c),y.r]).sort((a,b)=>(b[2]-b[3])-(a[2]-a[3])).slice(0,45)}}
 function datosVivo(){
   const pv={};SALES.forEach(x=>{const m=prod(x[1]),n=m?m.nm:String(x[1]);const y=pv[n]||(pv[n]={u:0,i:0});y.u+=+x[2]||0;y.i+=+x[3]||0});
   const top=Object.entries(pv).map(([n,y])=>[n,y.u,r2(y.i)]).sort((a,b)=>b[2]-a[2]).slice(0,25);
@@ -1687,7 +1695,7 @@ function datosVivo(){
   const dentro=FICHAJES.filter(f=>f&&f.in&&!f.out&&!esAdmId(f.p)&&Date.now()-f.in<16*3600e3).map(f=>({nm:(STAFF.find(x=>x.id===f.p)||{}).nm||f.p,in:hEf(f,'in')}));
   const ped={};try{const L=pedidoLines();Object.keys(L).forEach(k=>ped[k]=L[k].map(r=>({nm:r.nm,q:r.q,hay:r.hay,who:r.by?r.by.who:null,t:r.by?r.by.t:null})))}catch(e){}
   return {t:Date.now(),caja:datosPanel().caja,cobros:COBROS.slice(-600).map(c=>({t:c.t,amt:r2(+c.amt||0),how:c.how,who:c.who,acc:c.acc==null?'':String(c.acc)})),top,cuentas,dentro,
-    retiradas:(CAJA&&CAJA.abierta&&CAJA.retiradas)||[],pedidos:ped,provs:provs().map(p=>({nm:p.nm,tel:p.tel||''}))}}
+    retiradas:(CAJA&&CAJA.abierta&&CAJA.retiradas)||[],mg:(()=>{try{return margenDe(SALES)}catch(e){return null}})(),pedidos:ped,provs:provs().map(p=>({nm:p.nm,tel:p.tel||''}))}}
 async function subeVivo(forzar){if(!PANEL||vivoSub||navigator.onLine===false)return;
   let d;try{d=datosVivo()}catch(e){return}const h=JSON.stringify(Object.assign({},d,{t:0}));
   if(h===vivoHash&&!forzar)return;if(!forzar&&Date.now()-vivoUlt<vivoCada())return;

@@ -633,7 +633,7 @@ function nav(){
   $('#nav').innerHTML=PAGES.map(p=>{const head=p.g!==g?`<div class="grp">${p.g}${p.adm?' · solo Isidro':''}</div>`:'';g=p.g;const lk=p.adm&&!isAdm();
    const badge=p.id==='pedidos'?pedCount():p.id==='comandas'?COMANDAS.filter(x=>!x.done).length:0;
    return head+`<a href="#${p.id}" class="${p.id===c.id?'on':''} ${lk?'locked':''}" ${p.id===c.id?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAVI[p.id]||''}</svg>${p.t}${lk?' 🔒':''}${badge?`<span class="badge">${badge}</span>`:''}</a>`}).join('');
-  $('#who').innerHTML=user?`<div>Dentro: <b>${user.nm}</b><br>${user.rol==='admin'?'Administrador':'Trabajador'} · ${fichado(user.id)?'fichado '+hhmm(fichado(user.id).in):'sin fichar'}</div><button id="whofi" style="margin-bottom:6px">${fichado(user.id)?'Fichar salida':'Fichar entrada'}</button><button id="whoret" style="margin-bottom:6px">Retirada de efectivo</button><button id="salir">Cambiar de persona</button>`:'';
+  $('#who').innerHTML=user?`<div>Dentro: <b>${user.nm}</b><br>${user.rol==='admin'?'Administrador':'Trabajador'} · ${fichado(user.id)?'fichado '+hhmm(hEf(fichado(user.id),'in')):'sin fichar'}</div><button id="whofi" style="margin-bottom:6px">${fichado(user.id)?'Fichar salida':'Fichar entrada'}</button><button id="whoret" style="margin-bottom:6px">Retirada de efectivo</button><button id="salir">Cambiar de persona</button>`:'';
   if($('#salir'))$('#salir').onclick=()=>{user=null;showLock()};
   /* Dueño, 21 nov 2026: fichar es un botón aparte; abrir el perfil de alguien no le ficha. */
   if($('#whoret'))$('#whoret').onclick=()=>retiradaEfectivo();
@@ -649,6 +649,52 @@ window.addEventListener('hashchange',()=>{render();scrollTo(0,0)});
 
 /* ---------- Entrar con PIN ---------- */
 function fichado(id){return FICHAJES.find(f=>f.p===id&&!f.out)}
+/* Horas cambiadas por olvido (dueño, 23 nov 2026: «que puedan fichar a la hora que sea, que haya una opción de modificar la hora de
+   entrada y que yo la pueda validar, o que lo haga yo desde dirección»). El fichaje guarda siempre la hora real en que se pulsó
+   (f.in / f.out) y, aparte, la hora que dice la persona en f.cam.in / f.cam.out = {t, por, at, nota, st:'pend'|'ok'|'no', val}.
+   Mientras está por validar cuenta la hora que dice; si Isidro la rechaza, cuenta la real. Isidro valida aquí (Equipo y sueldos)
+   o desde el móvil (config.valida[p|in|campo] = {st, por, at}). Lo que cambia el administrador queda validado. */
+const kCam=(f,c)=>f.p+'|'+f.in+'|'+c;
+function camEst(f,c){const x=f&&f.cam&&f.cam[c];if(!x)return null;const v=CFG&&CFG.valida&&CFG.valida[kCam(f,c)];
+  if(v&&(!x.val||v.at>x.val.at))return Object.assign({},x,{st:v.st,val:{por:v.por,at:v.at}});return x}
+const hEf=(f,c)=>{const x=camEst(f,c);return x&&x.st!=='no'&&(c==='in'||f.out)?x.t:f[c]};
+const efF=f=>Object.assign({},f,{in:hEf(f,'in'),out:f.out?hEf(f,'out'):null});
+const porValidar=()=>{const o=[];FICHAJES.forEach((f,ix)=>['in','out'].forEach(c=>{const x=camEst(f,c);if(x&&x.st==='pend')o.push({f,ix,c,x})}));return o};
+function camPill(f){const L=['in','out'].map(c=>camEst(f,c)).filter(Boolean);if(!L.length)return '';
+  if(L.some(x=>x.st==='pend'))return ' <span class="pill p-warn">por validar</span>';if(L.some(x=>x.st==='no'))return ' <span class="pill p-bad">rechazada</span>';return ' <span class="pill p-mute">hora cambiada</span>'}
+function cambiaHora(f,c,t,nota){const adm=user&&user.rol==='admin',ahora=Date.now();f.cam=f.cam||{};
+  f.cam[c]={t,por:user?user.nm:'',at:ahora,nota:nota||'',st:adm?'ok':'pend',val:adm?{por:user.nm,at:ahora}:null};marcaPanel(true);guardar()}
+function validaHora(f,c,ok){const x=f.cam&&f.cam[c];if(!x)return;x.st=ok?'ok':'no';x.val={por:user.nm,at:Date.now()};marcaPanel(true);guardar()}
+/* Pide la hora. f: fichaje (null = entrada nueva de user). c: 'in' | 'out'. */
+function horaModal(f,c){const adm=isAdm(),q=f?(STAFF.find(x=>x.id===f.p)||{nm:f.p}):user;
+  const ref=f?(c==='in'?hEf(f,'in'):(f.out?hEf(f,'out'):Date.now())):Date.now();const dRef=new Date(ref).toLocaleDateString('sv-SE');
+  const dias=[0,1,2].map(i=>new Date(Date.now()-i*864e5).toLocaleDateString('sv-SE'));if(dias.indexOf(dRef)<0)dias.push(dRef);
+  modal(`<h3 style="margin:0 0 6px">${c==='in'?'¿A qué hora entró'+(q===user?'s':'')+'?':'¿A qué hora salió'+(q===user?'s':'')+'?'} · ${esc(q.nm)}</h3>
+   <p class="muted" style="margin:0 0 12px;font-size:14px">${adm?'Lo cambias como administrador: queda validado.':'Isidro lo tiene que validar (aquí o desde su móvil). Mientras, cuenta la hora que pongas; si no la valida, cuenta la hora a la que pulsaste.'}${f&&f[c]?' Fichó a las <b>'+hhmm(f[c])+'</b>.':''}</p>
+   <div class="row" style="gap:10px"><label class="f" style="flex:1">Día<select class="inp" id="hd">${dias.map(d=>`<option value="${d}" ${d===dRef?'selected':''}>${d===dias[0]?'Hoy':d===dias[1]?'Ayer':''} ${dmy(d+'T12:00:00')}</option>`).join('')}</select></label>
+   <label class="f" style="flex:1">Hora<input class="inp" id="hh" type="time" value="${hhmm(ref)}" style="font-size:22px"></label></div>
+   ${adm?'':'<label class="f" style="margin-top:10px">Motivo (si quieres)<input class="inp" id="hn" maxlength="80" placeholder="Se me olvidó fichar"></label>'}
+   <div id="hm" role="alert" style="margin-top:8px"></div>
+   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="hok">Guardar</button></div>`);
+  $('#hok').onclick=()=>{const v=$('#hh').value,t=new Date($('#hd').value+'T'+v+':00').getTime();const err=m=>{$('#hm').innerHTML='<span class="pill p-bad">'+m+'</span>'};
+    if(!v||isNaN(t))return err('Pon la hora.');if(t>Date.now()+60e3)return err('Esa hora todavía no ha llegado.');
+    if(c==='in'){const o=f&&f.out?hEf(f,'out'):null;if(o&&t>=o)return err('La entrada tiene que ser antes de la salida ('+hhmm(o)+').');
+      const prev=FICHAJES.filter(g=>g!==f&&g.p===(f?f.p:user.id)&&g.out&&hEf(g,'out')>t&&hEf(g,'in')<(o||Date.now()));if(prev.length)return err('Se pisa con otro fichaje ('+hhmm(hEf(prev[0],'in'))+'–'+hhmm(hEf(prev[0],'out'))+').')}
+    else{const i=hEf(f,'in');if(t<=i)return err('La salida tiene que ser después de la entrada ('+hhmm(i)+').')}
+    let r=f;if(!r){r={p:user.id,in:Date.now(),out:null};FICHAJES.push(r)}
+    if(c==='out'&&!r.out)r.out=Date.now();
+    cambiaHora(r,c,t,$('#hn')?$('#hn').value.trim():'');closeModal();tpvMsg='';render()}}
+/* Fichaje a mano del administrador (alguien que no fichó nada). */
+function fichajeMano(){const L=STAFF.filter(x=>x.rol!=='admin');const hoy=new Date().toLocaleDateString('sv-SE');
+  modal(`<h3 style="margin:0 0 10px">Fichar a mano</h3><label class="f">Persona<select class="inp" id="mp">${L.map(x=>`<option value="${esc(x.id)}">${esc(x.nm)}</option>`).join('')}</select></label>
+   <div class="row" style="gap:10px;margin-top:10px"><label class="f" style="flex:1">Día<input class="inp" id="md" type="date" value="${hoy}" max="${hoy}"></label><label class="f" style="flex:1">Entrada<input class="inp" id="me" type="time"></label><label class="f" style="flex:1">Salida<input class="inp" id="ms" type="time"></label></div>
+   <p class="muted" style="font-size:13px;margin:8px 0 0">Sin salida, queda dentro hasta que fiche la salida. Si la salida es antes que la entrada, cuenta como del día siguiente.</p><div id="mm" role="alert" style="margin-top:8px"></div>
+   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="mok">Guardar</button></div>`);
+  $('#mok').onclick=()=>{const d=$('#md').value,e=new Date(d+'T'+$('#me').value+':00').getTime();let o=$('#ms').value?new Date(d+'T'+$('#ms').value+':00').getTime():null;
+    const err=m=>{$('#mm').innerHTML='<span class="pill p-bad">'+m+'</span>'};if(!$('#me').value||isNaN(e))return err('Pon la hora de entrada.');if(e>Date.now())return err('Esa hora todavía no ha llegado.');
+    if(o&&o<=e)o+=864e5;if(o&&o>Date.now()+60e3)return err('La salida todavía no ha llegado.');const p=$('#mp').value;
+    if(!o&&fichado(p))return err('Esa persona ya está dentro. Cambia su hora de entrada en la lista.');
+    FICHAJES.push({p,in:e,out:o,mano:{por:user.nm,at:Date.now()}});marcaPanel(true);guardar();closeModal();render()}}
 function showLock(msg){
   const L=$('#lock');L.hidden=false;pinBuf='';
   const draw=(m)=>{L.innerHTML=`<div class="box" role="dialog" aria-modal="true" aria-label="Entrar">
@@ -1237,12 +1283,15 @@ V.fichar=()=>{const me=user;const f=fichado(me.id);const w=WEEK[me.id]||{ord:0,e
  return `<div class="row"><section class="card" style="flex:1 1 360px"><div class="bd" style="display:flex;flex-direction:column;gap:14px;align-items:stretch;text-align:center">
    <div style="font-size:15px" class="muted">${me.nm} · ${me.rol==='admin'?'Administrador':me.puesto}</div>
    <div style="font-family:var(--display);font-size:46px;font-weight:700">${hhmm()}</div>
-   <div>${f?`<span class="pill p-ok">Trabajando desde las ${hhmm(f.in)}</span>`:'<span class="pill p-mute">Sin fichar</span>'}</div>
+   <div>${f?`<span class="pill p-ok">Trabajando desde las ${hhmm(hEf(f,'in'))}</span>${camPill(f)}`:'<span class="pill p-mute">Sin fichar</span>'}</div>
    ${f?'<button class="btn big" id="fout">Fichar salida</button>':'<button class="btn big pri" id="fin">Fichar entrada</button>'}
+   ${f?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn" id="fcin">Cambiar mi hora de entrada</button><button class="btn" id="fout2">Fichar salida con otra hora</button></div>'
+      :'<button class="btn" id="fin2">Se me olvidó fichar: poner la hora a la que entré</button>'}
    <div class="muted" style="font-size:13px">Entrar con tu clave no ficha. Pulsa «Fichar entrada» al empezar tu turno y «Fichar salida» al acabarlo (también desde el botón de abajo a la izquierda).</div></div></section>
   <section class="card" style="flex:2 1 420px"><h2>Mis horas</h2><div class="bd" id="mishoras" style="display:flex;flex-direction:column;gap:10px"></div></section></div>
- <section class="card"><h2>Quién está ahora</h2><div class="tw"><table><tbody>${STAFF.filter(s=>s.rol!=='admin').map(s=>{const x=fichado(s.id);return `<tr><td><b>${s.nm}</b></td><td>${s.puesto}</td><td>${x?`<span class="pill p-ok">Dentro desde ${hhmm(x.in)}</span>`:'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')}</tbody></table></div></section>`};
-A.fichar=()=>{if($('#fout'))$('#fout').onclick=()=>{const t=Date.now();fichado(user.id).out=t;encola(user.id,'out',t);render()};if($('#fin'))$('#fin').onclick=()=>{const t=Date.now();FICHAJES.push({p:user.id,in:t,out:null});encola(user.id,'in',t);render()};misHoras()};
+ <section class="card"><h2>Quién está ahora</h2><div class="tw"><table><tbody>${STAFF.filter(s=>s.rol!=='admin').map(s=>{const x=fichado(s.id);return `<tr><td><b>${s.nm}</b></td><td>${s.puesto}</td><td>${x?`<span class="pill p-ok">Dentro desde ${hhmm(hEf(x,'in'))}</span>`:'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')}</tbody></table></div></section>`};
+A.fichar=()=>{if($('#fout'))$('#fout').onclick=()=>{const t=Date.now();fichado(user.id).out=t;encola(user.id,'out',t);render()};if($('#fin'))$('#fin').onclick=()=>{const t=Date.now();FICHAJES.push({p:user.id,in:t,out:null});encola(user.id,'in',t);render()};
+  if($('#fin2'))$('#fin2').onclick=()=>horaModal(null,'in');if($('#fcin'))$('#fcin').onclick=()=>horaModal(fichado(user.id),'in');if($('#fout2'))$('#fout2').onclick=()=>horaModal(fichado(user.id),'out');misHoras()};
 
 /* ---------- 7. Histórico y ventas ---------- */
 let histP='hoy';
@@ -1284,16 +1333,26 @@ A.escandallo=()=>{$$('[data-esc]').forEach(b=>b.onclick=()=>{escSel=b.dataset.es
 /* ---------- 9. Equipo y sueldos ---------- */
 V.equipo=()=>`<section class="card"><h2>Panel del móvil</h2><div class="bd" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">${PANEL?`<div>✅ Esta tablet está conectada con tu panel. ${panelUlt?'Último envío: '+(new Date(panelUlt).toDateString()===new Date().toDateString()?'hoy':new Date(panelUlt).toLocaleDateString('es-ES'))+' a las '+hhmm(panelUlt)+'.':'Aún no ha enviado nada.'}${panelMsg?' <span class="pill p-warn">'+esc(panelMsg)+'</span>':''}</div><div class="muted" style="font-size:13px">En el móvil abre <b>kiosko-topaz.vercel.app/panel</b>: cajas, horas de los camareros, horas ordinarias y extra. Los camareros nuevos se dan de alta allí.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="pnow">Enviar ahora</button><button class="btn sm" id="poff">Desconectar</button></div>`:`<p class="muted" style="margin:0">Conecta esta tablet una vez para ver en tu móvil las cajas y las horas de los camareros. Escribe la clave larga del TPV (la que pusiste en Vercel como TPV_CLAVE).</p><input id="pclave" class="inp" type="password" placeholder="Clave del TPV" style="padding:10px;font-size:16px;min-width:260px"><button class="btn pri" id="pcon">Conectar con el panel del móvil</button>`}<div id="pmsg" class="muted"></div></div></section>
  <section class="card"><h2>Esta semana</h2><div class="tw"><table><thead><tr><th>Persona</th><th class="r">Horas ordinarias</th><th class="r">Trabajadas</th><th class="r">Horas extra</th><th>Ahora</th></tr></thead><tbody>
- ${STAFF.filter(x=>x.rol!=='admin').map(x=>{const f=fichado(x.id),w=horasSemana(x.id);return `<tr><td><b>${esc(x.nm)}</b></td><td class="r">${w.ord==null?'—':fmtQ(w.ord)+' h'}</td><td class="r">${hTxt(w.min)}</td><td class="r">${w.extra?`<span class="pill p-warn">${hTxt(w.extra)}</span>`:'0 h'}</td><td>${f?`<span class="pill p-ok">Dentro desde ${hhmm(f.in)}</span>`:'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Sin camareros. Dalos de alta en el panel del móvil.</td></tr>'}
+ ${STAFF.filter(x=>x.rol!=='admin').map(x=>{const f=fichado(x.id),w=horasSemana(x.id);return `<tr><td><b>${esc(x.nm)}</b></td><td class="r">${w.ord==null?'—':fmtQ(w.ord)+' h'}</td><td class="r">${hTxt(w.min)}</td><td class="r">${w.extra?`<span class="pill p-warn">${hTxt(w.extra)}</span>`:'0 h'}</td><td>${f?`<span class="pill p-ok">Dentro desde ${hhmm(hEf(f,'in'))}</span>`:'<span class="pill p-mute">Fuera</span>'}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Sin camareros. Dalos de alta en el panel del móvil.</td></tr>'}
  </tbody></table></div><div class="bd muted" style="font-size:13px">${CFG&&CFG.camareros&&CFG.camareros.length?'Camareros y horas ordinarias puestos desde el panel del móvil. Lo que pasa de las ordinarias en la semana (de lunes a domingo) es extra.':'Aún no has puesto los camareros en el panel del móvil: las horas ordinarias salen allí.'}</div></section>
- <div class="row"><section class="card" style="flex:1 1 380px"><h2>Historial de fichajes</h2><div class="tw"><table><thead><tr><th>Día</th><th>Persona</th><th>Entrada</th><th>Salida</th><th class="r">Horas</th></tr></thead><tbody>
- ${FICHAJES.slice().reverse().slice(0,40).map(f=>{const st=STAFF.find(x=>x.id===f.p);const h=f.out?Math.round((f.out-f.in)/36e5*10)/10:null;return `<tr><td>${new Date(f.in).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}</td><td>${st?st.nm:f.p}</td><td>${hhmm(f.in)}</td><td>${f.out?hhmm(f.out):'—'}</td><td class="r">${h==null?'':fmtQ(h)}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Aún no hay fichajes.</td></tr>'}
+ ${porValidar().length?`<section class="card" style="border-color:var(--warn,#c90)"><h2>Horas por validar (${porValidar().length})</h2><div class="tw"><table><thead><tr><th>Persona</th><th>Día</th><th>Qué</th><th>Fichó</th><th>Dice</th><th></th></tr></thead><tbody>
+ ${porValidar().map(({f,ix,c,x})=>{const st=STAFF.find(y=>y.id===f.p);return `<tr><td><b>${esc(st?st.nm:f.p)}</b>${x.nota?`<div class="muted" style="font-size:12.5px">${esc(x.nota)}</div>`:''}</td><td>${new Date(x.t).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}</td><td>${c==='in'?'Entrada':'Salida'}</td><td>${hhmm(f[c])}</td><td><b>${hhmm(x.t)}</b></td><td style="white-space:nowrap"><button class="btn sm pri" data-vok="${ix}|${c}">Validar</button> <button class="btn sm" data-vno="${ix}|${c}">Rechazar</button> <button class="btn sm" data-vch="${ix}|${c}">Otra hora</button></td></tr>`}).join('')}
+ </tbody></table></div><div class="bd muted" style="font-size:13px">Validar: cuenta la hora que dice. Rechazar: cuenta la hora a la que pulsó. También se validan desde el panel del móvil (Camareros).</div></section>`:''}
+ <div class="row"><section class="card" style="flex:1 1 380px"><h2 style="display:flex;align-items:center;gap:8px">Historial de fichajes<span style="flex:1"></span><button class="btn sm" id="fmano">Fichar a mano</button></h2><div class="tw"><table><thead><tr><th>Día</th><th>Persona</th><th>Entrada</th><th>Salida</th><th class="r">Horas</th><th></th></tr></thead><tbody>
+ ${FICHAJES.map((f,ix)=>[f,ix]).reverse().slice(0,40).map(([f0,ix])=>{const f=efF(f0),st=STAFF.find(x=>x.id===f.p);const h=f.out?Math.round((f.out-f.in)/36e5*10)/10:null;return `<tr><td>${new Date(f.in).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}</td><td>${st?esc(st.nm):f.p}${camPill(f0)}${f0.mano?' <span class="pill p-mute">a mano</span>':''}</td><td>${hhmm(f.in)}</td><td>${f.out?hhmm(f.out):'—'}</td><td class="r">${h==null?'':fmtQ(h)}</td><td style="white-space:nowrap"><button class="btn sm" data-hce="${ix}">Entrada</button>${f.out?` <button class="btn sm" data-hcs="${ix}">Salida</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="6" class="muted">Aún no hay fichajes.</td></tr>'}
  </tbody></table></div></section>
  <section class="card" style="flex:1 1 340px"><h2>Qué puede hacer cada uno</h2><div class="tw"><table><thead><tr><th></th><th>Trabajador</th><th>Isidro</th></tr></thead><tbody>
  ${[['Vender y cobrar','Sí','Sí'],['Comandas','Sí','Sí'],['Cerrar caja','Sí','Sí'],['Faltas y pedidos','Sí','Sí'],['Subir facturas','Sí','Sí'],['Fichar','Sí','Sí'],['Histórico y ventas','No','Sí'],['Escandallo','No','Sí'],['Sueldos y horas de todos','No','Sí'],['Cambiar precios','No','Sí']].map(r=>`<tr><td>${r[0]}</td><td>${r[1]==='Sí'?'<span class="pill p-ok">Sí</span>':'<span class="pill p-mute">No</span>'}</td><td><span class="pill p-ok">Sí</span></td></tr>`).join('')}
  </tbody></table></div></section></div>`;
 
 A.equipo=()=>{
+  const fx=v=>{const [i,c]=v.split('|');return [FICHAJES[+i],c]};
+  $$('[data-vok]').forEach(b=>b.onclick=()=>{const [f,c]=fx(b.dataset.vok);validaHora(f,c,true);render()});
+  $$('[data-vno]').forEach(b=>b.onclick=()=>{const [f,c]=fx(b.dataset.vno);validaHora(f,c,false);render()});
+  $$('[data-vch]').forEach(b=>b.onclick=()=>{const [f,c]=fx(b.dataset.vch);horaModal(f,c)});
+  $$('[data-hce]').forEach(b=>b.onclick=()=>horaModal(FICHAJES[+b.dataset.hce],'in'));
+  $$('[data-hcs]').forEach(b=>b.onclick=()=>horaModal(FICHAJES[+b.dataset.hcs],'out'));
+  if($('#fmano'))$('#fmano').onclick=fichajeMano;
   if($('#pcon'))$('#pcon').onclick=async()=>{const m=$('#pmsg');m.textContent='Conectando…';try{const r=await panelApi('POST','entrar',{clave:$('#pclave').value,quien:'tpv'});PANEL={tok:r.tok};lsS(PNK,PANEL);await subePanel();await leeConfig();subeVivo(true);render()}catch(e){m.textContent=e.message}};
   if($('#pnow'))$('#pnow').onclick=async()=>{$('#pmsg').textContent='Enviando…';await subePanel();render();if($('#pmsg'))$('#pmsg').textContent=panelMsg?'No se pudo: '+panelMsg:'Enviado.'};
   if($('#poff'))$('#poff').onclick=()=>{const b=$('#poff');if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Pulsa otra vez para desconectar';return}PANEL=null;lsS(PNK,null);render()}};
@@ -1453,7 +1512,7 @@ function datosPanel(){
   return {t:Date.now(),
     caja:CAJA&&CAJA.abierta?{abierta:true,desde:CAJA.desde,por:CAJA.por,fondo:CAJA.fondo,ef:sum(/^Efectivo/),tj:sum(/^Tarjeta/),total:sum(null),retirado:retiradasCaja(),cobros:COBROS.length,pendiente:Math.round(pend*100)/100}:{abierta:false,deja:CAJA&&CAJA.deja!=null?CAJA.deja:null},
     cierres:HIST.filter(h=>h&&h[7]&&h[7].hasta).slice(0,500).map(h=>Object.assign({},h[7],{f:h[0],cerro:h[1],ventas:h[2],desc:h[4]})),
-    fichajes:FICHAJES.filter(f=>f&&f.in>desde).map(f=>({p:f.p,in:f.in,out:f.out||null})),
+    fichajes:FICHAJES.filter(f=>f&&f.in>desde).map(f=>{const o={p:f.p,in:f.in,out:f.out||null};const ci=camEst(f,'in'),co=camEst(f,'out');if(ci||co)o.cam={in:ci,out:co};if(f.mano)o.mano=1;return o}),
     staff:STAFF.filter(x=>x.rol!=='admin').map(x=>({id:x.id,nm:x.nm,ord:x.ord||0}))}}
 function marcaPanel(prisa){panelSucio=true;clearTimeout(tPanel);tPanel=setTimeout(subePanel,prisa?3000:20000);if(prisa)setTimeout(()=>subeVivo(true),4000)}
 /* «En directo» en el móvil del dueño (23 nov 2026). Lo que pasa ahora: cobros de hoy, lo más vendido, mesas abiertas, quién está
@@ -1467,7 +1526,7 @@ function datosVivo(){
   const pv={};SALES.forEach(x=>{const m=prod(x[1]),n=m?m.nm:String(x[1]);const y=pv[n]||(pv[n]={u:0,i:0});y.u+=+x[2]||0;y.i+=+x[3]||0});
   const top=Object.entries(pv).map(([n,y])=>[n,y.u,r2(y.i)]).sort((a,b)=>b[2]-a[2]).slice(0,25);
   let cuentas=[];try{cuentas=ACCS.filter(n=>n!==QUICK&&ACC[n]&&!ACC[n].hidden&&['due','part'].includes(accState(n))).map(n=>{const t=accTotal(n);return {n:String(n),t,p:r2(t-ACC[n].paid),u:Object.values(ACC[n].items||{}).reduce((a,b)=>a+(+b||0),0)}})}catch(e){}
-  const dentro=FICHAJES.filter(f=>f&&f.in&&!f.out&&Date.now()-f.in<16*3600e3).map(f=>({nm:(STAFF.find(x=>x.id===f.p)||{}).nm||f.p,in:f.in}));
+  const dentro=FICHAJES.filter(f=>f&&f.in&&!f.out&&Date.now()-f.in<16*3600e3).map(f=>({nm:(STAFF.find(x=>x.id===f.p)||{}).nm||f.p,in:hEf(f,'in')}));
   const ped={};try{const L=pedidoLines();Object.keys(L).forEach(k=>ped[k]=L[k].map(r=>({nm:r.nm,q:r.q,hay:r.hay,who:r.by?r.by.who:null,t:r.by?r.by.t:null})))}catch(e){}
   return {t:Date.now(),caja:datosPanel().caja,cobros:COBROS.slice(-600).map(c=>({t:c.t,amt:r2(+c.amt||0),how:c.how,who:c.who,acc:c.acc==null?'':String(c.acc)})),top,cuentas,dentro,
     retiradas:(CAJA&&CAJA.abierta&&CAJA.retiradas)||[],pedidos:ped,provs:provs().map(p=>({nm:p.nm,tel:p.tel||''}))}}
@@ -1494,7 +1553,7 @@ function aplicaEquipo(lst){if(!Array.isArray(lst)||!lst.length)return;const adm=
 async function leeConfig(){if(!PANEL||navigator.onLine===false)return;
   try{const r=await panelApi('GET','config');const nueva=JSON.stringify(r.config||{});if(nueva===JSON.stringify(CFG||{}))return;CFG=r.config||{};lsS(CFGK,CFG);aplicaConfig();try{aplicaProvs();if(current().id==='pedidos'&&$('#modal').hidden)render()}catch(e){}
     if(!$('#lock').hidden&&!pinBuf&&!pinNuevo)showLock();else if(user&&['equipo','fichar'].includes(current().id)&&$('#modal').hidden)render()}catch(e){}}
-function fichajesEf(){const fix=(CFG&&CFG.fix)||{},o=[];FICHAJES.forEach(f=>{const x=fix[f.p+'|'+f.in];if(x&&x.x)return;o.push(Object.assign({},f,x||{}))});((CFG&&CFG.nuevos)||[]).forEach(n=>o.push(n));return o}
+function fichajesEf(){const fix=(CFG&&CFG.fix)||{},o=[];FICHAJES.forEach((f,ix)=>{const x=fix[f.p+'|'+f.in];if(x&&x.x)return;o.push(Object.assign(efF(f),x||{},{ix,corr:!!x}))});((CFG&&CFG.nuevos)||[]).forEach(n=>o.push(n));return o}
 function horasSemana(id){const l=lunesK(hoyK());const min=fichajesEf().filter(f=>f.p===id&&f.out&&new Date(f.in).toLocaleDateString('sv-SE')>=l).reduce((x,f)=>x+Math.max(0,Math.round((f.out-f.in)/6e4)),0);
   const c=CFG&&Array.isArray(CFG.camareros)&&CFG.camareros.find(x=>x.id===id);const ord=c?ordCfg(c,l):null;return {min,ord,extra:ord==null?0:Math.max(0,min-ord*60)}}
 const hTxt=m=>{m=Math.round(m||0);const h=Math.floor(m/60),mm=m%60;return h+' h'+(mm?' '+String(mm).padStart(2,'0'):'')};
@@ -1503,8 +1562,9 @@ function misHoras(){const box=$('#mishoras');if(!box||!user)return;const id=user
   const w=horasSemana(id),l=lunesK(hoyK()),ant=lunesK(new Date(Date.now()-7*864e5).toLocaleDateString('sv-SE'));
   const L=fichajesEf().filter(f=>f.p===id&&new Date(f.in).toLocaleDateString('sv-SE')>=ant).sort((p,q)=>q.in-p.in);
   box.innerHTML=`<div class="kpis"><div class="kpi"><div class="l">Esta semana</div><div class="v">${hTxt(w.min)}</div></div><div class="kpi"><div class="l">Ordinarias</div><div class="v">${w.ord==null?'—':fmtQ(w.ord)+' h'}</div></div><div class="kpi"><div class="l">Extra esta semana</div><div class="v">${hTxt(w.extra)}</div></div></div>
-   <div class="tw"><table><thead><tr><th>Día</th><th>Entrada</th><th>Salida</th><th class="r">Horas</th></tr></thead><tbody>${L.map(f=>`<tr><td>${new Date(f.in).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}</td><td>${hhmm(f.in)}</td><td>${f.out?hhmm(f.out):'<span class="pill p-ok">en curso</span>'}</td><td class="r">${f.out?hTxt((f.out-f.in)/6e4):''}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">Sin fichajes esta semana ni la anterior.</td></tr>'}</tbody></table></div>
-   <div class="muted" style="font-size:13px">La semana va de lunes a domingo. Lo que pase de tus horas ordinarias es extra.</div>`}
+   <div class="tw"><table><thead><tr><th>Día</th><th>Entrada</th><th>Salida</th><th class="r">Horas</th><th></th></tr></thead><tbody>${L.map(f=>{const f0=f.ix!=null?FICHAJES[f.ix]:null,rec=f0&&!f.corr&&Date.now()-f0.in<48*3600e3;return `<tr><td>${new Date(f.in).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}${f0?camPill(f0):''}</td><td>${hhmm(f.in)}</td><td>${f.out?hhmm(f.out):'<span class="pill p-ok">en curso</span>'}</td><td class="r">${f.out?hTxt((f.out-f.in)/6e4):''}</td><td style="white-space:nowrap">${rec?`<button class="btn sm" data-mce="${f.ix}">Entrada</button>${f.out?` <button class="btn sm" data-mcs="${f.ix}">Salida</button>`:''}`:''}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Sin fichajes esta semana ni la anterior.</td></tr>'}</tbody></table></div>
+   <div class="muted" style="font-size:13px">La semana va de lunes a domingo. Lo que pase de tus horas ordinarias es extra. Si se te olvidó fichar, cambia la hora con «Entrada» o «Salida» (hasta 2 días); Isidro la valida.</div>`;
+  $$('[data-mce]').forEach(b=>b.onclick=()=>horaModal(FICHAJES[+b.dataset.mce],'in'));$$('[data-mcs]').forEach(b=>b.onclick=()=>horaModal(FICHAJES[+b.dataset.mcs],'out'))}
 
 /* ---------- Escáner del TPV (lector 1D/2D integrado, dueño 19 nov 2026) ----------
    El lector «escribe» el código como un teclado muy rápido y acaba con Intro. Se distingue de una persona por la velocidad.

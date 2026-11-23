@@ -18,6 +18,13 @@
 //   GET  ?a=salud                      (sin clave)                    -> comprueba que el almacén lee y escribe
 //   POST {a:'diag', datos}             (tablet)                       -> diagnóstico de impresora y cajón (kiosko/diag.json)
 //   GET  ?a=diag                       (sin clave)                    -> lo lee Claude: solo datos del aparato (USB, puertos, apps), sin ventas
+//   POST {a:'vivo', datos}             (tablet)                       -> lo que pasa ahora en caja (cobros de hoy, mesas, faltas…)
+//   GET  ?a=vivo                       (dueño)                        -> {vivo, modo}
+//
+// «En directo» (dueño, 23 nov 2026: «que pueda ir viendo lo que va pasando en caja»). Si el proyecto tiene una base Redis
+// conectada (variables KV_REST_API_URL y KV_REST_API_TOKEN, o UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN, las pone
+// Vercel al conectarla), lo de ahora va ahí y la tablet lo manda cada 30 s (modo 'redis'). Si no, va al almacén Blob y la
+// tablet lo manda cada 10-15 min para no pasar de las escrituras gratis (modo 'blob'). Se cambia solo, sin tocar código.
 // El plan gratis da 2.000 escrituras al mes: la tablet sube solo al cerrar o abrir caja, al fichar y, como mucho, una vez
 // por hora si hubo ventas.
 const crypto = require('crypto');
@@ -47,6 +54,18 @@ async function escribir(ruta, obj) {
   if (!r.ok) { console.error('Blob escribir', ruta, r.status, (await r.text()).slice(0, 300)); throw new Error('No se pudo guardar en el almacén (' + r.status + ')'); }
   return true;
 }
+
+const RURL = () => (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/$/, '');
+const RTOK = () => process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const hayRedis = () => !!(RURL() && RTOK());
+async function redis(cmd) {
+  const r = await fetch(RURL(), { method: 'POST', headers: { authorization: 'Bearer ' + RTOK(), 'content-type': 'application/json' }, body: JSON.stringify(cmd) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) { console.error('Redis', r.status, j.error); throw new Error('No se pudo usar la base en directo'); }
+  return j.result;
+}
+const leeVivo = async () => hayRedis() ? JSON.parse((await redis(['GET', 'kiosko:vivo'])) || 'null') : leer('kiosko/vivo.json');
+const guardaVivo = async d => hayRedis() ? redis(['SET', 'kiosko:vivo', JSON.stringify(d)]) : escribir('kiosko/vivo.json', d);
 
 const firma = (C, txt) => crypto.createHmac('sha256', 'panel-kiosko|' + C).update(txt).digest('base64url');
 function quienEs(req, C) {
@@ -84,9 +103,10 @@ module.exports = async (req, res) => {
       if (!q) return res.status(401).json({ error: 'Hay que volver a entrar.' });
       if (a === 'config') return res.status(200).json({ config: (await leer('kiosko/config.json')) || {} });
       if (a === 'todo' && q === 'dueno') {
-        const [estado, config] = await Promise.all([leer('kiosko/estado.json'), leer('kiosko/config.json')]);
-        return res.status(200).json({ estado: estado || null, config: config || {} });
+        const [estado, config, vivo] = await Promise.all([leer('kiosko/estado.json'), leer('kiosko/config.json'), leeVivo().catch(() => null)]);
+        return res.status(200).json({ estado: estado || null, config: config || {}, vivo: vivo || null, modo: hayRedis() ? 'redis' : 'blob' });
       }
+      if (a === 'vivo' && q === 'dueno') return res.status(200).json({ vivo: (await leeVivo()) || null, modo: hayRedis() ? 'redis' : 'blob' });
       return res.status(400).json({ error: 'Acción no válida' });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Método no válido' });
@@ -109,6 +129,13 @@ module.exports = async (req, res) => {
       d.recibido = Date.now();
       await escribir('kiosko/estado.json', d);
       return res.status(200).json({ ok: true, t: d.recibido });
+    }
+    if (b.a === 'vivo' && q === 'tpv') {
+      const d = b.datos;
+      if (!d || typeof d !== 'object' || JSON.stringify(d).length > 200000) return res.status(400).json({ error: 'Datos no válidos' });
+      d.recibido = Date.now();
+      await guardaVivo(d);
+      return res.status(200).json({ ok: true, modo: hayRedis() ? 'redis' : 'blob' });
     }
     if (b.a === 'diag' && q === 'tpv') {
       const d = b.datos;

@@ -189,13 +189,17 @@ function pinta(){
 
 /* Cajas */
 const cierres=()=>((EST&&EST.cierres)||[]).filter(c=>c&&c.hasta);
+/* Día de una caja = el día en que se ABRIÓ (dueño, 23 nov 2026: «el domingo no hizo caja y el lunes sí; hoy estoy cerrado»). Una caja
+   que se cierra pasada la medianoche o al día siguiente cuenta en el día en que se trabajó. */
+const diaC=c=>ymd(c.desde||c.hasta);
+const cierreTxt=c=>{const a=ymd(c.desde||c.hasta),b=ymd(c.hasta);return a===b?hhmm(c.hasta):diaCorto(b)+' a las '+hhmm(c.hasta)};
 /* Personal frente a ventas (dueño, 23 nov 2026: «cuánto dinero estoy gastando en personal con respecto a las cajas diarias, por días,
    semanas, meses y años»). Ventas = cierres de caja (más lo cobrado hoy si la caja está abierta). Personal = horas fichadas: las
    coste empresa de la nómina repartido por días (o las ordinarias a lo que vale la hora extra si no se ha puesto) y las extra
    a lo que se paga la hora extra, sin seguridad social. */
 let PPER=lsG('ohp-pper')||'dia';
 function personalVsVentas(){const c=config(),V={},P={};
-  cierres().forEach(x=>{const d=ymd(x.hasta);V[d]=(V[d]||0)+(+x.ventas||0)});
+  cierres().forEach(x=>{const d=diaC(x);V[d]=(V[d]||0)+(+x.ventas||0)});
   if(VIVO&&VIVO.caja&&VIVO.caja.abierta){const d=ymd(Date.now());V[d]=(V[d]||0)+(VIVO.cobros||[]).reduce((a,x)=>a+x.amt,0)}
   const hoy=ymd(Date.now()),dm=d=>new Date(+d.slice(0,4),+d.slice(5,7),0).getDate();
   const ids=[...new Set(fichajes().map(f=>f.p))];ids.forEach(id=>{const x=camDe(id),R=reparto(id),F=fichajes().filter(f=>f.p===id&&f.out);if(!F.length)return;
@@ -226,13 +230,13 @@ function vCajas(){
     <p class="muted" style="margin:6px 0 10px">La abrió ${esc(k.por||'—')} con ${eur(k.fondo)} de cambio. Datos de ${hace(EST.t)}.</p>
     <div class="kpis"><div class="kpi big"><div class="l">Cobrado</div><div class="v">${eur(k.total)}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(k.ef)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(k.tj)}</div></div>${k.retirado?`<div class="kpi"><div class="l">Retirado ya</div><div class="v">${eur(k.retirado)}</div></div>`:''}${k.pendiente?`<div class="kpi"><div class="l">Cuentas sin cobrar</div><div class="v">${eur(k.pendiente)}</div></div>`:''}</div></section>`;
   else if(EST)ahora=`<section class="card"><div class="row"><h2 style="margin:0">Caja cerrada</h2><span class="sp"></span><span class="pill p-mute">${k&&k.deja!=null?'deja '+eur(k.deja)+' de cambio':'—'}</span></div></section>`;
-  const L=cierres().filter(c=>ymd(c.hasta).slice(0,7)===MES).sort((a,b)=>b.hasta-a.hasta);
+  const L=cierres().filter(c=>diaC(c).slice(0,7)===MES).sort((a,b)=>(b.desde||b.hasta)-(a.desde||a.hasta));
   const S=(f)=>r2(L.reduce((a,c)=>a+(+f(c)||0),0));
   const tot={v:S(c=>c.ventas),ef:S(c=>c.ef),tj:S(c=>c.tj),dat:S(c=>c.datafono),sob:S(c=>(+c.retirado||0)+(+c.retDurante||0)),des:S(c=>c.desc)};
   let dia='',lista='';
-  L.forEach(c=>{const d=ymd(c.hasta);if(d!==dia){dia=d;lista+=`<div class="day">${diaTxt(d)}</div>`}
+  L.forEach(c=>{const d=diaC(c);if(d!==dia){dia=d;lista+=`<div class="day">${diaTxt(d)}</div>`}
     const i=cierres().indexOf(c);
-    lista+=`<button class="it" data-ci="${i}"><div class="sp"><div class="t">${hhmm(c.desde||c.hasta)}–${hhmm(c.hasta)} · ${esc(c.cerro||'')}</div><div class="s">Sobre ${c.retirado==null&&!c.retDurante?'—':eur((+c.retirado||0)+(+c.retDurante||0))} · Datáfono ${c.datafono==null?'—':eur(c.datafono)}</div></div>
+    lista+=`<button class="it" data-ci="${i}"><div class="sp"><div class="t">${hhmm(c.desde||c.hasta)}–${cierreTxt(c)} · ${esc(c.cerro||'')}</div><div class="s">Sobre ${c.retirado==null&&!c.retDurante?'—':eur((+c.retirado||0)+(+c.retDurante||0))} · Datáfono ${c.datafono==null?'—':eur(c.datafono)}</div></div>
       <div><div class="n">${eur(c.ventas)}</div><div style="text-align:right">${Math.abs(c.desc||0)<.005?'<span class="pill p-ok">Cuadra</span>':`<span class="pill ${c.desc>0?'p-warn':'p-bad'}">${c.desc>0?'+':''}${eur(c.desc)}</span>`}</div></div></button>`});
   return ahora+`<section class="card"><div class="nav"><button class="btn sm" id="mp" aria-label="Mes anterior">‹</button><b>${mesTxt(MES)}</b><button class="btn sm" id="mn" aria-label="Mes siguiente" ${MES>=ymd(Date.now()).slice(0,7)?'disabled':''}>›</button></div>
     <div class="kpis" style="margin-top:12px"><div class="kpi big"><div class="l">Ventas</div><div class="v">${eur(tot.v)}</div></div><div class="kpi"><div class="l">En sobres</div><div class="v">${eur(tot.sob)}</div></div><div class="kpi"><div class="l">Datáfono</div><div class="v">${eur(tot.dat)}</div></div><div class="kpi"><div class="l">Efectivo cobrado</div><div class="v">${eur(tot.ef)}</div></div><div class="kpi"><div class="l">Tarjeta cobrada</div><div class="v">${eur(tot.tj)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(tot.des)<.005?'0,00 €':eur(tot.des)}</div></div></div></section>
@@ -243,8 +247,8 @@ const DEN=[['50 €',50],['20 €',20],['10 €',10],['5 €',5],['2 €',2],['1
 function hoja(html,a){const o=document.createElement('div');o.className='sheet';o.innerHTML='<div role="dialog" aria-modal="true">'+html+'</div>';document.body.appendChild(o);
   const cierra=()=>o.remove();o.addEventListener('click',e=>{if(e.target===o)cierra()});o.querySelectorAll('[data-x]').forEach(b=>b.onclick=cierra);if(a)a(o,cierra);return o}
 function verCierre(c){if(!c)return;const b=c.billetes||{};const bil=DEN.map(([l,v],i)=>+b[i]?`<tr><td>${l}</td><td class="r">${+b[i]}</td><td class="r">${eur(v*b[i])}</td></tr>`:'').join('');
-  hoja(`<div class="row"><h3>Cierre ${diaCorto(ymd(c.hasta))} · ${hhmm(c.hasta)}</h3><button class="btn sm" data-x>Cerrar</button></div>
-  <section class="card"><dl class="kv"><dt>Abrió</dt><dd>${esc(c.abrio||'—')} ${c.desde?hhmm(c.desde):''}</dd><dt>Cerró</dt><dd>${esc(c.cerro||'—')} ${hhmm(c.hasta)}</dd><dt>Cobros</dt><dd>${c.cobros||0}</dd></dl></section>
+  hoja(`<div class="row"><h3>Caja del ${diaCorto(diaC(c))}</h3><button class="btn sm" data-x>Cerrar</button></div>
+  <section class="card"><dl class="kv"><dt>Abrió</dt><dd>${esc(c.abrio||'—')} ${c.desde?hhmm(c.desde):''}</dd><dt>Cerró</dt><dd>${esc(c.cerro||'—')} ${cierreTxt(c)}</dd><dt>Cobros</dt><dd>${c.cobros||0}</dd></dl></section>
   <section class="card"><dl class="kv"><dt>Ventas</dt><dd>${eur(c.ventas)}</dd><dt>Efectivo cobrado</dt><dd>${eur(c.ef)}</dd><dt>Tarjeta cobrada</dt><dd>${eur(c.tj)}</dd>${c.ot?`<dt>Otros</dt><dd>${eur(c.ot)}</dd>`:''}<dt>Datáfono (banco)</dt><dd>${c.datafono==null?'—':eur(c.datafono)}</dd></dl></section>
   <section class="card"><dl class="kv"><dt>Cambio al abrir</dt><dd>${eur(c.fondo)}</dd>${c.retDurante?`<dt>Retirado durante el servicio</dt><dd>${eur(c.retDurante)}</dd>`:''}<dt>Tendría que haber</dt><dd>${eur((+c.fondo||0)+(+c.ef||0)-(+c.retDurante||0))}</dd><dt>Contado</dt><dd>${c.contado==null?'—':eur(c.contado)}</dd><dt>Descuadre</dt><dd>${Math.abs(c.desc||0)<.005?'Cuadra':eur(c.desc)}</dd><dt>Cambio que dejó</dt><dd>${eur(c.deja)}</dd><dt>Al sobre al cerrar</dt><dd class="big">${c.retirado==null?'—':eur(c.retirado)}</dd>${c.retDurante?`<dt>Total retirado</dt><dd class="big">${eur((+c.retirado||0)+(+c.retDurante||0))}</dd>`:''}</dl></section>
   ${(c.retiradas||[]).length?`<section class="card"><h2>Retiradas durante el servicio</h2><table><tbody>${c.retiradas.map(y=>`<tr><td>${hhmm(y.t)}</td><td>${esc(y.who)}</td><td>${esc(y.nota||'')}</td><td class="r"><b>${eur(y.amt)}</b></td></tr>`).join('')}</tbody></table></section>`:''}
@@ -294,12 +298,12 @@ function vDirecto(){
    <p class="muted" style="margin:6px 0 0;font-size:13px">${vivoTxt}${ab?` · la abrió ${esc(k.por||'—')} con ${eur(k.fondo)} de cambio`:''}</p>
    ${viejo()&&ab?`<div class="note" style="margin-top:8px">La tablet no manda datos desde ${hace(v.recibido||v.t)}. Mira que esté encendida, con internet y con el kiosko abierto.</div>`:''}
    ${MODO!=='redis'?`<p class="muted" style="margin:6px 0 0;font-size:12.5px">Ahora llega cada 10-20 min (almacén gratis). Para verlo cada 30 s, mira «Ajustes».</p>`:''}</section>`;
-  if(!ab){const u=cierres().sort((a,b)=>b.hasta-a.hasta)[0];
-    h+=u?`<section class="card"><h2>Último cierre · ${diaCorto(ymd(u.hasta))} a las ${hhmm(u.hasta)}</h2><div class="kpis"><div class="kpi big"><div class="l">Ventas</div><div class="v">${eur(u.ventas)}</div></div><div class="kpi"><div class="l">Retirado</div><div class="v">${eur((+u.retirado||0)+(+u.retDurante||0))}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(u.desc||0)<.005?'Cuadra':eur(u.desc)}</div></div></div></section>`:'';
+  if(!ab){const u=cierres().sort((a,b)=>(b.desde||b.hasta)-(a.desde||a.hasta))[0];
+    h+=u?`<section class="card"><h2>Última caja · ${diaCorto(diaC(u))} (cerró ${cierreTxt(u)})</h2><div class="kpis"><div class="kpi big"><div class="l">Ventas</div><div class="v">${eur(u.ventas)}</div></div><div class="kpi"><div class="l">Retirado</div><div class="v">${eur((+u.retirado||0)+(+u.retDurante||0))}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(u.desc||0)<.005?'Cuadra':eur(u.desc)}</div></div></div></section>`:'';
     return h+vValResumen()+vPedResumen()}
   const n=C.length,med=n?r2(tot/n):0;
   // Mismo día de la semana, últimas 4 semanas
-  const dS=new Date().getDay(),porDia={};cierres().forEach(c=>{const d=ymd(c.hasta);if(d<ymd(Date.now())&&Date.now()-c.hasta<29*864e5&&new Date(c.hasta).getDay()===dS)porDia[d]=(porDia[d]||0)+(+c.ventas||0)});
+  const dS=new Date().getDay(),porDia={};cierres().forEach(c=>{const d=diaC(c);if(d<ymd(Date.now())&&Date.now()-c.hasta<29*864e5&&new Date(d+'T12:00:00').getDay()===dS)porDia[d]=(porDia[d]||0)+(+c.ventas||0)});
   const dd=Object.values(porDia),media=dd.length?r2(dd.reduce((a,b)=>a+b,0)/dd.length):null;
   h+=`<section class="card"><div class="kpis"><div class="kpi big"><div class="l">Vendido hoy</div><div class="v">${eur(tot)}</div></div><div class="kpi"><div class="l">Cobros</div><div class="v">${n}</div></div><div class="kpi"><div class="l">Ticket medio</div><div class="v">${eur(med)}</div></div>
    <div class="kpi"><div class="l">En el cajón ahora</div><div class="v">${eur(cajon)}</div></div>${ret?`<div class="kpi"><div class="l">Retirado hoy</div><div class="v">${eur(ret)}</div></div>`:''}<div class="kpi"><div class="l">Por cobrar en mesas</div><div class="v">${eur(pend)}</div></div></div>
@@ -369,7 +373,7 @@ function editaTel(nm){const c=config();hoja(`<div class="row"><h3>${nm?esc(nm):'
 
 /* Ventas de cada día del mes, en Cajas */
 function grafMes(L){if(!L.length)return '';const ult=MES===ymd(Date.now()).slice(0,7)?new Date().getDate():new Date(+MES.slice(0,4),+MES.slice(5,7),0).getDate();const cols=[];
-  for(let d=1;d<=ult;d++){const k=MES+'-'+String(d).padStart(2,'0');const X=L.filter(c=>ymd(c.hasta)===k);const e=r2(X.reduce((a,c)=>a+(+c.ef||0),0)),j=r2(X.reduce((a,c)=>a+(+c.tj||0),0)),v=r2(X.reduce((a,c)=>a+(+c.ventas||0),0)),o=Math.max(0,r2(v-e-j));
+  for(let d=1;d<=ult;d++){const k=MES+'-'+String(d).padStart(2,'0');const X=L.filter(c=>diaC(c)===k);const e=r2(X.reduce((a,c)=>a+(+c.ef||0),0)),j=r2(X.reduce((a,c)=>a+(+c.tj||0),0)),v=r2(X.reduce((a,c)=>a+(+c.ventas||0),0)),o=Math.max(0,r2(v-e-j));
     cols.push({lab:String(d),segs:[{v:e,c:C_EF},{v:j,c:C_TJ},{v:o,c:C_OT}],tip:X.length?`<b>${diaTxt(k)}</b> · ${eur(v)} · efectivo ${eur(e)} · tarjeta ${eur(j)}`:`<b>${diaTxt(k)}</b> · sin cierre`})}
   return `<section class="card"><h2>Ventas de cada día</h2>${leyenda([[C_EF,'Efectivo'],[C_TJ,'Tarjeta']])}${grafBarras('mes',cols,'Ventas de cada día del mes, efectivo y tarjeta')}</section>`}
 

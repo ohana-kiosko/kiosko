@@ -642,13 +642,25 @@ function nav(){
 function render(){
   const p=current();nav();drawNet();$('#ttl').textContent=p.t;$('#sub').textContent=p.s;$('#clock').textContent=hhmm();
   if(p.adm&&!isAdm()){$('#view').innerHTML=`<div class="card"><div class="bd" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start"><h2 style="margin:0;font-size:20px">Solo para el administrador</h2><p class="muted" style="margin:0">Esta parte la ve Isidro. Los trabajadores pueden vender, hacer comandas, cerrar caja, ver faltas y pedidos, subir facturas y fichar.</p><button class="btn pri" id="asadm">Entrar como Isidro</button></div></div>`;$('#asadm').onclick=()=>{pickPerson='isidro';user=null;showLock()};return}
+  /* Caja olvidada abierta de un día para otro (dueño, 23 nov 2026: «si se nos olvida cerrar la caja, se debe cerrar en el mismo día
+     en que se abrió»). Hasta las 6 de la mañana es la misma jornada; después, no se puede vender hasta cerrarla, y el cierre se apunta
+     en el día en que se abrió. */
+  if(cajaVieja()&&!['cierre','fichar','equipo'].includes(p.id)){const d=new Date(CAJA.desde);
+    $('#view').innerHTML=`<section class="card" style="max-width:640px;border-color:#C9601A"><div class="bd" style="display:flex;flex-direction:column;gap:14px;align-items:flex-start">
+      <h2 style="margin:0;font-size:22px">La caja del ${esc(d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))} sigue abierta</h2>
+      <p style="margin:0;font-size:16px">Se abrió a las ${hhmm(CAJA.desde)} y no se cerró. Ciérrala ahora contando el dinero del cajón: quedará apuntada en ese día, que es el que se trabajó.</p>
+      <p class="muted" style="margin:0">Hasta que no se cierre no se puede vender, para que las ventas de hoy no se mezclen con las de ese día.</p>
+      <button class="btn big pri" id="irCierre">Cerrar la caja del ${esc(d.toLocaleDateString('es-ES',{weekday:'long'}))}</button></div></section>`;
+    $('#irCierre').onclick=()=>{location.hash='cierre'};return}
   $('#view').innerHTML=V[p.id]();A[p.id]&&A[p.id]();
+  if(p.id==='cierre'&&cajaVieja())$('#view').insertAdjacentHTML('afterbegin',`<div class="note" style="font-size:15px;font-weight:600;margin-bottom:12px">Estás cerrando la caja del ${esc(new Date(CAJA.desde).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))}. Quedará apuntada en ese día.</div>`);
 }
 window.addEventListener('hashchange',()=>{render();scrollTo(0,0)});
 
 
 /* ---------- Entrar con PIN ---------- */
 function fichado(id){return FICHAJES.find(f=>f.p===id&&!f.out)}
+const cajaVieja=()=>!!(CAJA&&CAJA.abierta&&CAJA.desde&&new Date(CAJA.desde).toLocaleDateString('sv-SE')<new Date().toLocaleDateString('sv-SE')&&(new Date().getHours()>=6||Date.now()-CAJA.desde>30*3600e3));
 /* Horas cambiadas por olvido (dueño, 23 nov 2026: «que puedan fichar a la hora que sea, que haya una opción de modificar la hora de
    entrada y que yo la pueda validar, o que lo haga yo desde dirección»). El fichaje guarda siempre la hora real en que se pulsó
    (f.in / f.out) y, aparte, la hora que dice la persona en f.cam.in / f.cam.out = {t, por, at, nota, st:'pend'|'ok'|'no', val}.
@@ -1095,7 +1107,7 @@ A.cierre=()=>{
     cierreConfirma=false;
     const c=contadoCaja(),tot=r2(COBROS.reduce((a,x)=>a+x.amt,0)),ot=r2(tot-ef-tj),dj=parseFloat($('#cdeja').value),dat=parseFloat($('#tjb').value),ret=parseFloat($('#cret').value);
     const ahora=Date.now(),rd=retiradasCaja(),desc=isNaN(c)?0:r2(c-(CAJA.fondo+ef-rd));
-    const reg=[dmy(ahora)+' '+hhmm(ahora),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?Math.max(0,r2(CAJA.fondo+ef-rd-(isNaN(ret)?0:ret))):r2(dj),retirado:isNaN(ret)?0:r2(ret),retDurante:rd,retiradas:(CAJA.retiradas||[]).slice(),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
+    const reg=[dmy(CAJA.desde||ahora)+(ymd(new Date(CAJA.desde||ahora))!==ymd(new Date(ahora))?' (cerrada el '+dmy(ahora)+' '+hhmm(ahora)+')':' '+hhmm(ahora)),(user&&user.nm)||'—',tot,tot,desc,0,true,{desde:CAJA.desde,hasta:ahora,abrio:CAJA.por,fondo:CAJA.fondo,ef,tj,ot,contado:isNaN(c)?null:c,datafono:isNaN(dat)?null:dat,deja:isNaN(dj)?Math.max(0,r2(CAJA.fondo+ef-rd-(isNaN(ret)?0:ret))):r2(dj),retirado:isNaN(ret)?0:r2(ret),retDurante:rd,retiradas:(CAJA.retiradas||[]).slice(),nota:($('#nota').value||'').trim(),cobros:COBROS.length,billetes:Object.assign({},conteo)}];
     /* Billetes y monedas que se quedan en el cajón: salen solos al abrir la caja siguiente (si se contó por billetes). */
     const bd={};if(sumaDen(conteo)>0&&(Object.keys(retB).length||!(ret>0)))DEN.forEach((x,i)=>{const n=(+conteo[i]||0)-(+retB[i]||0);if(n>0)bd[i]=String(n)});
     reg[7].billetesDeja=bd;

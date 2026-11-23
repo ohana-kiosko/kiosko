@@ -381,7 +381,7 @@ const PZ=(nm,ud,n)=>({snm:nm,ped:{ud,cada:0,n}});
   const ped=X.ped?X.ped:pv===RIV?{ud:'saco',cada:0,n:1}:pv===MAT?{ud:'caja',cada:0,n:1}:{ud:{raciones:'ración',papelones:'papelón',bolsas:'bolsa'}[u]||'unidad',cada:1,n:28};
   STOCK[id]={nm:X.snm||nm,u,c:co,a:[3,8,30,12,6,25,4][i%7]+6,mn:X.mn!=null?X.mn:pv===RIV?0:pv===MAT?1:12,mx:40,pv,ped};MENU.push({id,c,nm,p,r:[[id,1]]})});
 /* Aceitunas (Rivera): dos clases, 5 botes de cada una. Nachos con guacamole (Makro): 2 bolsas de nachos y 1 bote de guacamole. */
-[['ac_gordal','Aceitunas gordales','Gordales'],['ac_chupa','Aceitunas chupadedos','Chupadedos']].forEach(([id,nm])=>STOCK[id]={nm,u:'raciones',c:.4,a:30,mn:10,mx:30,pv:RIV,ped:{ud:'bote',cada:50,n:5}});
+[['ac_gordal','Aceitunas gordales','Gordales'],['ac_chupa','Aceitunas chupadedos','Chupadedos']].forEach(([id,nm])=>STOCK[id]={nm,u:'raciones',c:.28,a:30,mn:10,mx:30,pv:RIV,ped:{ud:'bote',cada:50,n:5}});
 MENU.push({id:'aceitunas',c:'Picoteo',nm:'Aceitunas',p:1.5,r:[],opts:[['ac_gordal_v','Gordales'],['ac_chupa_v','Chupadedos']]});
 MENU.push({id:'ac_gordal_v',c:'Picoteo',nm:'Aceitunas gordales',p:1.5,r:[['ac_gordal',1]],hide:1,par:'aceitunas'},{id:'ac_chupa_v',c:'Picoteo',nm:'Aceitunas chupadedos',p:1.5,r:[['ac_chupa',1]],hide:1,par:'aceitunas'});
 STOCK.totopos={nm:'Nachos',u:'bolsas',c:2.5,a:2,mn:1,mx:2,pv:'Makro',ped:{ud:'bolsa',cada:1,n:2}};
@@ -414,7 +414,7 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
   refresco:.59,rf_zero:.59,rf_fnar:.58,rf_flim:.58,rf_aqlim:.80,rf_aqnar:.80,rf_nestea:.55,rf_sprite:.52,rf_tonica:.61,
   energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60};
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=7;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=8;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1764,6 +1764,8 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
     if(pr('refresco'))MENU.filter(m=>m.par==='refresco').forEach(m=>m.p=pr('refresco').p);
     if(pr('aceitunas'))MENU.filter(m=>m.par==='aceitunas').forEach(m=>m.p=pr('aceitunas').p)}
   /* 23 nov 2026: raciones que dijo el dueño (altramuces y aceitunas 100 g; 1 papelón por paquete de jamón). Se respeta cuántos pide. */
+  /* Mercado Rivera, factura 69507 (10/09/2026): bote de aceitunas 14,00 € sin IVA, 50 raciones de 100 g = 0,28 € */
+  if(!(d.CATV>=8)){['ac_gordal','ac_chupa'].forEach(k=>{if(STOCK[k])STOCK[k].c=.28})}
   if(!(d.CATV>=7)){[['altramuces',27],['ac_gordal',50],['ac_chupa',50],['p_jamon',1]].forEach(([k,c])=>{const x=STOCK[k];if(x&&x.ped)x.ped.cada=c});if(STOCK.altramuces)STOCK.altramuces.c=.19}
   if(!(d.CATV>=6)){Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
     /* si gildas/mejillones son productos que él ya tenía creados, su almacén lleva el coste de la factura */

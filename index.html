@@ -379,7 +379,7 @@ const PZ=(nm,ud,n)=>({snm:nm,ped:{ud,cada:0,n}});
  ['pistachos','Frutos secos y patatas','Pistachos',2,'bolsas',.8,RIV],['almendras','Frutos secos y patatas','Almendras',1.5,'bolsas',.55,RIV],['almendruco','Frutos secos y patatas','Almendruco',1.5,'bolsas',.5,RIV],
  ['cacahuete','Frutos secos y patatas','Cacahuete pelado',1.5,'bolsas',.35,RIV],['pipacalabaza','Frutos secos y patatas','Pipas de calabaza',1.5,'bolsas',.45,RIV],['mix','Frutos secos y patatas','Cóctel de frutos secos',1,'bolsas',.35,RIV],
  ['anacardos','Frutos secos y patatas','Anacardos',1.5,'bolsas',.6,RIV],['avellana','Frutos secos y patatas','Avellana pelada',1.5,'bolsas',.55,RIV],['cacacascara','Frutos secos y patatas','Cacahuete con cáscara',1.5,'bolsas',.35,RIV],
- ['santaana','Frutos secos y patatas','Patatas Santa Ana',1.5,'bolsas',.6,MAT],['m_ruffles','Frutos secos y patatas','Ruffles jamón',1.5,'bolsas',.6,MAT],['m_pelotazos','Frutos secos y patatas','Pelotazos',1.5,'bolsas',.6,MAT],
+ ['santaana','Frutos secos y patatas','Patatas Santa Ana',2,'bolsas',.6,MAT],['m_ruffles','Frutos secos y patatas','Ruffles jamón',1.5,'bolsas',.6,MAT],['m_pelotazos','Frutos secos y patatas','Pelotazos',1.5,'bolsas',.6,MAT],
  ['m_pandilla','Frutos secos y patatas','Pandilla',1.5,'bolsas',.6,MAT],['m_doritos','Frutos secos y patatas','Doritos',1.5,'bolsas',.6,MAT],['m_3d','Frutos secos y patatas','3D',1.5,'bolsas',.6,MAT],
  ['m_lays','Frutos secos y patatas',"Lay's",1.5,'bolsas',.6,MAT],['m_layscamp','Frutos secos y patatas',"Lay's campesinas",1.5,'bolsas',.6,MAT]
 ].forEach(([id,c,nm,p,u,co,pv,X],i)=>{pv=pv||OLI;X=X||{};
@@ -421,7 +421,7 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
   barril:168.40,heineken0:42.20/24,carbonico:39.25,p_jamon:3.50,santaana:1.00,m_ruffles:.62};
 [['santaana',24],['m_ruffles',30]].forEach(([k,n])=>{if(STOCK[k]&&STOCK[k].ped)STOCK[k].ped.cada=n});
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=14;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=15;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1764,7 +1764,7 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
     PROVS=PROVS.filter(p=>!(p.nm==='Helados (por confirmar)'&&!p.tel));FALTAS.forEach(f=>{if(f.pv==='Helados (por confirmar)')f.pv=CHAP;if(f.k&&STOCK[f.k])f.pv=STOCK[f.k].pv})}
   (d.EXTRA||[]).forEach(x=>{if(!prod(x.id))MENU.push(x)});(d.BORRADOS||[]).forEach(quitarProducto);
   (d.MENU||[]).forEach(x=>{const m=prod(x.id);if(m){m.p=x.p;if(x.foto)m.foto=x.foto;if(x.bc)m.bc=x.bc}});
-  if(nuevoCat){const P={santaana:1.5,mix:1};Object.keys(P).forEach(k=>{const m=prod(k);if(m)m.p=P[k]})}
+  if(nuevoCat){const P={santaana:2,mix:1};Object.keys(P).forEach(k=>{const m=prod(k);if(m)m.p=P[k]})}
   /* Dueño, 23 nov 2026: «los precios y los productos que estaban eran correctos». Si él ya tenía creado ese producto,
      se queda el suyo (con su precio) y solo se le pone proveedor y cantidad; el botón nuevo repetido se quita. */
   if(!(d.CATV>=3)){
@@ -1782,6 +1782,8 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
   if(!(d.CATV>=12)&&STOCK.cafe)Object.assign(STOCK.cafe,JSON.parse(JSON.stringify(STOCK0.cafe)));
   /* 23 nov 2026, facturas en papel: Bebidas Chipiona (barril 50 L 168,40; Heineken 0,0 caja 24 a 42,20; CO2 10 kg 39,25),
      Oli Castaño (taquitos de jamón 3,50 el paquete = 1 papelón) y Corbacho/Matutano (Santa Ana caja 24 a 1,00; Ruffles jamón caja 30 a 0,62). Sin IVA. */
+  /* Dueño, 23 nov 2026: las Santa Ana se venden a 2 € */
+  if(!(d.CATV>=15)&&prod('santaana'))prod('santaana').p=2;
   if(!(d.CATV>=14)){const C={barril:168.40,heineken0:42.20/24,carbonico:39.25,p_jamon:3.50,santaana:1.00,m_ruffles:.62};
     Object.keys(C).forEach(k=>{if(STOCK[k])STOCK[k].c=C[k]});
     [['santaana',24],['m_ruffles',30]].forEach(([k,n])=>{if(STOCK[k]&&STOCK[k].ped)STOCK[k].ped.cada=n})}

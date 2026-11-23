@@ -207,19 +207,47 @@ function personalVsVentas(){const c=config(),V={},P={};
     if(x&&x.cmes){for(let d=ymd(Math.min(...F.map(f=>f.in)));d<=hoy;d=masDias(d,1))P[d]=(P[d]||0)+x.cmes/dm(d)}
     F.forEach(f=>{const r=R[f.k];if(!r)return;const d=ymd(f.in);P[d]=(P[d]||0)+r.e/60*c.extra+(x&&x.cmes?0:r.o/60*c.extra)})});
   return {V,P}}
-function vPersonal(){const {V,P}=personalVsVentas();const dias=[...new Set([...Object.keys(V),...Object.keys(P)])].sort();if(!dias.length)return '';
+/* Dueño, 23 nov 2026: beneficio real de cada día. Ventas (con IVA 10 %) − IVA − mercancía vendida (escandallo de la tablet, sin IVA)
+   − personal (coste empresa con seguridad social + horas extra) = beneficio antes de IRPF; − IRPF 20 % (pago a cuenta, modelo 130,
+   estimación directa) = lo que te queda. Aparte, el IVA a ingresar (cobrado − pagado en la mercancía), que no es tuyo. */
+const IRPF=.20,IVAV=.10;
+function vPersonal(){const {V,P}=personalVsVentas();const M={},IV={},SM={},PR={};
+  cierres().forEach(x=>{const d=diaC(x);if(x.mg){M[d]=(M[d]||0)+(+x.mg.c||0);IV[d]=(IV[d]||0)+(+x.mg.iv||0);SM[d]=(SM[d]||0)+(+x.ventas||0);(PR[d]=PR[d]||[]).push(x.mg.p||[])}});
+  if(VIVO&&VIVO.caja&&VIVO.caja.abierta&&VIVO.mg){const d=ymd(Date.now());M[d]=(M[d]||0)+(+VIVO.mg.c||0);IV[d]=(IV[d]||0)+(+VIVO.mg.iv||0);SM[d]=(SM[d]||0)+(VIVO.cobros||[]).reduce((a,x)=>a+x.amt,0);(PR[d]=PR[d]||[]).push(VIVO.mg.p||[])}
+  const dias=[...new Set([...Object.keys(V),...Object.keys(P)])].sort();if(!dias.length)return '';
   const clave={dia:d=>d,sem:d=>lunesDe(d),mes:d=>d.slice(0,7),ano:d=>d.slice(0,4)}[PPER];const G={};
-  dias.forEach(d=>{const k=clave(d);const g=G[k]||(G[k]={v:0,p:0});g.v+=V[d]||0;g.p+=P[d]||0});
+  dias.forEach(d=>{const k=clave(d);const g=G[k]||(G[k]={v:0,p:0,m:0,iv:0,sm:0,pr:[]});g.v+=V[d]||0;g.p+=P[d]||0;g.m+=M[d]||0;g.iv+=IV[d]||0;g.sm+=SM[d]||0;if(PR[d])g.pr.push(...PR[d])});
   const ks=Object.keys(G).sort().reverse().slice(0,PPER==='dia'?31:PPER==='sem'?16:PPER==='mes'?12:10);
   const et=k=>PPER==='dia'?diaCorto(k):PPER==='sem'?'Sem. '+semTxt(k):PPER==='mes'?mesTxt(k):k;
-  const tv=ks.reduce((a,k)=>a+G[k].v,0),tp=ks.reduce((a,k)=>a+G[k].p,0),pc=v=>v>0?Math.round(tp/tv*100):0;
-  const col=q=>q>40?'#A3231F':q>30?'#C9601A':'#1F9D5A';
-  return `<section class="card"><h2>Personal frente a ventas</h2>
+  // Mercancía: si una parte de las ventas del periodo es de cajas anteriores al escandallo, se estima con el % de las que sí lo tienen.
+  const cuenta=g=>{const neto=g.v/(1+IVAV),ivaC=g.v-neto,ratio=g.sm>0?g.m/g.sm:null,ratioIv=g.sm>0?g.iv/g.sm:null;
+    const m=ratio==null?null:g.m+(g.v-g.sm)*ratio,ivs=ratioIv==null?0:g.iv+(g.v-g.sm)*ratioIv;
+    const ant=m==null?null:neto-m-g.p,irpf=ant!=null&&ant>0?ant*IRPF:0;return {neto,ivaC,m,ivs,ant,irpf,queda:ant==null?null:ant-irpf,est:g.sm<g.v-.5}};
+  const T=ks.reduce((a,k)=>{const g=G[k];a.v+=g.v;a.p+=g.p;a.m+=g.m;a.iv+=g.iv;a.sm+=g.sm;a.pr.push(...g.pr);return a},{v:0,p:0,m:0,iv:0,sm:0,pr:[]});const c=cuenta(T);
+  const col=x=>x==null?'var(--muted)':x<0?'#A3231F':'#1F9D5A';const pc=(a,b)=>b>0?Math.round(a/b*100)+' %':'—';
+  const lin=(t,v,o={})=>`<div class="row" style="padding:7px 0;border-top:1px solid var(--line)${o.b?';font-weight:700':''}"><span class="sp" style="${o.m?'color:var(--muted)':''}">${t}</span><b style="${o.c?'color:'+o.c:''}">${v==null?'—':eur(r2(v))}</b></div>`;
+  // Margen de cada producto en el periodo
+  const PP={};T.pr.forEach(L=>L.forEach(([n,u,i,co,r])=>{const y=PP[n]||(PP[n]={u:0,i:0,c:0,r:1});y.u+=u;y.i+=i;y.c+=co;if(!r)y.r=0}));
+  const prods=Object.entries(PP).map(([n,y])=>{const ne=y.i/(1+IVAV);return {n,u:y.u,i:y.i,g:ne-y.c,mg:ne>0?(ne-y.c)/ne:0,r:y.r}}).sort((a,b)=>b.g-a.g);
+  return `<section class="card"><h2>Beneficio real</h2>
    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${[['dia','Días'],['sem','Semanas'],['mes','Meses'],['ano','Años']].map(([k,t])=>`<button class="btn sm ${PPER===k?'pri':''}" data-pper="${k}">${t}</button>`).join('')}</div>
-   <div class="kpis"><div class="kpi"><div class="l">Ventas</div><div class="v">${eur(r2(tv))}</div></div><div class="kpi"><div class="l">Personal</div><div class="v">${eur(r2(tp))}</div></div><div class="kpi"><div class="l">Personal / ventas</div><div class="v" style="color:${col(pc(tv))}">${tv>0?pc(tv)+' %':'—'}</div></div></div>
-   <table style="margin-top:10px"><thead><tr><th>${{dia:'Día',sem:'Semana',mes:'Mes',ano:'Año'}[PPER]}</th><th class="r">Ventas</th><th class="r">Personal</th><th class="r">%</th></tr></thead><tbody>
-   ${ks.map(k=>{const g=G[k],q=g.v>0?Math.round(g.p/g.v*100):null;return `<tr><td>${esc(et(k))}<div class="split" style="height:6px;margin-top:4px;max-width:140px"><i style="flex:${Math.min(100,q==null?100:q)};background:${q==null?'#A3231F':col(q)}"></i><i style="flex:${Math.max(0,100-(q==null?100:q))};background:transparent"></i></div></td><td class="r">${eur(r2(g.v))}</td><td class="r">${eur(r2(g.p))}</td><td class="r"><b style="color:${q==null?'#A3231F':col(q)}">${q==null?'sin caja':q+' %'}</b></td></tr>`}).join('')}</tbody></table>
-   <p class="muted" style="font-size:12.5px;margin:8px 0 0">Ventas: cierres de caja (y lo de hoy si la caja está abierta). Personal: el coste empresa de la nómina de cada camarero repartido entre los días del mes (se pone en «Datos» de su ficha) más las horas extra a ${eur(config().extra)}/h. Verde hasta 30 %, naranja hasta 40 %, rojo por encima.</p></section>`}
+   <div class="muted" style="font-size:13px">${PPER==='dia'?'Últimos '+ks.length+' días':PPER==='sem'?'Últimas '+ks.length+' semanas':PPER==='mes'?'Últimos '+ks.length+' meses':'Por años'}</div>
+   <div style="margin-top:6px">
+    ${lin('Ventas (lo cobrado, con IVA)',T.v,{b:1})}
+    ${lin('− IVA de las ventas (10 %)',-c.ivaC,{m:1})}
+    ${lin('− Mercancía vendida (escandallo)',c.m==null?null:-c.m,{m:1})}
+    ${lin('− Personal (con seguridad social)',-T.p,{m:1})}
+    ${lin('= Beneficio antes de IRPF',c.ant,{b:1,c:col(c.ant)})}
+    ${lin('− IRPF (20 %, pago a cuenta)',-c.irpf,{m:1})}
+    <div class="row" style="padding:10px 0;border-top:2px solid var(--ink)"><span class="sp" style="font:600 17px var(--display)">Te queda</span><b style="font:600 24px var(--display);color:${col(c.queda)}">${c.queda==null?'—':eur(r2(c.queda))}</b></div>
+   </div>
+   <div class="kpis" style="margin-top:6px"><div class="kpi"><div class="l">Mercancía / ventas</div><div class="v">${c.m==null?'—':pc(c.m,c.neto)}</div></div><div class="kpi"><div class="l">Personal / ventas</div><div class="v">${pc(T.p,c.neto)}</div></div><div class="kpi"><div class="l">Te queda de cada 100 €</div><div class="v">${c.queda==null||!T.v?'—':Math.round(c.queda/T.v*100)+' €'}</div></div></div>
+   <div class="note" style="margin-top:10px;background:var(--soft);border-radius:10px;padding:10px;font-size:13.5px">IVA a ingresar a Hacienda (apártalo, no es tuyo): <b>${eur(r2(c.ivaC-c.ivs))}</b> = ${eur(r2(c.ivaC))} cobrado a los clientes − ${eur(r2(c.ivs))} pagado en la mercancía.</div>
+   <table style="margin-top:12px"><thead><tr><th>${{dia:'Día',sem:'Semana',mes:'Mes',ano:'Año'}[PPER]}</th><th class="r">Ventas</th><th class="r">Mercancía</th><th class="r">Personal</th><th class="r">Te queda</th></tr></thead><tbody>
+   ${ks.map(k=>{const g=G[k],x=cuenta(g);return `<tr><td>${esc(et(k))}${x.est&&g.sm>0?'<div class="muted" style="font-size:11px">mercancía estimada</div>':''}</td><td class="r">${eur(r2(g.v))}</td><td class="r">${x.m==null?'<span class="muted">—</span>':eur(r2(x.m))}</td><td class="r">${eur(r2(g.p))}</td><td class="r"><b style="color:${col(x.queda)}">${x.queda==null?'—':eur(r2(x.queda))}</b></td></tr>`}).join('')}</tbody></table>
+   ${prods.length?`<h2 style="margin-top:18px">Lo que deja cada producto</h2><table><thead><tr><th>Producto</th><th class="r">Uds.</th><th class="r">Ganas</th><th class="r">Margen</th></tr></thead><tbody>
+    ${prods.slice(0,30).map(y=>`<tr><td>${esc(y.n)}${y.r?'':'<div style="font-size:11px;color:#A3231F">coste de ejemplo</div>'}</td><td class="r">${Math.round(y.u*10)/10}</td><td class="r"><b style="color:${y.g<0?'#A3231F':'inherit'}">${eur(r2(y.g))}</b></td><td class="r"><span class="pill ${y.mg>.7?'p-ok':y.mg>.5?'p-warn':'p-bad'}">${Math.round(y.mg*100)} %</span></td></tr>`).join('')}</tbody></table>`:''}
+   <p class="muted" style="font-size:12.5px;margin:8px 0 0">Mercancía: lo que cuesta cada producto vendido según el escandallo de la tablet (precios de factura sin IVA). Las cajas cerradas antes del 23 nov no traen ese dato: su mercancía se estima con el mismo % que las demás («mercancía estimada»); si no hay ninguna, sale «—». Personal: coste empresa de la nómina repartido por días más las horas extra a ${eur(config().extra)}/h. IRPF: 20 % del beneficio, lo que se adelanta cada trimestre (modelo 130). No incluye alquiler, luz, gestoría ni otros gastos fijos.</p></section>`}
 function vCajas(){
   const k=EST&&EST.caja;let ahora='';
   if(VIVO&&VIVO.caja){const vk=VIVO.caja,tot=r2((VIVO.cobros||[]).reduce((x,c)=>x+c.amt,0));

@@ -400,7 +400,7 @@ const prod=id=>MENU.find(m=>m.id===id);
 const colorOf=c=>CATS.find(x=>x[0]===c)[1];
 const cost=m=>m.r.reduce((a,[s,q])=>a+STOCK[s].c*q,0);
 Object.values(STOCK).forEach(x=>x.a=x.mx);
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=2;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=3;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1733,6 +1733,17 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
   (d.EXTRA||[]).forEach(x=>{if(!prod(x.id))MENU.push(x)});(d.BORRADOS||[]).forEach(quitarProducto);
   (d.MENU||[]).forEach(x=>{const m=prod(x.id);if(m){m.p=x.p;if(x.foto)m.foto=x.foto;if(x.bc)m.bc=x.bc}});
   if(nuevoCat){const P={santaana:1.5,mix:1};Object.keys(P).forEach(k=>{const m=prod(k);if(m)m.p=P[k]})}
+  /* Dueño, 23 nov 2026: «los precios y los productos que estaban eran correctos». Si él ya tenía creado ese producto,
+     se queda el suyo (con su precio) y solo se le pone proveedor y cantidad; el botón nuevo repetido se quita. */
+  if(!(d.CATV>=3)){
+    const DUP={agua:/^agua/,p_chicharron:/chicharr/,gildas:/gilda/,mejillones:/mejill/,m_ruffles:/ruffles/,m_pelotazos:/pelotazo/,m_pandilla:/pandilla/,m_doritos:/dorito/,m_3d:/(^|\s)3d/,m_lays:/lay.?s(?!.*campes)/,m_layscamp:/campes/};
+    Object.keys(DUP).forEach(k=>{const x=MENU.find(m=>/^x/.test(m.id)&&DUP[k].test(norm(m.nm)));if(!x||!prod(k))return;
+      const sid=x.r&&x.r[0]&&x.r[0][0];if(sid&&STOCK[sid]&&STOCK[k])Object.assign(STOCK[sid],{pv:STOCK[k].pv,ped:JSON.parse(JSON.stringify(STOCK[k].ped)),mn:STOCK[k].mn});quitarProducto(k)});
+    /* Los sabores nuevos llevan el precio que ya tenía el botón de siempre */
+    const pr=id=>(d.MENU||[]).find(x=>x.id===id);
+    if(pr('refresco'))MENU.filter(m=>m.par==='refresco').forEach(m=>m.p=pr('refresco').p);
+    if(pr('aceitunas'))MENU.filter(m=>m.par==='aceitunas').forEach(m=>m.p=pr('aceitunas').p)}
+  ['agua','p_chicharron','gildas','mejillones','m_ruffles','m_pelotazos','m_pandilla','m_doritos','m_3d','m_lays','m_layscamp'].forEach(k=>{if(!prod(k))delete STOCK[k]});
   CAJA=d.CAJA||null;cierreRes=d.cierreRes||null;
   if(d.dia===hoyK()||(d.CAJA&&d.CAJA.abierta)){SALES=d.SALES||[];COBROS=d.COBROS||[];cierreHecho=false;if(!CAJA&&COBROS.length)CAJA={abierta:true,desde:COBROS[0].t||Date.now(),fondo:0,por:'—',auto:true}}
   else{SALES=[];COBROS=[];cierreHecho=false;ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true})}}

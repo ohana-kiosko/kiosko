@@ -61,8 +61,8 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th,td{padding:8px 6px;border-top:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
 th{font-size:12px;color:var(--muted);font-weight:600;border-top:0}
 td.r,th.r{text-align:right}
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
-.tabs button{border:0;background:none;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--muted);min-height:60px;cursor:pointer}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{border:0;background:none;padding:10px 2px 12px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;color:var(--muted);min-height:60px;cursor:pointer}
 .tabs button svg{width:24px;height:24px}
 .tabs button[aria-current="page"]{color:var(--accent);font-weight:600}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
@@ -78,6 +78,19 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu
 .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .login .card{width:100%;max-width:380px;display:flex;flex-direction:column;gap:12px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:#fff;border-radius:10px;padding:10px 14px;z-index:30;font-size:14px;max-width:90vw}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#1F9D5A;margin-right:6px;vertical-align:1px;box-shadow:0 0 0 0 rgba(31,157,90,.5);animation:late 2s infinite}
+.dot.off{background:#B9B1A6;animation:none}
+@keyframes late{0%{box-shadow:0 0 0 0 rgba(31,157,90,.5)}70%{box-shadow:0 0 0 8px rgba(31,157,90,0)}100%{box-shadow:0 0 0 0 rgba(31,157,90,0)}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+.graf{display:block;margin-top:6px;touch-action:manipulation}
+.cap{font-size:13px;color:var(--muted);min-height:36px;margin-top:4px}.cap b{color:var(--ink)}
+.ley{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}.ley i,.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.hb{display:grid;grid-template-columns:1fr auto;gap:3px 10px;padding:7px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}.hb:first-of-type{border-top:0}
+.hb .hn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hb .hs{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+.hb .bar{grid-column:1/-1;height:8px;background:var(--soft);border-radius:4px;overflow:hidden}.hb .bar i{display:block;height:100%;border-radius:4px}
+.split{display:flex;gap:2px;height:14px;border-radius:7px;overflow:hidden;background:var(--soft)}.split i{display:block;min-width:2px}
+.msg{margin:6px 0 0;white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:10px 12px;font:14px var(--body)}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;color:inherit}a.btn.pri{color:#fff}
 </style>
 </head>
 <body>
@@ -106,7 +119,7 @@ const mesMas=(m,n)=>{const x=new Date(m+'-15T12:00:00');x.setMonth(x.getMonth()+
 const semTxt=l=>{const a=new Date(l+'T12:00:00'),b=new Date(masDias(l,6)+'T12:00:00');return a.getDate()+(a.getMonth()!==b.getMonth()?' '+a.toLocaleDateString('es-ES',{month:'short'}):'')+' – '+b.getDate()+' '+b.toLocaleDateString('es-ES',{month:'short'})};
 const hace=t=>{if(!t)return 'nunca';const m=Math.round((Date.now()-t)/60000);if(m<1)return 'ahora mismo';if(m<60)return 'hace '+m+' min';const h=Math.round(m/60);if(h<24)return 'hace '+h+' h';return 'el '+new Date(t).toLocaleDateString('es-ES',{day:'numeric',month:'short'})+' a las '+hhmm(t)};
 
-let TOK=lsG(TK), EST=null, CFG=null, TAB=lsG('ohp-tab')||'cajas', MES=ymd(Date.now()).slice(0,7), SEM=lunesDe(ymd(Date.now())), cargando=false, error='';
+let TOK=lsG(TK), EST=null, CFG=null, TAB=lsG('ohp-tab')||'directo', MES=ymd(Date.now()).slice(0,7), SEM=lunesDe(ymd(Date.now())), cargando=false, error='';
 
 async function api(metodo,a,cuerpo){
   const r=await fetch(API+(metodo==='GET'?'?a='+a:''),{method:metodo,headers:Object.assign({'Content-Type':'application/json'},TOK?{'x-tok':TOK}:{}),body:metodo==='POST'?JSON.stringify(Object.assign({a},cuerpo)):undefined});
@@ -138,34 +151,43 @@ function resumenMes(id,mes,F){F=F||fichajes();const c=camDe(id);const sems=[];le
 const dentro=(id,F)=>(F||fichajes()).filter(f=>f.p===id&&!f.out).pop();
 
 async function carga(){if(cargando)return;cargando=true;error='';pinta();
-  try{const r=await api('GET','todo');EST=r.estado;CFG=r.config||{};}catch(e){error=e.message}
+  try{const r=await api('GET','todo');EST=r.estado;CFG=r.config||{};VIVO=r.vivo||null;const m=r.modo||'blob';if(m!==MODO){MODO=m;relojVivo()}}catch(e){error=e.message}
   cargando=false;pinta()}
 async function guardaCfg(msg){const c=config();const copia=Object.assign({},c);delete copia.sinGuardar;
   try{const r=await api('POST','config',{config:copia});c.t=r.t;delete c.sinGuardar;toast(msg||'Guardado. La tablet lo recoge en unos minutos.')}catch(e){toast('No se pudo guardar: '+e.message)}pinta()}
 
 /* ---------- Pantallas ---------- */
-const ICO={cajas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18M7 15h3"/><path d="M8 7V5h8v2"/></svg>',
+const ICO={directo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>',
+ pedidos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l1 2h3v14H5V6h3z"/><path d="M9 11h6M9 15h4"/></svg>',
+ cajas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18M7 15h3"/><path d="M8 7V5h8v2"/></svg>',
  camareros:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
  ajustes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>'};
+const NOMBRES={directo:'En directo',cajas:'Cajas',pedidos:'Pedidos',camareros:'Camareros',ajustes:'Ajustes'};
+const VISTAS={directo:[()=>vDirecto(),()=>aDirecto()],cajas:[()=>vCajas(),()=>aCajas()],pedidos:[()=>vPedidos(),()=>aPedidos()],camareros:[()=>vCamareros(),()=>aCamareros()],ajustes:[()=>vAjustes(),()=>aAjustes()]};
+if(!NOMBRES[TAB])TAB='directo';
 function pinta(){
   const app=$('#app');
   if(!TOK){app.innerHTML=`<div class="login"><form class="card" id="lf"><h1 style="font-size:22px">Panel del kiosko</h1><p class="muted" style="margin:0">Cajas y horas de los camareros. Entra con la clave larga del TPV (la que pusiste en Vercel como TPV_CLAVE).</p>
     <label class="f">Clave del TPV<input class="inp" id="lc" type="password" autocomplete="current-password" required></label><button class="btn pri" id="lb">Entrar</button><div id="lm" role="alert"></div></form></div>`;
     $('#lf').onsubmit=async e=>{e.preventDefault();$('#lb').disabled=true;$('#lm').innerHTML='';try{const r=await api('POST','entrar',{clave:$('#lc').value,quien:'dueno'});TOK=r.tok;lsP(TK,TOK);carga()}catch(er){$('#lm').innerHTML='<div class="err">'+esc(er.message)+'</div>';$('#lb').disabled=false}};return}
-  const sub=EST?'La tablet subió datos '+hace(EST.recibido||EST.t):(cargando?'Cargando…':'La tablet aún no ha subido datos');
-  app.innerHTML=`<header class="top"><h1>Kiosko · ${TAB==='cajas'?'Cajas':TAB==='camareros'?'Camareros':'Ajustes'}<small>${esc(sub)}</small></h1><button class="ib" id="rf" aria-label="Actualizar">${cargando?'…':'Actualizar'}</button></header>
-  <main id="m">${error?`<div class="err">${esc(error)}</div>`:''}${!EST&&!cargando?`<div class="note">La tablet todavía no está conectada con este panel. En la tablet: menú «Equipo y sueldos» › «Conectar con el panel del móvil» y escribe la misma clave del TPV.</div>`:''}${TAB==='cajas'?vCajas():TAB==='camareros'?vCamareros():vAjustes()}</main>
-  <nav class="tabs" aria-label="Secciones">${[['cajas','Cajas'],['camareros','Camareros'],['ajustes','Ajustes']].map(([k,t])=>`<button data-tab="${k}" ${TAB===k?'aria-current="page"':''}>${ICO[k]}<span>${t}</span></button>`).join('')}</nav>`;
+  const ult=Math.max((VIVO&&(VIVO.recibido||VIVO.t))||0,(EST&&(EST.recibido||EST.t))||0);const sub=ult?'La tablet mandó datos '+hace(ult):(cargando?'Cargando…':'La tablet aún no ha mandado datos');
+  app.innerHTML=`<header class="top"><h1>Kiosko · ${NOMBRES[TAB]}<small>${esc(sub)}</small></h1><button class="ib" id="rf" aria-label="Actualizar">${cargando?'…':'Actualizar'}</button></header>
+  <main id="m">${error?`<div class="err">${esc(error)}</div>`:''}${!EST&&!cargando?`<div class="note">La tablet todavía no está conectada con este panel. En la tablet: menú «Equipo y sueldos» › «Conectar con el panel del móvil» y escribe la misma clave del TPV.</div>`:''}${VISTAS[TAB][0]()}</main>
+  <nav class="tabs" aria-label="Secciones">${Object.entries(NOMBRES).map(([k,t])=>`<button data-tab="${k}" ${TAB===k?'aria-current="page"':''}>${ICO[k]}<span>${t}</span></button>`).join('')}</nav>`;
   $('#rf').onclick=carga;
-  $$('[data-tab]').forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;lsP('ohp-tab',TAB);pinta();scrollTo(0,0)});
-  (TAB==='cajas'?aCajas:TAB==='camareros'?aCamareros:aAjustes)();
+  $$('[data-tab]').forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;lsP('ohp-tab',TAB);pinta();scrollTo(0,0);if(['directo','pedidos'].includes(TAB))leeVivo()});
+  VISTAS[TAB][1]();
 }
 
 /* Cajas */
 const cierres=()=>((EST&&EST.cierres)||[]).filter(c=>c&&c.hasta);
 function vCajas(){
   const k=EST&&EST.caja;let ahora='';
-  if(k&&k.abierta)ahora=`<section class="card"><div class="row"><h2 style="margin:0">Caja abierta</h2><span class="sp"></span><span class="pill p-ok">desde las ${hhmm(k.desde)}</span></div>
+  if(VIVO&&VIVO.caja){const vk=VIVO.caja,tot=r2((VIVO.cobros||[]).reduce((x,c)=>x+c.amt,0));
+    ahora=vk.abierta?`<section class="card"><div class="row"><h2 style="margin:0">Caja abierta</h2><span class="sp"></span><span class="pill p-ok">desde las ${hhmm(vk.desde)}</span></div>
+     <div class="row" style="margin-top:8px"><div class="sp"><div class="muted" style="font-size:13px">Vendido hoy · datos ${haceS(VIVO.recibido||VIVO.t)}</div><div style="font:600 22px var(--display)">${eur(tot)}</div></div><button class="btn sm pri" data-tab="directo">Ver en directo</button></div></section>`
+     :`<section class="card"><div class="row"><h2 style="margin:0">Caja cerrada</h2><span class="sp"></span><span class="pill p-mute">${vk.deja!=null?'deja '+eur(vk.deja)+' de cambio':'—'}</span></div></section>`}
+  else if(k&&k.abierta)ahora=`<section class="card"><div class="row"><h2 style="margin:0">Caja abierta</h2><span class="sp"></span><span class="pill p-ok">desde las ${hhmm(k.desde)}</span></div>
     <p class="muted" style="margin:6px 0 10px">La abrió ${esc(k.por||'—')} con ${eur(k.fondo)} de cambio. Datos de ${hace(EST.t)}.</p>
     <div class="kpis"><div class="kpi big"><div class="l">Cobrado</div><div class="v">${eur(k.total)}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(k.ef)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(k.tj)}</div></div>${k.retirado?`<div class="kpi"><div class="l">Retirado ya</div><div class="v">${eur(k.retirado)}</div></div>`:''}${k.pendiente?`<div class="kpi"><div class="l">Cuentas sin cobrar</div><div class="v">${eur(k.pendiente)}</div></div>`:''}</div></section>`;
   else if(EST)ahora=`<section class="card"><div class="row"><h2 style="margin:0">Caja cerrada</h2><span class="sp"></span><span class="pill p-mute">${k&&k.deja!=null?'deja '+eur(k.deja)+' de cambio':'—'}</span></div></section>`;
@@ -179,8 +201,8 @@ function vCajas(){
       <div><div class="n">${eur(c.ventas)}</div><div style="text-align:right">${Math.abs(c.desc||0)<.005?'<span class="pill p-ok">Cuadra</span>':`<span class="pill ${c.desc>0?'p-warn':'p-bad'}">${c.desc>0?'+':''}${eur(c.desc)}</span>`}</div></div></button>`});
   return ahora+`<section class="card"><div class="nav"><button class="btn sm" id="mp" aria-label="Mes anterior">‹</button><b>${mesTxt(MES)}</b><button class="btn sm" id="mn" aria-label="Mes siguiente" ${MES>=ymd(Date.now()).slice(0,7)?'disabled':''}>›</button></div>
     <div class="kpis" style="margin-top:12px"><div class="kpi big"><div class="l">Ventas</div><div class="v">${eur(tot.v)}</div></div><div class="kpi"><div class="l">En sobres</div><div class="v">${eur(tot.sob)}</div></div><div class="kpi"><div class="l">Datáfono</div><div class="v">${eur(tot.dat)}</div></div><div class="kpi"><div class="l">Efectivo cobrado</div><div class="v">${eur(tot.ef)}</div></div><div class="kpi"><div class="l">Tarjeta cobrada</div><div class="v">${eur(tot.tj)}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(tot.des)<.005?'0,00 €':eur(tot.des)}</div></div></div></section>
-  <section class="card"><h2>Cierres de caja (${L.length})</h2><div class="list">${lista||'<p class="muted" style="margin:0">No hay cierres este mes.</p>'}</div></section>`}
-function aCajas(){$('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
+  ${grafMes(L)}<section class="card"><h2>Cierres de caja (${L.length})</h2><div class="list">${lista||'<p class="muted" style="margin:0">No hay cierres este mes.</p>'}</div></section>`}
+function aCajas(){activaGraf();$('#mp').onclick=()=>{MES=mesMas(MES,-1);pinta()};$('#mn').onclick=()=>{MES=mesMas(MES,1);pinta()};
   $$('[data-ci]').forEach(b=>b.onclick=()=>verCierre(cierres()[+b.dataset.ci]))}
 const DEN=[['50 €',50],['20 €',20],['10 €',10],['5 €',5],['2 €',2],['1 €',1],['0,50 €',.5],['0,20 €',.2],['0,10 €',.1],['0,05 €',.05],['0,02 €',.02],['0,01 €',.01]];
 function hoja(html,a){const o=document.createElement('div');o.className='sheet';o.innerHTML='<div role="dialog" aria-modal="true">'+html+'</div>';document.body.appendChild(o);
@@ -193,6 +215,127 @@ function verCierre(c){if(!c)return;const b=c.billetes||{};const bil=DEN.map(([l,
   ${(c.retiradas||[]).length?`<section class="card"><h2>Retiradas durante el servicio</h2><table><tbody>${c.retiradas.map(y=>`<tr><td>${hhmm(y.t)}</td><td>${esc(y.who)}</td><td>${esc(y.nota||'')}</td><td class="r"><b>${eur(y.amt)}</b></td></tr>`).join('')}</tbody></table></section>`:''}
   ${c.nota?`<section class="card"><h2>Notas</h2><p style="margin:0">${esc(c.nota)}</p></section>`:''}
   ${bil?`<section class="card"><h2>Billetes y monedas contados</h2><table><thead><tr><th></th><th class="r">Cuántos</th><th class="r">Importe</th></tr></thead><tbody>${bil}</tbody></table></section>`:''}`)}
+
+/* ---------- En directo (dueño, 23 nov 2026: «gráficos y cosas que están pasando en directo; aunque no tenga el control, ver lo que
+   va pasando en caja»). La tablet manda «vivo» (cobros de hoy, lo más vendido, mesas, quién trabaja, retiradas y pedidos). Con base
+   Redis en Vercel llega cada 30 s y aquí se mira cada 15 s; sin ella, cada 10-20 min y aquí se mira cada minuto. ---------- */
+const C_EF='#C9601A', C_TJ='#0A7EA0', C_OT='#9A9289';
+const tipoPago=h=>/^Efectivo/i.test(h||'')?'ef':/^Tarjeta/i.test(h||'')?'tj':'ot';
+const num=v=>v>=1000?(Math.round(v/100)/10).toLocaleString('es-ES')+' mil':Math.round(v).toLocaleString('es-ES');
+function techo(m){if(!(m>0))return 10;const p=Math.pow(10,Math.floor(Math.log10(m)));for(const k of [1,1.5,2,2.5,3,4,5,6,8,10])if(k*p>=m)return k*p;return 10*p}
+const GRAF={};
+/* Barras apiladas en SVG. cols: [{lab, segs:[{v,c}], tip}] */
+function grafBarras(id,cols,aria){GRAF[id]=cols;if(!cols.length)return '';
+  const W=340,H=160,pl=40,pr=4,pt=8,pb=22,n=cols.length;const max=Math.max(...cols.map(c=>c.segs.reduce((a,s)=>a+s.v,0)));const top=techo(max);
+  const bw=(W-pl-pr)/n,y=v=>pt+(H-pt-pb)*(1-v/top);let g='',b='';const paso=Math.ceil(n/9);
+  [0,.5,1].forEach(f=>{const yy=y(top*f).toFixed(1);g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="#E2DDD3" stroke-width="1"/><text x="${pl-5}" y="${+yy+3.5}" text-anchor="end" font-size="10" fill="#5E5850">${num(top*f)} €</text>`});
+  cols.forEach((c,i)=>{const w=Math.max(2,Math.min(26,bw*.72)),x=pl+i*bw+(bw-w)/2;let acc=0;
+    c.segs.forEach(s=>{if(!(s.v>0))return;const y0=y(acc+s.v),y1=y(acc)-(acc>0?2:0);if(y1-y0>0.3)b+=`<rect data-b="${i}" x="${x.toFixed(1)}" y="${y0.toFixed(1)}" width="${w.toFixed(1)}" height="${(y1-y0).toFixed(1)}" rx="${Math.min(4,w/2,(y1-y0)/2).toFixed(1)}" fill="${s.c}"/>`;acc+=s.v});
+    b+=`<rect data-i="${i}" x="${(pl+i*bw).toFixed(1)}" y="${pt}" width="${bw.toFixed(1)}" height="${H-pt}" fill="transparent" style="cursor:pointer"/>`;
+    if(i%paso===0)b+=`<text x="${(x+w/2).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="10" fill="#5E5850">${esc(c.lab)}</text>`});
+  return `<svg class="graf" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(aria)}" data-graf="${id}">${g}${b}</svg><div class="cap" id="cap-${id}" aria-live="polite">Toca una barra para ver el detalle.</div>`}
+function activaGraf(){$$('svg[data-graf]').forEach(sv=>{const id=sv.dataset.graf;sv.onclick=e=>{const t=e.target.closest('[data-i]');if(!t)return;const i=+t.dataset.i,c=GRAF[id][i];
+  sv.querySelectorAll('[data-b]').forEach(r=>r.style.opacity=+r.dataset.b===i?1:.35);const cap=$('#cap-'+id);if(cap)cap.innerHTML=c.tip}})}
+const leyenda=l=>`<div class="ley">${l.map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')}</div>`;
+function barrasH(l,max,col){return l.map(([nm,sub,v])=>`<div class="hb"><span class="hn">${esc(nm)}</span><b>${eur(v)}</b><div class="bar"><i style="width:${max>0?Math.max(2,v/max*100):0}%;background:${col||C_EF}"></i></div>${sub?`<span class="hs">${sub}</span>`:''}</div>`).join('')}
+
+let VIVO=null, MODO='blob', tVivo=0, vivoLeyendo=false;
+const cadaVivo=()=>MODO==='redis'?15e3:60e3;
+async function leeVivo(){if(!TOK||vivoLeyendo||document.visibilityState!=='visible')return;vivoLeyendo=true;
+  try{const r=await api('GET','vivo');const cambio=JSON.stringify(r.vivo)!==JSON.stringify(VIVO);VIVO=r.vivo;MODO=r.modo||MODO;if(cambio&&['directo','pedidos'].includes(TAB)&&!document.querySelector('.sheet'))pinta()}catch(e){}
+  vivoLeyendo=false}
+function relojVivo(){clearInterval(tVivo);tVivo=setInterval(()=>{if(['directo','pedidos'].includes(TAB))leeVivo();const h=$('#vh');if(h&&VIVO)h.textContent=haceS(VIVO.recibido||VIVO.t)},cadaVivo())}
+setInterval(()=>{const h=$('#vh');if(h&&VIVO)h.textContent=haceS(VIVO.recibido||VIVO.t)},5000);
+const haceS=t=>{const s=Math.round((Date.now()-t)/1000);if(s<60)return 'hace '+Math.max(1,s)+' s';return hace(t)};
+const viejo=()=>{if(!VIVO)return true;const a=Date.now()-(VIVO.recibido||VIVO.t);return a>(MODO==='redis'?4*60e3:50*60e3)};
+
+function vDirecto(){
+  if(!VIVO)return `<div class="note">Todavía no llegan datos en directo de la tablet. Cierra y vuelve a abrir la app del kiosko en la tablet para que cargue la versión nueva; en unos minutos aparece aquí lo que pasa en caja.</div>${EST?vCajaAntigua():''}`;
+  const v=VIVO,k=v.caja||{},C=v.cobros||[];const ab=!!k.abierta;
+  const S=re=>r2(C.filter(c=>tipoPago(c.how)===re).reduce((a,c)=>a+c.amt,0));const ef=S('ef'),tj=S('tj'),ot=S('ot'),tot=r2(ef+tj+ot);
+  const ret=r2((v.retiradas||[]).reduce((a,x)=>a+(+x.amt||0),0));const cajon=r2((+k.fondo||0)+ef-ret);const pend=r2((v.cuentas||[]).reduce((a,x)=>a+x.p,0));
+  const vivoTxt=`<span class="dot ${viejo()?'off':''}"></span>Datos de la tablet <b id="vh">${haceS(v.recibido||v.t)}</b>`;
+  let h=`<section class="card"><div class="row"><h2 style="margin:0">${ab?'Caja abierta':'Caja cerrada'}</h2><span class="sp"></span>${ab?`<span class="pill p-ok">desde las ${hhmm(k.desde)}</span>`:'<span class="pill p-mute">cerrada</span>'}</div>
+   <p class="muted" style="margin:6px 0 0;font-size:13px">${vivoTxt}${ab?` · la abrió ${esc(k.por||'—')} con ${eur(k.fondo)} de cambio`:''}</p>
+   ${viejo()&&ab?`<div class="note" style="margin-top:8px">La tablet no manda datos desde ${hace(v.recibido||v.t)}. Mira que esté encendida, con internet y con el kiosko abierto.</div>`:''}
+   ${MODO!=='redis'?`<p class="muted" style="margin:6px 0 0;font-size:12.5px">Ahora llega cada 10-20 min (almacén gratis). Para verlo cada 30 s, mira «Ajustes».</p>`:''}</section>`;
+  if(!ab){const u=cierres().sort((a,b)=>b.hasta-a.hasta)[0];
+    h+=u?`<section class="card"><h2>Último cierre · ${diaCorto(ymd(u.hasta))} a las ${hhmm(u.hasta)}</h2><div class="kpis"><div class="kpi big"><div class="l">Ventas</div><div class="v">${eur(u.ventas)}</div></div><div class="kpi"><div class="l">Retirado</div><div class="v">${eur((+u.retirado||0)+(+u.retDurante||0))}</div></div><div class="kpi"><div class="l">Descuadre</div><div class="v">${Math.abs(u.desc||0)<.005?'Cuadra':eur(u.desc)}</div></div></div></section>`:'';
+    return h+vPedResumen()}
+  const n=C.length,med=n?r2(tot/n):0;
+  // Mismo día de la semana, últimas 4 semanas
+  const dS=new Date().getDay(),porDia={};cierres().forEach(c=>{const d=ymd(c.hasta);if(d<ymd(Date.now())&&Date.now()-c.hasta<29*864e5&&new Date(c.hasta).getDay()===dS)porDia[d]=(porDia[d]||0)+(+c.ventas||0)});
+  const dd=Object.values(porDia),media=dd.length?r2(dd.reduce((a,b)=>a+b,0)/dd.length):null;
+  h+=`<section class="card"><div class="kpis"><div class="kpi big"><div class="l">Vendido hoy</div><div class="v">${eur(tot)}</div></div><div class="kpi"><div class="l">Cobros</div><div class="v">${n}</div></div><div class="kpi"><div class="l">Ticket medio</div><div class="v">${eur(med)}</div></div>
+   <div class="kpi"><div class="l">En el cajón ahora</div><div class="v">${eur(cajon)}</div></div>${ret?`<div class="kpi"><div class="l">Retirado hoy</div><div class="v">${eur(ret)}</div></div>`:''}<div class="kpi"><div class="l">Por cobrar en mesas</div><div class="v">${eur(pend)}</div></div></div>
+   ${media!=null?`<p class="muted" style="margin:10px 0 0;font-size:13px">Los ${new Date().toLocaleDateString('es-ES',{weekday:'long'})} de las últimas semanas vendiste de media <b style="color:var(--ink)">${eur(media)}</b> en todo el día.</p>`:''}
+   <p class="muted" style="margin:6px 0 0;font-size:12.5px">«En el cajón ahora» = cambio al abrir + efectivo cobrado − retiradas. Es lo que debería haber; no lo cuenta nadie.</p></section>`;
+  // Por horas
+  if(n){const h0=new Date(Math.min(k.desde||Infinity,...C.map(c=>c.t)));h0.setMinutes(0,0,0);const fin=Date.now();const cols=[];
+    for(let t=h0.getTime();t<=fin&&cols.length<24;t+=3600e3){const L=C.filter(c=>c.t>=t&&c.t<t+3600e3);const s=re=>r2(L.filter(c=>tipoPago(c.how)===re).reduce((a,c)=>a+c.amt,0));const e=s('ef'),j=s('tj'),o=s('ot');const H=new Date(t).getHours();
+      cols.push({lab:String(H),segs:[{v:e,c:C_EF},{v:j,c:C_TJ},{v:o,c:C_OT}],tip:`<b>De ${H}:00 a ${H+1}:00</b> · ${eur(e+j+o)} en ${L.length} ${L.length===1?'cobro':'cobros'} · efectivo ${eur(e)} · tarjeta ${eur(j)}${o?' · otros '+eur(o):''}`})}
+    h+=`<section class="card"><h2>Ventas por hora</h2>${leyenda([[C_EF,'Efectivo'],[C_TJ,'Tarjeta']].concat(ot?[[C_OT,'Otros']]:[]))}${grafBarras('hora',cols,'Ventas de hoy por hora, efectivo y tarjeta')}</section>`;
+    h+=`<section class="card"><h2>Efectivo y tarjeta</h2><div class="split">${ef?`<i style="flex:${ef};background:${C_EF}"></i>`:''}${tj?`<i style="flex:${tj};background:${C_TJ}"></i>`:''}${ot?`<i style="flex:${ot};background:${C_OT}"></i>`:''}</div>
+     <div class="kv" style="margin-top:10px"><dt><i class="sw" style="background:${C_EF}"></i>Efectivo</dt><dd>${eur(ef)} · ${Math.round(ef/tot*100)} %</dd><dt><i class="sw" style="background:${C_TJ}"></i>Tarjeta</dt><dd>${eur(tj)} · ${Math.round(tj/tot*100)} %</dd>${ot?`<dt><i class="sw" style="background:${C_OT}"></i>Otros</dt><dd>${eur(ot)}</dd>`:''}</div></section>`}
+  // Lo más vendido
+  const T=v.top||[];if(T.length){const mx=T[0][2];h+=`<section class="card"><h2>Lo más vendido hoy</h2>${barrasH(T.slice(0,MASV?25:8).map(([nm,u,i])=>[nm,u+' '+(u===1?'unidad':'unidades'),i]),mx)}${T.length>8?`<button class="btn sm" id="masv">${MASV?'Ver menos':'Ver los '+T.length}</button>`:''}</section>`}
+  // Por camarero
+  const W={};C.forEach(c=>{const x=W[c.who||'—']||(W[c.who||'—']={v:0,n:0});x.v+=c.amt;x.n++});const WL=Object.entries(W).sort((a,b)=>b[1].v-a[1].v);
+  if(WL.length)h+=`<section class="card"><h2>Cobrado por cada uno</h2>${barrasH(WL.map(([nm,x])=>[nm,x.n+' '+(x.n===1?'cobro':'cobros'),r2(x.v)]),WL[0][1].v,C_TJ)}</section>`;
+  // Mesas abiertas
+  const M=v.cuentas||[];h+=`<section class="card"><h2>Mesas y cuentas abiertas (${M.length})</h2>${M.length?`<table><thead><tr><th>Cuenta</th><th class="r">Cosas</th><th class="r">Total</th><th class="r">Falta</th></tr></thead><tbody>${M.map(x=>`<tr><td>${esc(x.n)}</td><td class="r">${x.u}</td><td class="r">${eur(x.t)}</td><td class="r"><b>${eur(x.p)}</b></td></tr>`).join('')}</tbody></table>`:'<p class="muted" style="margin:0">No hay cuentas pendientes de cobrar.</p>'}</section>`;
+  // Últimos cobros
+  const U=C.slice().reverse();h+=`<section class="card"><h2>Últimos cobros</h2><table><tbody>${U.slice(0,TODOS?600:12).map(c=>`<tr><td>${hhmm(c.t)}</td><td>${esc(c.acc&&c.acc!=='Venta rápida'?c.acc:'Barra')}<div class="muted" style="font-size:12.5px">${esc(c.who||'')} · ${esc(c.how||'')}</div></td><td class="r"><b>${eur(c.amt)}</b></td></tr>`).join('')||'<tr><td class="muted">Aún no hay cobros.</td></tr>'}</tbody></table>${U.length>12?`<button class="btn sm" id="todos" style="margin-top:8px">${TODOS?'Ver menos':'Ver los '+U.length}</button>`:''}</section>`;
+  // Equipo y retiradas
+  const D=v.dentro||[];h+=`<section class="card"><h2>Trabajando ahora</h2>${D.length?`<div class="list">${D.map(x=>`<div class="it" style="cursor:default"><div class="sp t">${esc(x.nm)}</div><span class="pill p-ok">desde las ${hhmm(x.in)}</span></div>`).join('')}</div>`:'<p class="muted" style="margin:0">Nadie ha fichado la entrada.</p>'}</section>`;
+  if((v.retiradas||[]).length)h+=`<section class="card"><h2>Retiradas de efectivo hoy</h2><table><tbody>${v.retiradas.map(y=>`<tr><td>${hhmm(y.t)}</td><td>${esc(y.who)}${y.nota?`<div class="muted" style="font-size:12.5px">${esc(y.nota)}</div>`:''}</td><td class="r"><b>${eur(y.amt)}</b></td></tr>`).join('')}<tr><td></td><td><b>Total</b></td><td class="r"><b>${eur(ret)}</b></td></tr></tbody></table></section>`;
+  return h+vPedResumen()}
+let MASV=false,TODOS=false;
+function vCajaAntigua(){const k=EST.caja;return k&&k.abierta?`<section class="card"><h2>Caja abierta (datos de ${hace(EST.t)})</h2><div class="kpis"><div class="kpi big"><div class="l">Cobrado</div><div class="v">${eur(k.total)}</div></div><div class="kpi"><div class="l">Efectivo</div><div class="v">${eur(k.ef)}</div></div><div class="kpi"><div class="l">Tarjeta</div><div class="v">${eur(k.tj)}</div></div></div></section>`:''}
+function vPedResumen(){const P=(VIVO&&VIVO.pedidos)||{};const n=Object.values(P).reduce((a,l)=>a+l.length,0);if(!n)return '';
+  return `<section class="card"><div class="row"><h2 style="margin:0">Hay ${n} ${n===1?'cosa':'cosas'} por pedir</h2><span class="sp"></span><button class="btn sm pri" data-tab="pedidos">Ver pedidos</button></div></section>`}
+function aDirecto(){activaGraf();const m=$('#masv');if(m)m.onclick=()=>{MASV=!MASV;pinta()};const t=$('#todos');if(t)t.onclick=()=>{TODOS=!TODOS;pinta()}}
+
+/* ---------- Pedidos (dueño, 23 nov 2026: «una pestaña para la falta, todo lo que hay que pedir; enlazar el móvil de cada proveedor y
+   mandarlo desde aquí con un clic»). La lista la manda la tablet; los teléfonos puestos aquí se guardan en config.provTel y la tablet
+   los recoge. Al pulsar «Enviar por WhatsApp» se apunta en config.enviados y la tablet enseña «Enviado desde el móvil». ---------- */
+const telWa=t=>{let d=String(t||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.length===9&&/^[6789]/.test(d))d='34'+d;return d.length>=10?d:''};
+function telDe(nm){const c=config();if(c.provTel&&c.provTel[nm]!=null)return c.provTel[nm];const p=((VIVO&&VIVO.provs)||[]).find(x=>x.nm===nm);return p?p.tel:''}
+const textoPedido=(pv,l)=>`Hola, pedido del Kiosko Ohana Tres Piedras:\n`+l.map(r=>`- ${r.q} de ${r.nm}`).join('\n')+`\nGracias.`;
+function vPedidos(){
+  if(!VIVO)return `<div class="note">La lista de lo que hay que pedir llega desde la tablet. Cierra y vuelve a abrir la app del kiosko en la tablet para que cargue la versión nueva.</div>`;
+  const P=VIVO.pedidos||{},c=config();const pvs=Object.keys(P).filter(k=>P[k].length);
+  const todos=[...new Set([...(VIVO.provs||[]).map(p=>p.nm),...Object.keys(c.provTel||{})])];
+  let h=`<p class="muted" style="margin:0;font-size:13px"><span class="dot ${viejo()?'off':''}"></span>Lista de la tablet <b id="vh">${haceS(VIVO.recibido||VIVO.t)}</b>. Entra solo lo que baja del mínimo y lo que apuntan los camareros con «Apuntar falta».</p>`;
+  h+=pvs.length?pvs.map(pv=>{const l=P[pv],tel=telWa(telDe(pv)),e=c.enviados&&c.enviados[pv];const txt=textoPedido(pv,l);
+    return `<section class="card"><div class="row"><h2 style="margin:0">${esc(pv)}</h2><span class="pill p-mute">${l.length} ${l.length===1?'cosa':'cosas'}</span><span class="sp"></span>${e&&Date.now()-e.t<4*864e5?`<span class="pill p-ok">Enviado ${e.t>new Date().setHours(0,0,0,0)?'hoy':diaCorto(ymd(e.t))} a las ${hhmm(e.t)}</span>`:''}</div>
+     <table style="margin-top:8px"><thead><tr><th>Producto</th><th class="r">Hay</th><th class="r">Pedir</th></tr></thead><tbody>${l.map(r=>`<tr><td><b>${esc(r.nm)}</b>${r.who?`<div class="muted" style="font-size:12.5px">Lo apuntó ${esc(r.who)}${r.t?' a las '+hhmm(r.t):''}</div>`:''}</td><td class="r">${esc(r.hay)}</td><td class="r"><b>${esc(r.q)}</b></td></tr>`).join('')}</tbody></table>
+     <details style="margin-top:8px"><summary class="muted" style="font-size:13px;cursor:pointer">Ver el mensaje</summary><pre class="msg">${esc(txt)}</pre></details>
+     <div class="row" style="margin-top:10px">${tel?`<a class="btn pri wa" href="https://wa.me/${tel}?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener" data-env="${esc(pv)}">Enviar por WhatsApp</a>`:`<button class="btn pri" data-tel="${esc(pv)}">Poner su WhatsApp</button>`}
+     <button class="btn sm" data-tel="${esc(pv)}">${tel?'Cambiar teléfono':'Teléfono'}</button><button class="btn sm" data-cp="${esc(pv)}">Copiar</button></div>
+     ${tel?`<p class="muted" style="font-size:12.5px;margin:6px 0 0">Se abre WhatsApp con el pedido escrito para ${esc(telDe(pv))}. Solo falta darle a enviar.</p>`:''}</section>`}).join('')
+   :`<section class="card"><p style="margin:0"><b>No hay nada por pedir.</b></p><p class="muted" style="margin:4px 0 0;font-size:13px">Cuando algo baje del mínimo o un camarero apunte una falta, sale aquí.</p></section>`;
+  h+=`<section class="card"><h2>Teléfonos de los proveedores</h2><div class="list">${todos.map(nm=>{const t=telDe(nm);return `<button class="it" data-tel="${esc(nm)}"><div class="sp"><div class="t">${esc(nm)}</div><div class="s">${t?esc(t):'Sin WhatsApp'}</div></div><span class="pill ${t&&telWa(t)?'p-ok':'p-warn'}">${t&&telWa(t)?'WhatsApp':'Poner'}</span></button>`}).join('')||'<p class="muted" style="margin:0">La tablet aún no ha mandado proveedores.</p>'}</div>
+   <button class="btn sm" id="pvnuevo" style="margin-top:8px">Añadir proveedor</button><p class="muted" style="font-size:12.5px;margin:8px 0 0">Lo que cambies aquí llega a la tablet en menos de media hora. Qué producto se pide a quién se cambia en la tablet (Faltas y pedidos › Almacén).</p></section>`;
+  return h}
+function aPedidos(){
+  $$('[data-tel]').forEach(b=>b.onclick=()=>editaTel(b.dataset.tel));
+  const nv=$('#pvnuevo');if(nv)nv.onclick=()=>editaTel(null);
+  $$('[data-env]').forEach(a=>a.addEventListener('click',()=>{const c=config();c.enviados=c.enviados&&typeof c.enviados==='object'?c.enviados:{};c.enviados[a.dataset.env]={t:Date.now()};guardaCfg('Apuntado como enviado.')}));
+  $$('[data-cp]').forEach(b=>b.onclick=()=>{const pv=b.dataset.cp,txt=textoPedido(pv,(VIVO.pedidos||{})[pv]||[]);(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Pedido copiado.'),()=>toast('No se pudo copiar; abre «Ver el mensaje».'))})}
+function editaTel(nm){const c=config();hoja(`<div class="row"><h3>${nm?esc(nm):'Nuevo proveedor'}</h3><button class="btn sm" data-x>Cancelar</button></div>
+  <section class="card" style="display:flex;flex-direction:column;gap:12px">${nm?'':'<label class="f">Nombre<input class="inp" id="tn" maxlength="40"></label>'}
+  <label class="f">Móvil de WhatsApp para los pedidos<input class="inp" id="tt" type="tel" inputmode="tel" placeholder="600 000 000" value="${nm?esc(telDe(nm)):''}"></label>
+  <p class="muted" style="font-size:13px;margin:0">El móvil del comercial o de la tienda. De España bastan los 9 números; de fuera, con el prefijo (+351…).</p><div id="tm" role="alert"></div>
+  <button class="btn pri" id="tg">Guardar</button></section>`,(o,cierra)=>{o.querySelector('#tg').onclick=()=>{const n=nm||o.querySelector('#tn').value.trim(),t=o.querySelector('#tt').value.trim();
+    if(!n){o.querySelector('#tn').focus();return}if(t&&!telWa(t)){o.querySelector('#tm').innerHTML='<div class="err">Ese teléfono no parece bien. Pon los 9 números (o con prefijo si es de fuera).</div>';return}
+    c.provTel=c.provTel&&typeof c.provTel==='object'?c.provTel:{};c.provTel[n]=t;cierra();guardaCfg('Guardado. La tablet lo recoge en menos de media hora.')}})}
+
+/* Ventas de cada día del mes, en Cajas */
+function grafMes(L){if(!L.length)return '';const ult=MES===ymd(Date.now()).slice(0,7)?new Date().getDate():new Date(+MES.slice(0,4),+MES.slice(5,7),0).getDate();const cols=[];
+  for(let d=1;d<=ult;d++){const k=MES+'-'+String(d).padStart(2,'0');const X=L.filter(c=>ymd(c.hasta)===k);const e=r2(X.reduce((a,c)=>a+(+c.ef||0),0)),j=r2(X.reduce((a,c)=>a+(+c.tj||0),0)),v=r2(X.reduce((a,c)=>a+(+c.ventas||0),0)),o=Math.max(0,r2(v-e-j));
+    cols.push({lab:String(d),segs:[{v:e,c:C_EF},{v:j,c:C_TJ},{v:o,c:C_OT}],tip:X.length?`<b>${diaTxt(k)}</b> · ${eur(v)} · efectivo ${eur(e)} · tarjeta ${eur(j)}`:`<b>${diaTxt(k)}</b> · sin cierre`})}
+  return `<section class="card"><h2>Ventas de cada día</h2>${leyenda([[C_EF,'Efectivo'],[C_TJ,'Tarjeta']])}${grafBarras('mes',cols,'Ventas de cada día del mes, efectivo y tarjeta')}</section>`}
 
 /* Camareros */
 function vCamareros(){const c=config(),F=fichajes(),hoyL=lunesDe(ymd(Date.now()));
@@ -267,12 +410,14 @@ function editaFichaje(id,f,despues){const c=config();const d0=f?ymd(f.in):ymd(Da
 function vAjustes(){const c=config();return `<section class="card" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">Horas extra</h2>
   <label class="f">Precio de la hora extra (€)<input class="inp" id="ax" type="number" min="0" step="0.5" inputmode="decimal" value="${c.extra}"></label><button class="btn pri" id="ag">Guardar</button></section>
   <section class="card"><h2>La tablet</h2><dl class="kv"><dt>Último envío</dt><dd>${EST?hace(EST.recibido||EST.t):'—'}</dd><dt>Cierres guardados</dt><dd>${cierres().length}</dd><dt>Fichajes guardados</dt><dd>${(EST&&EST.fichajes||[]).length}</dd></dl>
-  <p class="muted" style="font-size:13px;margin:10px 0 0">La tablet manda los datos al abrir y cerrar caja, al fichar y cada hora si hubo ventas. Sin internet los guarda y los manda cuando vuelve.</p></section>
+  <p class="muted" style="font-size:13px;margin:10px 0 0">Cajas y fichajes: al abrir y cerrar caja, al fichar, en cada retirada y cada pocas horas. Sin internet los guarda y los manda cuando vuelve.</p></section>
+  <section class="card"><h2>En directo</h2>${MODO==='redis'?`<p style="margin:0"><span class="pill p-ok">Cada 30 segundos</span></p><p class="muted" style="font-size:13px;margin:8px 0 0">Hay una base rápida conectada en Vercel. La tablet manda lo que pasa en caja cada 30 s cuando hay cambios, y este panel lo mira cada 15 s mientras lo tienes abierto.</p>`
+   :`<p style="margin:0"><span class="pill p-warn">Cada 10-20 minutos</span></p><p class="muted" style="font-size:13px;margin:8px 0 0">Con el almacén gratis de ahora (2.000 envíos al mes), la tablet reparte los envíos para no pasarse. Para verlo cada 30 s hay que conectar una base Redis al proyecto «kiosko» en Vercel (Storage). En cuanto esté conectada, se cambia solo.</p>`}</section>
   <button class="btn" id="as">Salir de este móvil</button>`}
 function aAjustes(){$('#ag').onclick=()=>{const v=parseFloat($('#ax').value);if(isNaN(v)||v<0)return;config().extra=v;guardaCfg()};
   $('#as').onclick=()=>{TOK=null;lsP(TK,null);EST=null;CFG=null;pinta()}}
 
-pinta();if(TOK)carga();
+pinta();if(TOK)carga();relojVivo();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&TOK&&!document.querySelector('.sheet'))carga()});
 </script>
 </body>

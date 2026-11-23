@@ -1556,7 +1556,7 @@ async function leeConfig(){if(!PANEL||navigator.onLine===false)return;
 /* Correcciones del móvil (config.fix, con «at») y cambios de la tablet (f.cam): gana el más reciente (dueño, 23 nov 2026: «no puedo cambiarle el fichaje»). */
 function efFix(f){const x=((CFG&&CFG.fix)||{})[f.p+'|'+f.in];const e=efF(f);if(!x)return e;if(x.x)return null;e.corr=true;
   ['in','out'].forEach(c=>{if(!(c in x))return;const ce=f.cam&&f.cam[c];if((x.at||0)>=(ce?ce.at||0:0))e[c]=x[c]});return e}
-function fichajesEf(){const o=[];FICHAJES.forEach((f,ix)=>{const e=efFix(f);if(!e)return;o.push(Object.assign(e,{ix}))});((CFG&&CFG.nuevos)||[]).forEach(n=>o.push(n));return o}
+function fichajesEf(){const o=[],al=(CFG&&CFG.alias)||{};FICHAJES.forEach((f,ix)=>{const e=efFix(f);if(!e)return;const a=al[e.p];if(a==='-')return;if(a)e.p=a;o.push(Object.assign(e,{ix}))});((CFG&&CFG.nuevos)||[]).forEach(n=>o.push(n));return o}
 function horasSemana(id){const l=lunesK(hoyK());const min=fichajesEf().filter(f=>f.p===id&&f.out&&new Date(f.in).toLocaleDateString('sv-SE')>=l).reduce((x,f)=>x+Math.max(0,Math.round((f.out-f.in)/6e4)),0);
   const c=CFG&&Array.isArray(CFG.camareros)&&CFG.camareros.find(x=>x.id===id);const ord=c?ordCfg(c,l):null;return {min,ord,extra:ord==null?0:Math.max(0,min-ord*60)}}
 const hTxt=m=>{m=Math.round(m||0);const h=Math.floor(m/60),mm=m%60;return h+' h'+(mm?' '+String(mm).padStart(2,'0'):'')};

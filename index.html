@@ -419,7 +419,7 @@ const COSTES_FACT={destilado:12.42,premium:21.97,licor:10.61,ron:10.32,schweppes
   refresco:.59,rf_zero:.59,rf_fnar:.58,rf_flim:.58,rf_aqlim:.80,rf_aqnar:.80,rf_nestea:.55,rf_sprite:.52,rf_tonica:.61,
   energetica:.89,agua:.22,manzanilla:6.70,leche:1.28,condensada:3.90,colacao:.32,zumo:2.60};
 Object.keys(COSTES_FACT).forEach(k=>{if(STOCK[k])STOCK[k].c=COSTES_FACT[k]});
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=12;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=13;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1467,16 +1467,21 @@ A.historico=()=>{$$('[data-himp]').forEach(b=>b.onclick=()=>imprimirResumen(HIST
 
 /* ---------- 8. Escandallo ---------- */
 let escSel='combinado';
+/* Dueño, 23 nov 2026: en rojo los productos que aún no están escandallados (algún ingrediente sin coste real de factura). */
+const COSTE_REAL=new Set([...Object.keys(COSTES_FACT),'barril','lima','azucar','cafe','descaf','altramuces','ac_gordal','ac_chupa',
+  'h_nuii','h_maxibon','h_extreme','h_pirulo','h_bombon','h_cono','h_sandnata','h_sandoreo','h_infantil']);
+const costeReal=k=>COSTE_REAL.has(k)||!!(STOCK[k]&&STOCK[k].cr);
+const faltaEsc=m=>[...new Set((m.r||[]).filter(([k])=>STOCK[k]&&!costeReal(k)).map(([k])=>STOCK[k].nm))];
 V.escandallo=()=>{
-  const m=prod(escSel);const pvpSin=m.p/1.10;const c=cost(m);
-  return `<div class="row"><section class="card" style="flex:2 1 520px"><h2>Todos los productos <span class="muted" style="font-weight:400;font-size:13px">precios con IVA del 10 %</span></h2><div class="tw"><table><thead><tr><th>Producto</th><th class="r">Precio</th><th class="r">Coste</th><th class="r">Ganas</th><th class="r">Margen</th><th></th></tr></thead><tbody>
-  ${MENU.filter(m=>!m.opts).sort((a,b)=>(b.p/1.1-cost(b))-(a.p/1.1-cost(a))).map(x=>{const s=x.p/1.10,cc=cost(x),mg=(s-cc)/s;return `<tr style="${x.id===escSel?'background:var(--accent-soft)':''}"><td>${x.nm}</td><td class="r">${eur(x.p)}</td><td class="r">${eur(cc)}</td><td class="r"><b style="color:${s-cc<0?'var(--bad)':'inherit'}">${eur(s-cc)}</b></td><td class="r"><span class="pill ${mg>.7?'p-ok':mg>.5?'p-warn':'p-bad'}">${Math.round(mg*100)} %</span></td><td><button class="btn sm" data-esc="${x.id}">Ver</button></td></tr>`}).join('')}
+  const m=prod(escSel);const nFalta=MENU.filter(x=>!x.opts&&faltaEsc(x).length).length;const pvpSin=m.p/1.10;const c=cost(m);
+  return `<div class="row"><section class="card" style="flex:2 1 520px"><h2>Todos los productos <span class="muted" style="font-weight:400;font-size:13px">precios con IVA del 10 %</span></h2>${nFalta?`<div class="bd" style="padding-top:0"><span class="pill p-bad">${nFalta} sin escandallar</span> <span class="muted" style="font-size:13px">En rojo: les falta el precio real de algún ingrediente (sale debajo cuál).</span></div>`:''}<div class="tw"><table><thead><tr><th>Producto</th><th class="r">Precio</th><th class="r">Coste</th><th class="r">Ganas</th><th class="r">Margen</th><th></th></tr></thead><tbody>
+  ${MENU.filter(m=>!m.opts).sort((a,b)=>(b.p/1.1-cost(b))-(a.p/1.1-cost(a))).map(x=>{const s=x.p/1.10,cc=cost(x),mg=(s-cc)/s,fl=faltaEsc(x);return `<tr style="${x.id===escSel?'background:var(--accent-soft)':fl.length?'background:#FDECEC':''}"><td>${fl.length?`<b style="color:var(--bad)">${x.nm}</b><br><span style="color:var(--bad);font-size:12.5px">Falta precio: ${esc(fl.join(', '))}</span>`:x.nm}</td><td class="r">${eur(x.p)}</td><td class="r">${eur(cc)}</td><td class="r"><b style="color:${s-cc<0?'var(--bad)':'inherit'}">${eur(s-cc)}</b></td><td class="r"><span class="pill ${mg>.7?'p-ok':mg>.5?'p-warn':'p-bad'}">${Math.round(mg*100)} %</span></td><td><button class="btn sm" data-esc="${x.id}">Ver</button></td></tr>`}).join('')}
   </tbody></table></div></section>
   <section class="card" style="flex:1 1 380px"><h2>${m.nm}</h2><div class="bd" style="display:flex;flex-direction:column;gap:12px">
-   <div class="tw"><table><thead><tr><th>Ingrediente</th><th class="r">Cantidad</th><th class="r">Coste</th></tr></thead><tbody>${m.r.map(([s,q])=>`<tr><td>${STOCK[s].nm}</td><td class="r">${fmtQ(Math.round(q*1000)/1000)} ${STOCK[s].u}</td><td class="r">${eur(STOCK[s].c*q)}</td></tr>`).join('')}</tbody></table></div>
+   <div class="tw"><table><thead><tr><th>Ingrediente</th><th class="r">Cantidad</th><th class="r">Coste</th></tr></thead><tbody>${m.r.map(([s,q])=>`<tr><td>${costeReal(s)?STOCK[s].nm:`<b style="color:var(--bad)">${STOCK[s].nm}</b> <span class="pill p-bad">sin precio real</span>`}</td><td class="r">${fmtQ(Math.round(q*1000)/1000)} ${STOCK[s].u}</td><td class="r">${eur(STOCK[s].c*q)}</td></tr>`).join('')}</tbody></table></div>
    <dl class="kv"><dt>Coste</dt><dd>${eur(c)}</dd><dt>Precio sin IVA</dt><dd>${eur(pvpSin)}</dd><dt>Ganas por unidad</dt><dd>${eur(pvpSin-c)}</dd><dt>Margen</dt><dd>${Math.round((pvpSin-c)/pvpSin*100)} %</dd></dl>
    <label class="f">Precio de venta (IVA incl.)<input class="inp" id="epvp" type="number" step="0.1" value="${m.p}"></label>
-   <div class="muted" style="font-size:13px">Cambia el precio y mira cómo cambia el margen. Costes de copas, licores, vino, refrescos, mezcladores, energéticas, agua, leche, gildas y mejillones: facturas de Cuevas, Coca-Cola, Oli Castaño y Makro (sin IVA). El resto aún de ejemplo hasta tener sus facturas.</div>
+   <div class="muted" style="font-size:13px">Cambia el precio y mira cómo cambia el margen. Los costes salen de las facturas (sin IVA). Lo que está en rojo aún tiene un coste de ejemplo.</div>
   </div></section></div>`;
 };
 A.escandallo=()=>{$$('[data-esc]').forEach(b=>b.onclick=()=>{escSel=b.dataset.esc;render()});$('#epvp').onchange=e=>{const v=parseFloat(e.target.value);if(v>0){prod(escSel).p=v;render()}}};
@@ -1770,6 +1775,7 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
     if(pr('aceitunas'))MENU.filter(m=>m.par==='aceitunas').forEach(m=>m.p=pr('aceitunas').p)}
   /* 23 nov 2026: raciones que dijo el dueño (altramuces y aceitunas 100 g; 1 papelón por paquete de jamón). Se respeta cuántos pide. */
   /* Mercado Rivera, factura 69507 (10/09/2026): bote de aceitunas 14,00 € sin IVA, 50 raciones de 100 g = 0,28 € */
+  if(!(d.CATV>=13))[/gilda/,/mejill/].forEach(re=>{const x=MENU.find(m=>/^x/.test(m.id)&&re.test(norm(m.nm)));const sid=x&&x.r&&x.r[0]&&x.r[0][0];if(sid&&STOCK[sid])STOCK[sid].cr=1});
   /* El café pasa de kg de grano a cápsulas Mocaibo (lo contado en kg ya no vale: se pone lo de un pedido normal) */
   if(!(d.CATV>=12)&&STOCK.cafe)Object.assign(STOCK.cafe,JSON.parse(JSON.stringify(STOCK0.cafe)));
   /* Dueño, 23 nov 2026: el barril de 50 L le cuesta 200 € */

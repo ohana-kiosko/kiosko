@@ -279,6 +279,9 @@ const WEEK={};
 let STOCK={
  barril:{nm:'Barril Cruzcampo 50 L',u:'barriles',c:55,a:1.4,mn:2,mx:6,pv:'Cruzcampo',ped:{ud:'barril',cada:1,n:5}},
  tercio:{nm:'Tercios Cruzcampo',u:'botellas',c:.6,a:96,mn:25,mx:240,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
+ tostada0:{nm:'Cruzcampo sin alcohol tostada',u:'botellas',c:.6,a:72,mn:25,mx:72,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
+ heineken0:{nm:'Heineken 0.0',u:'botellas',c:.6,a:72,mn:25,mx:72,pv:'Cruzcampo',ped:{ud:'caja',cada:24,n:2}},
+ carbonico:{nm:'Carbónico (CO2 del grifo)',u:'botellas',c:0,a:2,mn:0,mx:2,pv:'Cruzcampo',ped:{ud:'botella',cada:1,n:2}},
  refresco:{nm:'Coca-Cola',u:'latas',c:.45,a:144,mn:25,mx:144,pv:'Coca-Cola',ped:{ud:'pack',cada:24,n:6}},
  schweppes:{nm:'Pepsi y Schweppes (para copas)',u:'latas',c:.45,a:40,mn:25,mx:144,pv:'Cuevas',ped:{ud:'pack',cada:24,n:2}},
  energetica:{nm:'Bebidas energéticas',u:'latas',c:.9,a:40,mn:25,mx:72,pv:'Oli Castaño',ped:{ud:'pack',cada:24,n:1}},
@@ -308,6 +311,8 @@ let MENU=[
  {id:'vaso',c:'Cervezas',nm:'Vaso entero',p:3.5,r:[['barril',.4/50]]},
  {id:'cana',c:'Cervezas',nm:'Caña',p:2,r:[['barril',.2/50]]},
  {id:'tercio',c:'Cervezas',nm:'Tercio',p:3.5,r:[['tercio',1]]},
+ {id:'tostada0',c:'Cervezas',nm:'Sin alcohol tostada',p:3.5,r:[['tostada0',1]]},
+ {id:'heineken0',c:'Cervezas',nm:'Heineken 0.0',p:3.5,r:[['heineken0',1]]},
  {id:'refresco',c:'Sin alcohol',nm:'Refresco',p:2.5,r:[],opts:[]},
  {id:'agua',c:'Sin alcohol',nm:'Agua',p:1.5,r:[['agua',1]]},
  {id:'energetica',c:'Sin alcohol',nm:'Energética',p:3,r:[['energetica',1]]},
@@ -400,7 +405,7 @@ const prod=id=>MENU.find(m=>m.id===id);
 const colorOf=c=>CATS.find(x=>x[0]===c)[1];
 const cost=m=>m.r.reduce((a,[s,q])=>a+STOCK[s].c*q,0);
 Object.values(STOCK).forEach(x=>x.a=x.mx);
-const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=3;
+const STOCK0=JSON.parse(JSON.stringify(STOCK)),CATV=4;
 const canMake=m=>true;
 
 /* ---------- Imágenes de producto: estilo realista con volumen (sin marcas) ---------- */
@@ -1250,7 +1255,13 @@ function editaStock(k){const s=k?STOCK[k]:{nm:'',u:'unidades',c:0,a:0,mn:1,mx:0,
     if(!(mn>=0)||!(a>=0)){$('#smsg').innerHTML='<div class="note">Revisa los números.</div>';return}
     const x=k?STOCK[k]:(STOCK['x'+Date.now()]={nm,u:($('#su').value.trim()||'unidades'),c:0,a:0,mn:0,mx:0,pv:''});
     x.nm=nm;x.pv=$('#spv').value;x.ped=q;x.mn=mn;x.a=a;delete x.pedHoy;pedMsg=`${nm}: normalmente se piden ${pedTxt(x,1)} a ${x.pv}.`;closeModal();render()}}
+/* Dueño, 23 nov 2026: una falta escrita a mano que coincide con un producto del almacén se une a él (así sale su cantidad). */
+const FALTA_ALIAS={carbonico:/carbon|co2/,tostada0:/tostada/,heineken0:/heineken/};
+function uneFalta(f){if(f.k)return;const t=norm(f.txt||'').replace(/\s+/g,' ').trim();if(!t)return;
+  let k=Object.keys(FALTA_ALIAS).find(k=>STOCK[k]&&FALTA_ALIAS[k].test(t))||Object.keys(STOCK).find(k=>norm(STOCK[k].nm)===t);
+  if(k&&!FALTAS.some(g=>g!==f&&g.k===k)){f.k=k;f.pv=STOCK[k].pv}}
 function pedidoLines(){
+  FALTAS.forEach(uneFalta);
   const byPv={};const add=(pv,row)=>(byPv[pv]=byPv[pv]||[]).push(row);
   faltas().forEach(([k,s])=>add(s.pv,{k,nm:s.nm,hay:fmtQ(Math.round(s.a*10)/10)+' '+s.u,q:pedTxt(s),c:pedCoste(s),by:null}));
   FALTAS.forEach((f,i)=>{const ex=f.k&&byPv[f.pv]?.find(r=>r.k===f.k);if(ex){ex.by=f;return}const s=f.k?STOCK[f.k]:null;add(f.pv,{k:f.k,nm:f.txt,hay:s?fmtQ(Math.round(s.a*10)/10)+' '+s.u:'—',q:s?pedTxt(s):'Lo que haga falta',c:s?pedCoste(s):0,by:f,fi:i})});
@@ -1743,7 +1754,10 @@ function cargar(){let d;try{d=JSON.parse(localStorage.getItem(SK)||'null')}catch
     const pr=id=>(d.MENU||[]).find(x=>x.id===id);
     if(pr('refresco'))MENU.filter(m=>m.par==='refresco').forEach(m=>m.p=pr('refresco').p);
     if(pr('aceitunas'))MENU.filter(m=>m.par==='aceitunas').forEach(m=>m.p=pr('aceitunas').p)}
-  ['agua','p_chicharron','gildas','mejillones','m_ruffles','m_pelotazos','m_pandilla','m_doritos','m_3d','m_lays','m_layscamp'].forEach(k=>{if(!prod(k))delete STOCK[k]});
+  if(!(d.CATV>=4)){const DUP={tostada0:/tostada/,heineken0:/heineken/};
+    Object.keys(DUP).forEach(k=>{const x=MENU.find(m=>/^x/.test(m.id)&&DUP[k].test(norm(m.nm)));if(!x||!prod(k))return;
+      const sid=x.r&&x.r[0]&&x.r[0][0];if(sid&&STOCK[sid]&&STOCK[k])Object.assign(STOCK[sid],{pv:STOCK[k].pv,ped:JSON.parse(JSON.stringify(STOCK[k].ped)),mn:STOCK[k].mn});quitarProducto(k)})}
+  ['tostada0','heineken0','agua','p_chicharron','gildas','mejillones','m_ruffles','m_pelotazos','m_pandilla','m_doritos','m_3d','m_lays','m_layscamp'].forEach(k=>{if(!prod(k))delete STOCK[k]});
   CAJA=d.CAJA||null;cierreRes=d.cierreRes||null;
   if(d.dia===hoyK()||(d.CAJA&&d.CAJA.abierta)){SALES=d.SALES||[];COBROS=d.COBROS||[];cierreHecho=false;if(!CAJA&&COBROS.length)CAJA={abierta:true,desde:COBROS[0].t||Date.now(),fondo:0,por:'—',auto:true}}
   else{SALES=[];COBROS=[];cierreHecho=false;ACCS.forEach(n=>{const a=ACC[n];if(a&&a.paid&&a.paidAt)a.hidden=true})}}

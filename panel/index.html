@@ -61,9 +61,34 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th,td{padding:8px 6px;border-top:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
 th{font-size:12px;color:var(--muted);font-weight:600;border-top:0}
 td.r,th.r{text-align:right}
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
-.tabs button{border:0;background:none;padding:10px 2px 12px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;color:var(--muted);min-height:60px;cursor:pointer}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{border:0;background:none;padding:10px 1px 12px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);min-height:60px;cursor:pointer}
 .tabs button svg{width:24px;height:24px}
+/* Balance del mes (dueño, 24 nov 2026: «como la pestaña Balance de la app del equipo») */
+.bl-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.bl-k{border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);background:var(--panel)}
+.bl-k span{font:700 11.5px var(--body,inherit);text-transform:uppercase;letter-spacing:.04em;opacity:.75}
+.bl-k b{font-size:1.02rem;line-height:1.2;white-space:nowrap;letter-spacing:-.01em}
+.bl-k small{font-size:11px;opacity:.8;line-height:1.25}
+.bl-in b{color:#1F9D5A}.bl-out b{color:#D9822B}
+.bl-pos{background:#1F9D5A;border-color:#1F9D5A;color:#fff}.bl-neg{background:#C0392B;border-color:#C0392B;color:#fff}
+.bl-barras{display:flex;flex-direction:column;gap:6px;margin:6px 0 8px}
+.bl-barras div{display:flex;align-items:center;gap:8px}
+.bl-barras span{width:44px;font-size:12px;font-weight:600;opacity:.75}
+.bl-b{display:block;height:14px;border-radius:7px;min-width:3px}
+.bl-bin{background:#1F9D5A}.bl-bout{background:#D9822B}
+.bl-g{margin:12px 0 2px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;opacity:.7}
+.bl-ul{list-style:none;margin:0;padding:0}
+.bl-ul li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.bl-ul li:first-child{border-top:0}
+.bl-ul li>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bl-ul li>b,.bl-ul li>div>b{white-space:nowrap}
+.bl-ul small{color:var(--muted);font-size:12px}
+.bl-tot{font-weight:700}
+.bl-mes{display:flex;align-items:center;gap:8px;margin:4px 0}
+.bl-mes b{flex:1;text-align:center;font-size:16px}
+@media (max-width:380px){.bl-kpis{grid-template-columns:1fr}}
+
 .tabs button[aria-current="page"]{color:var(--accent);font-weight:600}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
 .inp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;background:#fff;font-size:16px;color:var(--ink);width:100%}
@@ -169,9 +194,10 @@ const ICO={directo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
  pedidos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l1 2h3v14H5V6h3z"/><path d="M9 11h6M9 15h4"/></svg>',
  cajas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18M7 15h3"/><path d="M8 7V5h8v2"/></svg>',
  camareros:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+ balance:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14M8 21h8"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg>',
  ajustes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>'};
-const NOMBRES={directo:'En directo',cajas:'Cajas',pedidos:'Pedidos',camareros:'Camareros',ajustes:'Ajustes'};
-const VISTAS={directo:[()=>vDirecto(),()=>aDirecto()],cajas:[()=>vCajas(),()=>aCajas()],pedidos:[()=>vPedidos(),()=>aPedidos()],camareros:[()=>vCamareros(),()=>aCamareros()],ajustes:[()=>vAjustes(),()=>aAjustes()]};
+const NOMBRES={directo:'En directo',cajas:'Cajas',balance:'Balance',pedidos:'Pedidos',camareros:'Camareros',ajustes:'Ajustes'};
+const VISTAS={directo:[()=>vDirecto(),()=>aDirecto()],balance:[()=>vBalance(),()=>aBalance()],cajas:[()=>vCajas(),()=>aCajas()],pedidos:[()=>vPedidos(),()=>aPedidos()],camareros:[()=>vCamareros(),()=>aCamareros()],ajustes:[()=>vAjustes(),()=>aAjustes()]};
 if(!NOMBRES[TAB])TAB='directo';
 function pinta(){
   const app=$('#app');
@@ -198,15 +224,15 @@ const cierreTxt=c=>{const a=ymd(c.desde||c.hasta),b=ymd(c.hasta);return a===b?hh
    coste empresa de la nómina repartido por días (o las ordinarias a lo que vale la hora extra si no se ha puesto) y las extra
    a lo que se paga la hora extra, sin seguridad social. */
 let PPER=lsG('ohp-pper')||'dia';
-function personalVsVentas(){const c=config(),V={},P={};
+function personalVsVentas(){const c=config(),V={},P={},PP={};const ap=(id,d,v)=>{P[d]=(P[d]||0)+v;const o=PP[id]||(PP[id]={});o[d]=(o[d]||0)+v};
   cierres().forEach(x=>{const d=diaC(x);V[d]=(V[d]||0)+(+x.ventas||0)});
   if(VIVO&&VIVO.caja&&VIVO.caja.abierta){const d=ymd(Date.now());V[d]=(V[d]||0)+(VIVO.cobros||[]).reduce((a,x)=>a+x.amt,0)}
   const hoy=ymd(Date.now()),dm=d=>new Date(+d.slice(0,4),+d.slice(5,7),0).getDate();
   const ids=[...new Set(fichajes().map(f=>f.p))];ids.forEach(id=>{const x=camDe(id),R=reparto(id),F=fichajes().filter(f=>f.p===id&&f.out);if(!F.length)return;
     // Sueldo fijo (coste empresa de la nómina) repartido entre los días del mes, desde su primer fichaje; si no hay nómina puesta, las ordinarias a lo que vale la hora extra.
-    if(x&&x.cmes){for(let d=ymd(Math.min(...F.map(f=>f.in)));d<=hoy;d=masDias(d,1))P[d]=(P[d]||0)+x.cmes/dm(d)}
-    F.forEach(f=>{const r=R[f.k];if(!r)return;const d=ymd(f.in);P[d]=(P[d]||0)+r.e/60*c.extra+(x&&x.cmes?0:r.o/60*c.extra)})});
-  return {V,P}}
+    if(x&&x.cmes){for(let d=ymd(Math.min(...F.map(f=>f.in)));d<=hoy;d=masDias(d,1))ap(id,d,x.cmes/dm(d))}
+    F.forEach(f=>{const r=R[f.k];if(!r)return;const d=ymd(f.in);ap(id,d,r.e/60*c.extra+(x&&x.cmes?0:r.o/60*c.extra))})});
+  return {V,P,PP}}
 /* Dueño, 23 nov 2026: beneficio real de cada día. Ventas (con IVA 10 %) − IVA − mercancía vendida (escandallo de la tablet, sin IVA)
    − personal (coste empresa con seguridad social + horas extra) = beneficio antes de IRPF; − IRPF 20 % (pago a cuenta, modelo 130,
    estimación directa) = lo que te queda. Aparte, el IVA a ingresar (cobrado − pagado en la mercancía), que no es tuyo. */
@@ -248,6 +274,61 @@ function vPersonal(){const {V,P}=personalVsVentas();const M={},IV={},SM={},PR={}
    ${prods.length?`<h2 style="margin-top:18px">Lo que deja cada producto</h2><table><thead><tr><th>Producto</th><th class="r">Uds.</th><th class="r">Ganas</th><th class="r">Margen</th></tr></thead><tbody>
     ${prods.slice(0,30).map(y=>`<tr><td>${esc(y.n)}${y.r?'':'<div style="font-size:11px;color:#A3231F">coste de ejemplo</div>'}</td><td class="r">${Math.round(y.u*10)/10}</td><td class="r"><b style="color:${y.g<0?'#A3231F':'inherit'}">${eur(r2(y.g))}</b></td><td class="r"><span class="pill ${y.mg>.7?'p-ok':y.mg>.5?'p-warn':'p-bad'}">${Math.round(y.mg*100)} %</span></td></tr>`).join('')}</tbody></table>`:''}
    <p class="muted" style="font-size:12.5px;margin:8px 0 0">Mercancía: lo que cuesta cada producto vendido según el escandallo de la tablet (precios de factura sin IVA). Las cajas cerradas antes del 23 nov no traen ese dato: su mercancía se estima con el mismo % que las demás («mercancía estimada»); si no hay ninguna, sale «—». Personal: coste empresa de la nómina repartido por días más las horas extra a ${eur(config().extra)}/h. IRPF: 20 % del beneficio, lo que se adelanta cada trimestre (modelo 130). No incluye alquiler, luz, gestoría ni otros gastos fijos.</p></section>`}
+/* ---------- Balance del mes (dueño, 24 nov 2026) ----------
+   Lo que entra (lo cobrado en caja, con IVA) frente a lo que sale: la mercancía vendida con su IVA (escandallo de la tablet),
+   el IVA que queda por ingresar a Hacienda, el personal (coste empresa con seguridad social + horas extra) y el IRPF (20 %).
+   Lo que queda es lo mismo que «Te queda» de Cajas › Beneficio real. Sin alquiler, luz ni gestoría (decisión del dueño). */
+let BMES=lsG('ohp-bmes')||'';
+function datosBalance(mes){const {V,P,PP}=personalVsVentas();const dias=[];
+  const fin=ymd(Date.now());for(let d=mes+'-01';d.slice(0,7)===mes&&d<=fin;d=masDias(d,1))dias.push(d);
+  const G={v:0,p:0,m:0,iv:0,sm:0,pr:[],ef:0,tj:0,ot:0,n:0},D={};
+  cierres().forEach(x=>{const d=diaC(x);if(d.slice(0,7)!==mes)return;G.n++;G.ef+=+x.ef||0;G.tj+=+x.tj||0;G.ot+=+x.ot||0;
+    if(x.mg){const o=D[d]||(D[d]={m:0,iv:0,sm:0});o.m+=+x.mg.c||0;o.iv+=+x.mg.iv||0;o.sm+=+x.ventas||0;G.m+=+x.mg.c||0;G.iv+=+x.mg.iv||0;G.sm+=+x.ventas||0;G.pr.push(x.mg.p||[])}});
+  if(VIVO&&VIVO.caja&&VIVO.caja.abierta&&ymd(Date.now()).slice(0,7)===mes){const cb=VIVO.cobros||[];const tot=cb.reduce((a,x)=>a+x.amt,0);
+    cb.forEach(x=>{const h=String(x.how||'').toLowerCase();if(/efect/.test(h))G.ef+=x.amt;else if(/tarj|dat/.test(h))G.tj+=x.amt;else G.ot+=x.amt});
+    if(VIVO.mg){const d=ymd(Date.now()),o=D[d]||(D[d]={m:0,iv:0,sm:0});o.m+=+VIVO.mg.c||0;o.iv+=+VIVO.mg.iv||0;o.sm+=tot;G.m+=+VIVO.mg.c||0;G.iv+=+VIVO.mg.iv||0;G.sm+=tot;G.pr.push(VIVO.mg.p||[])}}
+  dias.forEach(d=>{G.v+=V[d]||0;G.p+=P[d]||0});
+  const per=Object.keys(PP).map(id=>({id,nm:nombre(id),eur:dias.reduce((a,d)=>a+(PP[id][d]||0),0),min:fichajes().filter(f=>f.p===id&&f.out&&ymd(f.in).slice(0,7)===mes).reduce((a,f)=>a+(f.out-f.in)/6e4,0)})).filter(x=>x.eur>.005||x.min>0).sort((a,b)=>b.eur-a.eur);
+  const porDia=dias.filter(d=>V[d]||P[d]).map(d=>{const g={v:V[d]||0,p:P[d]||0,m:(D[d]||{}).m||0,iv:(D[d]||{}).iv||0,sm:(D[d]||{}).sm||0};return {d,g}}).reverse();
+  return {G,per,porDia}}
+function cuentaBal(g,ratio,ratioIv){const neto=g.v/(1+IVAV),ivaC=g.v-neto;
+  const r=g.sm>0?g.m/g.sm:ratio,ri=g.sm>0?g.iv/g.sm:ratioIv;const m=r==null?null:g.m+(g.v-g.sm)*r,ivs=ri==null?0:g.iv+(g.v-g.sm)*ri;
+  const ant=m==null?null:neto-m-g.p,irpf=ant!=null&&ant>0?ant*IRPF:0;return {neto,ivaC,m,ivs,ant,irpf,queda:ant==null?null:ant-irpf,est:g.sm<g.v-.5}}
+function vBalance(){const hoyM=ymd(Date.now()).slice(0,7);const mes=BMES&&BMES<=hoyM?BMES:hoyM;
+  const {G,per,porDia}=datosBalance(mes);
+  if(!G.v&&!G.p)return `<section class="card"><div class="bl-mes"><button class="btn sm" data-bm="-1" aria-label="Mes anterior">‹</button><b>${esc(mesTxt(mes))}</b><button class="btn sm" data-bm="1" aria-label="Mes siguiente" ${mes>=hoyM?'disabled':''}>›</button></div><p class="muted" style="text-align:center;margin:14px 0 6px">Este mes no hay cajas ni fichajes.</p></section>`;
+  // % de mercancía de referencia (todas las cajas con escandallo) para estimar las cajas antiguas
+  let tm=0,ti=0,ts=0;cierres().forEach(x=>{if(x.mg){tm+=+x.mg.c||0;ti+=+x.mg.iv||0;ts+=+x.ventas||0}});const RR=ts>0?tm/ts:null,RI=ts>0?ti/ts:null;
+  const c=cuentaBal(G,RR,RI),mercIva=c.m==null?null:c.m+c.ivs,ivaH=c.ivaC-c.ivs;
+  const entra=G.v,sale=c.m==null?null:mercIva+ivaH+G.p+c.irpf,queda=c.queda;const max=Math.max(entra,sale||0,1);
+  const e=x=>x==null?'—':eur(r2(x));const pc=(a,b)=>b>0&&a!=null?Math.round(a/b*100)+' %':'—';
+  const PP={};G.pr.forEach(L=>L.forEach(([n,u,i,co,rr])=>{const y=PP[n]||(PP[n]={u:0,i:0,c:0,r:1});y.u+=u;y.i+=i;y.c+=co;if(!rr)y.r=0}));
+  const prods=Object.entries(PP).map(([n,y])=>{const ne=y.i/(1+IVAV);return {n,u:y.u,g:ne-y.c,mg:ne>0?(ne-y.c)/ne:0,r:y.r}}).sort((a,b)=>b.g-a.g);
+  const peores=prods.filter(y=>y.mg<.5).sort((a,b)=>a.mg-b.mg).slice(0,6);
+  const prodLi=y=>`<li><div><b>${esc(y.n)}</b><small>${Math.round(y.u*10)/10} vendidos${y.r?'':' · <span style="color:#C0392B">coste de ejemplo</span>'}</small></div><div style="align-items:flex-end"><b style="color:${y.g<0?'#C0392B':'inherit'}">${eur(r2(y.g))}</b><small>${Math.round(y.mg*100)} % de margen</small></div></li>`;
+  return `<section class="card"><div class="bl-mes"><button class="btn sm" data-bm="-1" aria-label="Mes anterior">‹</button><b>${esc(mesTxt(mes))}</b><button class="btn sm" data-bm="1" aria-label="Mes siguiente" ${mes>=hoyM?'disabled':''}>›</button></div>
+   <div class="bl-kpis"><div class="bl-k bl-in"><span>Entra</span><b>${eur(r2(entra))}</b><small>Lo cobrado en caja</small></div>
+    <div class="bl-k bl-out"><span>Sale</span><b>${e(sale)}</b><small>Mercancía, IVA, personal e IRPF</small></div>
+    <div class="bl-k ${queda==null?'':queda>=0?'bl-pos':'bl-neg'}"><span>${queda!=null&&queda<0?'Falta':'Queda'}</span><b>${queda==null?'—':eur(r2(Math.abs(queda)))}</b><small>${queda==null?'Aún no hay datos de mercancía':queda>=0?'Limpio para ti':'Cuesta más de lo que entra'}</small></div></div>
+   <div class="bl-barras"><div><span>Entra</span><i class="bl-b bl-bin" style="width:${(entra/max*100).toFixed(1)}%"></i></div><div><span>Sale</span><i class="bl-b bl-bout" style="width:${((sale||0)/max*100).toFixed(1)}%"></i></div></div>
+   ${entra>0&&c.m!=null?`<p class="muted" style="margin:0;font-size:13.5px">De cada 100 € que entran: <b>${Math.round(mercIva/entra*100)} €</b> mercancía, <b>${Math.round(G.p/entra*100)} €</b> personal, <b>${Math.round((ivaH+c.irpf)/entra*100)} €</b> impuestos y <b>${Math.round((queda||0)/entra*100)} €</b> te quedan.</p>`:''}
+   ${mes===hoyM?'<p class="muted" style="margin:6px 0 0;font-size:12.5px">Mes en curso: cuenta hasta hoy, con la caja abierta incluida.</p>':''}</section>
+  <section class="card"><h2>Lo que sale</h2><ul class="bl-ul">
+   <li><div><b>Mercancía vendida</b><small>Lo que costó lo vendido, con su IVA${c.est&&G.sm>0?' · parte estimada':''}</small></div><b>${e(mercIva)}</b></li>
+   <li><div><b>Personal</b><small>Nóminas con seguridad social y horas extra</small></div><b>${eur(r2(G.p))}</b></li>
+   <li><div><b>IVA a Hacienda</b><small>${eur(r2(c.ivaC))} cobrado − ${eur(r2(c.ivs))} pagado en la mercancía</small></div><b>${eur(r2(ivaH))}</b></li>
+   <li><div><b>IRPF</b><small>20 % del beneficio (pago a cuenta, modelo 130)</small></div><b>${eur(r2(c.irpf))}</b></li>
+   <li class="bl-tot"><div>Total</div><b>${e(sale)}</b></li></ul></section>
+  <section class="card"><h2>Personal <span class="muted" style="font-weight:400;font-size:13px">${eur(r2(G.p))} · ${pc(G.p,entra)} de lo que entra</span></h2>
+   ${per.length?`<ul class="bl-ul">${per.map(x=>`<li><div><b>${esc(x.nm)}</b><small>${hm(x.min)} trabajadas</small></div><b>${eur(r2(x.eur))}</b></li>`).join('')}</ul>`:'<p class="muted">Nadie ha fichado este mes.</p>'}</section>
+  <section class="card"><h2>Lo que entra <span class="muted" style="font-weight:400;font-size:13px">${G.n} ${G.n===1?'caja':'cajas'}</span></h2><ul class="bl-ul">
+   ${G.ef?`<li><div>Efectivo</div><b>${eur(r2(G.ef))}</b></li>`:''}${G.tj?`<li><div>Tarjeta</div><b>${eur(r2(G.tj))}</b></li>`:''}${G.ot?`<li><div>Otros (Bizum…)</div><b>${eur(r2(G.ot))}</b></li>`:''}
+   <li class="bl-tot"><div>Total</div><b>${eur(r2(entra))}</b></li></ul></section>
+  ${prods.length?`<section class="card"><h2>Lo que más deja</h2><ul class="bl-ul">${prods.slice(0,10).map(prodLi).join('')}</ul>
+   ${peores.length?`<p class="bl-g">Lo que menos deja (margen por debajo del 50 %)</p><ul class="bl-ul">${peores.map(prodLi).join('')}</ul>`:''}</section>`:''}
+  ${porDia.length?`<section class="card"><h2>Cada día</h2><ul class="bl-ul">${porDia.map(({d,g})=>{const x=cuentaBal(g,RR,RI);return `<li><div><b>${esc(diaCorto(d))}</b><small>Entra ${eur(r2(g.v))} · personal ${eur(r2(g.p))}</small></div><b style="color:${x.queda==null?'var(--muted)':x.queda<0?'#C0392B':'#1F9D5A'}">${x.queda==null?'—':eur(r2(x.queda))}</b></li>`}).join('')}</ul></section>`:''}
+  <p class="muted" style="font-size:12.5px;margin:4px 4px 16px">Mercancía: escandallo de la tablet con los precios de factura; las cajas cerradas antes del 23 nov se estiman con el mismo % que las demás. No incluye alquiler, luz, gestoría ni otros gastos fijos.</p>`}
+function aBalance(){$$('[data-bm]').forEach(b=>b.onclick=()=>{const hoyM=ymd(Date.now()).slice(0,7);const cur=BMES&&BMES<=hoyM?BMES:hoyM;const x=new Date(cur+'-15T12:00:00');x.setMonth(x.getMonth()+(+b.dataset.bm));const m=ymd(x).slice(0,7);BMES=m>=hoyM?'':m;lsP('ohp-bmes',BMES);pinta();scrollTo(0,0)})}
 function vCajas(){
   const k=EST&&EST.caja;let ahora='';
   if(VIVO&&VIVO.caja){const vk=VIVO.caja,tot=r2((VIVO.cobros||[]).reduce((x,c)=>x+c.amt,0));

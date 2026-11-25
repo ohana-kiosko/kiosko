@@ -428,8 +428,12 @@ class MainActivity : Activity() {
         return mejor
     }
 
+    // Fuera los adaptadores de red por USB (clases CDC 2 y 10, p. ej. el bda:8152 de la tablet Kozen): no son impresoras.
+    private fun esRedUsb(d: UsbDevice): Boolean = d.vendorId == 0x0bda && d.productId == 0x8152 ||
+        (0 until d.interfaceCount).any { val c = d.getInterface(it).interfaceClass; c == 2 || c == 10 }
+
     private fun impresorasUsb(): List<UsbDevice> = try {
-        usbManager().deviceList.values.filter { salidaUsb(it) != null }
+        usbManager().deviceList.values.filter { salidaUsb(it) != null && !esRedUsb(it) }
             .sortedByDescending { d -> (0 until d.interfaceCount).any { d.getInterface(it).interfaceClass == UsbConstants.USB_CLASS_PRINTER } }
     } catch (e: Exception) { emptyList() }
 
@@ -463,6 +467,11 @@ class MainActivity : Activity() {
     @SuppressLint("MissingPermission")
     private fun listaImpresoras(): String {
         val arr = JSONArray()
+        if (Kozen.es(this)) {
+            arr.put(JSONObject().put("tipo", "kozen").put("id", "kozen:384").put("nombre", "Impresora de la tablet (papel de 58 mm)"))
+            arr.put(JSONObject().put("tipo", "kozen").put("id", "kozen:576").put("nombre", "Impresora de la tablet (papel de 80 mm)"))
+            arr.put(JSONObject().put("tipo", "kozen").put("id", "kozen:texto").put("nombre", "Impresora de la tablet (solo texto)"))
+        }
         impresorasUsb().forEach { arr.put(JSONObject().put("tipo", "usb").put("id", "usb:" + it.deviceName).put("nombre", nombreUsb(it) + " (USB)")) }
         aparatosBt().forEach { arr.put(JSONObject().put("tipo", "bt").put("id", it.address).put("nombre", it.name ?: it.address)) }
         puertosSerie.forEach { p -> val f = File(p); if (f.exists() && f.canWrite()) arr.put(JSONObject().put("tipo", "serie").put("id", p).put("nombre", "Puerto $p")) }
@@ -475,7 +484,12 @@ class MainActivity : Activity() {
             var error = ""
             var via = ""
             try {
-                if (destino.startsWith("usb:") || destino.isEmpty() && impresorasUsb().isNotEmpty()) {
+                if (Kozen.es(this) && (destino.isEmpty() || destino.startsWith("kozen") || destino.startsWith("usb:"))) {
+                    // Tablet KOZEN (la del kiosko): impresora y cajón por el servicio del fabricante. Dueño, 25 nov 2026.
+                    val e = Kozen.imprimir(this, datos, destino.substringAfter("kozen:", "384"))
+                    if (e.isNotEmpty()) throw RuntimeException(e)
+                    via = "impresora de la tablet"
+                } else if (destino.startsWith("usb:") || destino.isEmpty() && impresorasUsb().isNotEmpty()) {
                     val lista = impresorasUsb()
                     val d = lista.firstOrNull { "usb:" + it.deviceName == destino } ?: lista.firstOrNull()
                         ?: throw RuntimeException("no encuentro la impresora USB")
@@ -552,6 +566,7 @@ class MainActivity : Activity() {
             j.put("aparato", JSONObject().put("fabricante", Build.MANUFACTURER).put("marca", Build.BRAND).put("modelo", Build.MODEL)
                 .put("producto", Build.PRODUCT).put("placa", Build.BOARD).put("hardware", Build.HARDWARE).put("android", Build.VERSION.RELEASE)
                 .put("sdk", Build.VERSION.SDK_INT).put("huella", Build.FINGERPRINT))
+            if (Kozen.es(this)) j.put("kozen", JSONObject().put("impresora", Kozen.estado(this)))
             val usb = JSONArray()
             try {
                 usbManager().deviceList.values.forEach { d ->
@@ -651,5 +666,15 @@ class MainActivity : Activity() {
         @JavascriptInterface fun permisos() { runOnUiThread { abrirAjustesApp() } }
         @JavascriptInterface fun diagnostico(): String = diagnosticoJson()
         @JavascriptInterface fun cajonSistema(ruta: String) { probarCajonSistema(ruta) }
+        // Tablet KOZEN: cajón e impresora del fabricante (dueño, 25 nov 2026)
+        @JavascriptInterface fun kozen(): Boolean = Kozen.es(this@MainActivity)
+        @JavascriptInterface fun kozenEstado(): String = Kozen.estado(this@MainActivity)
+        @JavascriptInterface fun cajonKozen() {
+            colaImpresion.execute {
+                val e = Kozen.abrirCajon()
+                val j = JSONObject().put("ok", e.isEmpty()).put("error", e).put("via", "cajón de la tablet")
+                runOnUiThread { web.evaluateJavascript("window.ohkPRN&&window.ohkPRN(${JSONObject.quote(j.toString())})", null) }
+            }
+        }
     }
 }

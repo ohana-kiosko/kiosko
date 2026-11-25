@@ -43,6 +43,13 @@ jobs:
           printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx3g\n' > android/gradle.properties
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
           cp icon-192.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+      # SDK de las tablets KOZEN (la del kiosko es una Nebullar P18): impresora y cajón. No se guarda en el repositorio;
+      # se baja del plugin público kozen_printer (classes-2.1.17.jar) y se comprueba su huella. Dueño, 25 nov 2026.
+      - name: SDK de la tablet Kozen
+        run: |
+          mkdir -p android/app/libs
+          curl -fsSL -o android/app/libs/kozen-sdk.jar https://raw.githubusercontent.com/tjgs-my-id/kozen_printer/0996727eb5e541b882814e792a1da5aa59c41e8e/android/lib/classes-2.1.17.jar
+          echo "57fdff2c497d93d76bf1515c74e8cf0582b5bc81f685e1736a5e3f150aceb5b6  android/app/libs/kozen-sdk.jar" | sha256sum -c -
       - name: Compilar
         working-directory: android
         run: gradle assembleRelease --stacktrace

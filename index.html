@@ -1525,7 +1525,7 @@ A.ajustes=()=>{$$('[data-bc]').forEach(b=>b.onclick=()=>{ESPERA_BC=ESPERA_BC===b
   $$('[data-precio]').forEach(i=>i.onchange=()=>{const m=prod(i.dataset.precio),v=Math.round(parseFloat(String(i.value).replace(',','.'))*100)/100;if(!m||!(v>=0)){i.value=m?m.p:'';return}m.p=v;MENU.filter(x=>x.opts&&x.opts.some(o=>o[0]===m.id)).forEach(x=>{x.p=Math.min(...x.opts.map(o=>prod(o[0]).p))});guardar();i.style.outline='2px solid #2E9E5B';setTimeout(()=>i.style.outline='',900)});
   const sv=(id,v)=>{const e=$(id);if(e)e.value=v};sv('#prmodo',PRN.modo);sv('#prticket',PRN.ticket);sv('#prcom',PRN.comandas);sv('#prnom',PRN.nombre);sv('#prnif',PRN.nif);sv('#prdir',PRN.dir);
   if($('#prdest')){let L=[];try{L=JSON.parse(OhanaTPV.impresoras())}catch(e){}$('#prdest').innerHTML='<option value="">Buscarla sola</option>'+L.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.nombre)+(x.tipo==='bt'?' (Bluetooth)':'')+'</option>').join('');$('#prdest').value=PRN.dest||''}sv('#prcaj',PRN.cajon||'todas');
-  const lee=()=>{if($('#prdest'))PRN.dest=$('#prdest').value;if($('#prcaj'))PRN.cajon=$('#prcaj').value;PRN.modo=$('#prmodo').value;PRN.ticket=$('#prticket').value;PRN.comandas=$('#prcom').value;PRN.nombre=$('#prnom').value.trim()||'OHANA SURF KIOSKO';PRN.nif=$('#prnif').value.trim();PRN.dir=$('#prdir').value.trim();guardaPRN()};
+  const lee=()=>{if($('#prdest')){PRN.dest=$('#prdest').value;if(/^kozen/.test(PRN.dest))PRN.col=colKozen(PRN.dest)}if($('#prcaj'))PRN.cajon=$('#prcaj').value;PRN.modo=$('#prmodo').value;PRN.ticket=$('#prticket').value;PRN.comandas=$('#prcom').value;PRN.nombre=$('#prnom').value.trim()||'OHANA SURF KIOSKO';PRN.nif=$('#prnif').value.trim();PRN.dir=$('#prdir').value.trim();guardaPRN()};
   if($('#prguardar'))$('#prguardar').onclick=()=>{lee();$('#prguardar').textContent='Guardado ✓'};
   if($('#prprueba'))$('#prprueba').onclick=()=>{lee();imprimirTicket({n:0,t:Date.now(),cuenta:QUICK,l:[[1,'Prueba de impresora',0]],tot:0,how:'Prueba',who:user?.nm||''},false)};
   if($('#prcajon'))$('#prcajon').onclick=()=>{lee();abrirCajon()};
@@ -1579,6 +1579,11 @@ const ESC={ini:'\x1b@',grande:'\x1d!\x11',normal:'\x1d!\x00',neg:'\x1bE\x01',fne
 const CAJON={todas:'\x1bp\x00\x19\xfa\x1bp\x01\x19\xfa\x10\x14\x01\x00\x05\x10\x14\x00\x00\x00',p2:'\x1bp\x00\x19\xfa',p5:'\x1bp\x01\x19\xfa',dle:'\x10\x14\x00\x00\x00',dle2:'\x10\x14\x01\x00\x05'};
 Object.defineProperty(ESC,'cajon',{get:()=>PRN.cajonSys?'':(CAJON[PRN.cajon]||CAJON.todas)});
 if(window.OhanaTPV&&window.OhanaTPV.imprimirRaw&&!PRN.nativoVisto){PRN.nativoVisto=true;PRN.modo='tablet';guardaPRN()}
+/* Dueño, 25 nov 2026: la tablet del kiosko es una KOZEN Nebullar P18 (no la GEON NB11). Su impresora y su cajón van por el servicio
+   del fabricante (app Kiosko Ohana 1.8 o más nueva). La primera vez se deja puesta sola: papel de 58 mm (32 columnas). */
+const esKozen=()=>{try{return !!(window.OhanaTPV&&OhanaTPV.kozen&&OhanaTPV.kozen())}catch(e){return false}};
+const colKozen=d=>d==='kozen:576'?48:32;
+if(esKozen()&&!PRN.kozenVisto){PRN.kozenVisto=true;PRN.modo='tablet';PRN.dest='kozen:384';PRN.col=32;delete PRN.cajonSys;guardaPRN()}
 let colaPRN='',tPRN=0;
 function avisoPRN(t,ok){let b=document.getElementById('prnbar');if(!b){b=document.createElement('div');b.id='prnbar';document.body.appendChild(b)}b.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9998;padding:10px 16px;border-radius:12px;font:600 15px/1.35 system-ui;max-width:90vw;box-shadow:0 6px 20px rgba(0,0,0,.25);color:#fff;background:'+(ok?'#2E7D4F':'#A3231F');b.textContent=t;clearTimeout(b._t);b._t=setTimeout(()=>b.remove(),ok?2500:9000)}
 window.ohkPRN=r=>{try{r=typeof r==='string'?JSON.parse(r):r}catch(e){r={ok:false,error:String(r)}}if(r.ok){avisoPRN('Enviado a la impresora'+(r.via?' ('+r.via+')':''),true);return}avisoPRN('No se pudo imprimir: '+(r.error||''),false);if(!r.ok){tpvMsg='No se pudo imprimir: '+(r.error||'')+'. Mira «Productos y aparatos › Impresora y cajón».';try{render()}catch(e){}}};
@@ -1606,14 +1611,14 @@ function textoTicket(t){const L=[];
 function imprimirTicket(t,cajon){if(cajon&&PRN.cajonSys)cajonSistema();if(PRN.modo==='ninguno')return;
   if(PRN.modo==='navegador'){imprimirHTML(textoTicket(t).join('\n'));return}
   const L=textoTicket(t);enviar(ESC.ini+(cajon?ESC.cajon:'')+ESC.neg+L[0]+ESC.fneg+'\n'+L.slice(1).join('\n')+ESC.corte)}
-function abrirCajon(){if(PRN.cajonSys){cajonSistema();return}if(PRN.modo==='rawbt'||PRN.modo==='tablet')enviar(ESC.ini+ESC.cajon)}
+function abrirCajon(){if(esKozen()&&OhanaTPV.cajonKozen&&(!PRN.dest||/^kozen/.test(PRN.dest))){try{OhanaTPV.cajonKozen()}catch(e){}return}if(PRN.cajonSys){cajonSistema();return}if(PRN.modo==='rawbt'||PRN.modo==='tablet')enviar(ESC.ini+ESC.cajon)}
 function cajonSistema(){try{if(window.OhanaTPV&&OhanaTPV.cajonSistema)OhanaTPV.cajonSistema(PRN.cajonSys)}catch(e){}}
 /* ---------- Diagnóstico y pruebas de impresora y cajón (dueño, 21 nov 2026: «déjamelo preparado para el lunes») ----------
    Necesita la app Kiosko Ohana con diagnóstico (OhanaTPV.diagnostico). Manda a Claude lo que ve la tablet (si está conectada al
    panel) y enseña pruebas numeradas: P = imprime un papel con su número por ese camino; C = manda la orden del cajón por ese
    camino; S = abre el cajón por un fichero del sistema. La que funcione se guarda con «Usar esta». */
 let DIAG=null;
-function rutasDiag(d){const R=[];(d.usb||[]).forEach(u=>{if(u&&u.salida)R.push({id:u.id,nm:'USB '+(u.nombre||'')+' ('+u.vid+':'+u.pid+')'})});
+function rutasDiag(d){const R=[];if(d.kozen){R.push({id:'kozen:384',nm:'Impresora de la tablet · papel de 58 mm'},{id:'kozen:576',nm:'Impresora de la tablet · papel de 80 mm'},{id:'kozen:texto',nm:'Impresora de la tablet · solo texto'})}(d.usb||[]).forEach(u=>{if(u&&u.salida&&!(u.vid==='bda'&&u.pid==='8152'))R.push({id:u.id,nm:'USB '+(u.nombre||'')+' ('+u.vid+':'+u.pid+')'})});
   (d.bluetooth||[]).forEach(b=>{if(b&&b.id)R.push({id:b.id,nm:'Bluetooth '+(b.nombre||b.id)})});
   (d.dev||[]).forEach(x=>{const m=String(x).match(/^(\/dev\/(tty\w+|usb\/lp\d+|lp\d+))\s.*\[escribe\]/);if(!m)return;if(/tty/.test(m[2]))[115200,9600,38400,19200].forEach(b=>R.push({id:m[1]+'@'+b,nm:m[1]+' a '+b}));else R.push({id:m[1],nm:m[1]})});
   return R}
@@ -1625,6 +1630,7 @@ async function diagnosticoImpresora(){
   const R=rutasDiag(d),S=sistemaDiag(d),a=d.aparato||{};
   modal(`<h2>Diagnóstico de impresora y cajón</h2>
    <div id="dgenv" class="status" role="status">Enviando el diagnóstico a Claude…</div>
+   ${d.kozen?`<div class="note">Tablet <b>KOZEN</b>: prueba primero <b>P1</b> (papel de 58 mm), <b>P2</b> (80 mm) y <b>C1</b> (cajón). Impresora: ${esc(d.kozen.impresora||'')}.</div>`:''}
    <div class="muted" style="font-size:13px">${esc((a.fabricante||'')+' '+(a.modelo||''))} · Android ${esc(a.android||'')} · USB: ${(d.usb||[]).length} · Bluetooth: ${(d.bluetooth||[]).length} · puertos: ${(d.dev||[]).length} · ficheros del cajón: ${S.length}</div>
    <div><b>1. Pruebas de impresión</b> <span class="muted" style="font-size:13px">— toca una a una; apunta cuál saca papel</span></div>
    <div style="display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto">${R.map((r,i)=>`<div style="display:flex;gap:8px;align-items:center"><button class="btn sm pri" data-dgp="${i}">P${i+1}</button><span style="flex:1;font-size:13.5px">${esc(r.nm)}</span><button class="btn sm" data-dgu="${i}">Usar esta</button></div>`).join('')||'<span class="muted">La tablet no enseña ninguna impresora.</span>'}</div>
@@ -1639,7 +1645,7 @@ async function diagnosticoImpresora(){
   $$('[data-dgc]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dgc;manda(R[i].id,ESC.ini+CAJON.todas,'C'+(i+1))});
   $$('[data-dgs]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dgs;try{OhanaTPV.cajonSistema(S[i]);log('S'+(i+1)+' enviada')}catch(e){log('S'+(i+1)+': '+e.message)}
     if(!$('#dgsu'+i)){b.insertAdjacentHTML('afterend',`<button class="btn sm pri" id="dgsu${i}">¿Abrió? Usar S${i+1}</button>`);$('#dgsu'+i).onclick=()=>{PRN.cajonSys=S[i];guardaPRN();log('Guardado: el cajón se abre con S'+(i+1))}}});
-  $$('[data-dgu]').forEach(b=>b.onclick=()=>{const r=R[+b.dataset.dgu];PRN.modo='tablet';PRN.dest=r.id;guardaPRN();log('Guardado: imprime por '+r.nm)});
+  $$('[data-dgu]').forEach(b=>b.onclick=()=>{const r=R[+b.dataset.dgu];PRN.modo='tablet';PRN.dest=r.id;if(/^kozen/.test(r.id)){PRN.col=colKozen(r.id);delete PRN.cajonSys}guardaPRN();log('Guardado: imprime por '+r.nm)});
   $('#dgcopy').onclick=async()=>{const t=JSON.stringify(pub);try{await navigator.clipboard.writeText(t);$('#dgcopy').textContent='Copiado: pégaselo a Claude'}catch(e){$('#dgcopy').textContent='No se pudo copiar'}};
   let msg;if(PANEL){try{await panelApi('POST','diag',{datos:pub});msg='✅ Diagnóstico enviado a Claude. Ahora haz las pruebas y dile qué número sacó papel y cuál abrió el cajón.'}catch(e){msg='No se pudo enviar ('+e.message+'). Toca «Copiar diagnóstico» y pégaselo a Claude.'}}
   else msg='Esta tablet no está conectada al panel: toca «Copiar diagnóstico» y pégaselo a Claude (o conéctala en «Equipo y sueldos»).';

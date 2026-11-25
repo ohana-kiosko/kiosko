@@ -51,4 +51,6 @@ kotlin {
 dependencies {
     implementation("com.stripe:stripeterminal-taptopay:6.0.0")
     implementation("com.stripe:stripeterminal-core:6.0.0")
+    // SDK de las tablets KOZEN (impresora y cajón). Lo baja el workflow a app/libs (no va en el repositorio). Dueño, 25 nov 2026.
+    implementation(files("libs/kozen-sdk.jar"))
 }

@@ -484,7 +484,9 @@ class MainActivity : Activity() {
             var error = ""
             var via = ""
             try {
-                if (Kozen.es(this) && (destino.isEmpty() || destino.startsWith("kozen") || destino.startsWith("usb:"))) {
+                if (destino.startsWith("kozen") || Kozen.es(this) && destino.isEmpty() && impresorasUsb().isEmpty()) {
+                    // 26 nov: la P18 del kiosko NO trae impresora dentro (el SDK dice «no encuentra la impresora»); la impresora
+                    // es USB (0418:5011). Por Kozen solo se imprime si se elige «kozen:…» o si no hay ninguna impresora USB.
                     // Tablet KOZEN (la del kiosko): impresora y cajón por el servicio del fabricante. Dueño, 25 nov 2026.
                     val e = Kozen.imprimir(this, datos, destino.substringAfter("kozen:", "384"))
                     if (e.isNotEmpty()) throw RuntimeException(e)

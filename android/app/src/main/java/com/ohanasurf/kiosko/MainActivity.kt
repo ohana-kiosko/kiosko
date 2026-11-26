@@ -598,7 +598,14 @@ class MainActivity : Activity() {
             val apps = JSONArray()
             try {
                 val re = Regex("print|pos|cash|drawer|serial|gpio|sunmi|woyou|imin|telpo|senraise|reciept|receipt|nyx|hopestar|landi|ciontek|geon|zazoo|smart|xprinter|epson|bixolon|rawbt|escpos|rockchip", RegexOption.IGNORE_CASE)
-                packageManager.getInstalledPackages(0).filter { re.containsMatchIn(it.packageName) }.forEach { apps.put(it.packageName + " " + (it.versionName ?: "")) }
+                // 26 nov 2026: la tablet trae un programa de caja de demostración que sí imprime y abre el cajón. Para saber cuál es
+                // se listan todas las apps que no son de Android/Google/MediaTek, con su nombre visible.
+                val fuera = Regex("^(android|com\\.android|com\\.google|com\\.mediatek|com\\.mtk|vendor\\.|com\\.qualcomm)")
+                packageManager.getInstalledPackages(0).filter { re.containsMatchIn(it.packageName) || !fuera.containsMatchIn(it.packageName) }
+                    .forEach { pi ->
+                        val nom = try { pi.applicationInfo?.loadLabel(packageManager)?.toString() ?: "" } catch (e: Exception) { "" }
+                        apps.put(pi.packageName + " " + (pi.versionName ?: "") + if (nom.isNotBlank()) " «$nom»" else "")
+                    }
             } catch (e: Exception) { apps.put("error: " + e.message) }
             j.put("apps", apps)
             val props = JSONArray()
